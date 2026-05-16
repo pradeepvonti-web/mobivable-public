@@ -95,15 +95,17 @@ function PricingPage() {
                 </li>
               ))}
             </ul>
-            <button
-              className={`w-full px-6 py-4 font-display text-sm uppercase tracking-wider transition-all ${
+            <Link
+              to="/signup"
+              search={{ plan: t.plan }}
+              className={`block text-center w-full px-6 py-4 font-display text-sm uppercase tracking-wider transition-all ${
                 t.highlight
                   ? "bg-background text-primary hover:scale-105"
                   : "bg-primary text-background hover:invert"
               }`}
             >
-              Select Tier
-            </button>
+              {t.cta}
+            </Link>
           </div>
         ))}
       </div>
