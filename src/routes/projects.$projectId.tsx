@@ -2494,6 +2494,22 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
     }
   }
 
+  function exportEnv() {
+    const lines = vars
+      .filter((v) => v.visible)
+      .map((v) => `${v.name}=${/[\s"'#$`\\]/.test(v.value) ? `"${v.value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : v.value}`);
+    if (lines.length === 0) return;
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ".env";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function removeVar(id: string) {
     await (supabase as unknown as {
       from: (t: string) => {
@@ -2554,9 +2570,21 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            User variables
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+              User variables
+            </p>
+            <button
+              type="button"
+              onClick={exportEnv}
+              disabled={vars.filter((v) => v.visible).length === 0}
+              className="text-[11px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40 flex items-center gap-1"
+              title="Download visible variables as .env"
+            >
+              <Download className="h-3 w-3" />
+              Export .env
+            </button>
+          </div>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : vars.length === 0 ? (
