@@ -673,14 +673,36 @@ function ProjectPage() {
                   type="button"
                   onClick={() => setSelectedAgent(role)}
                   title={a.short}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  aria-current={active ? "true" : undefined}
+                  className={`relative w-full text-left pl-4 pr-3 py-2 rounded-md text-sm transition-colors border ${
                     active
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground hover:bg-muted/40"
+                      ? "bg-primary/15 text-primary border-primary/40 shadow-sm"
+                      : "border-transparent text-foreground hover:bg-muted/40"
                   }`}
                 >
-                  <div className="truncate font-medium">{a.name}</div>
-                  <div className="truncate text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"
+                    />
+                  )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                        active ? "bg-primary animate-pulse" : "bg-muted-foreground/40"
+                      }`}
+                    />
+                    <span className={`truncate ${active ? "font-semibold" : "font-medium"}`}>
+                      {a.name}
+                    </span>
+                    {active && (
+                      <span className="ml-auto shrink-0 text-[9px] font-mono uppercase tracking-widest text-primary">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5 pl-3.5">
                     {a.tasks[0]}
                   </div>
                 </button>
