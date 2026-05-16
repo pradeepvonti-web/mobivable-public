@@ -1186,7 +1186,11 @@ function ProjectPage() {
             <Users className="h-3.5 w-3.5" /> Agents
           </button>
         </div>
-        {paneTab === "agents" && <AgentWorkspace projectId={projectId} />}
+        {paneTab === "agents" && (
+          <div className="absolute inset-0 lg:right-[220px] z-10">
+            <AgentWorkspace projectId={projectId} />
+          </div>
+        )}
         {(visualEdit || selectedEl) && (
           <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
