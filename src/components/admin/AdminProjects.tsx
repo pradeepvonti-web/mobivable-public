@@ -160,7 +160,7 @@ export function AdminProjects() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">No projects found.</td>
+                  <td colSpan={5} className="px-4 py-8"><AdminEmptyState title="No projects found" /></td>
                 </tr>
               )}
             </tbody>
