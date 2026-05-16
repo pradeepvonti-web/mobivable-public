@@ -2362,6 +2362,54 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editVisible, setEditVisible] = useState(true);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEdit(v: EnvVar) {
+    setEditId(v.id);
+    setEditValue(v.value);
+    setEditVisible(v.visible);
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setEditValue("");
+    setEditError(null);
+  }
+
+  async function saveEdit(id: string) {
+    setEditError(null);
+    if (editValue.length > 4000) {
+      setEditError("Value too long");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { error: err } = await (supabase as unknown as {
+        from: (t: string) => {
+          update: (row: Record<string, unknown>) => {
+            eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+          };
+        };
+      })
+        .from("project_env_vars")
+        .update({ value: editValue, visible: editVisible })
+        .eq("id", id);
+      if (err) throw new Error(err.message);
+      setVars((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, value: editValue, visible: editVisible } : v)),
+      );
+      cancelEdit();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   const systemVars = [
     { name: "EXPO_PUBLIC_PROJECT_ID", value: projectId },
