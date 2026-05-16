@@ -70,8 +70,13 @@ function ResetPasswordPage() {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { data: updated, error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      // Audit completion (fire-and-forget). Capture email from the recovery session.
+      const email = updated?.user?.email ?? (await supabase.auth.getUser()).data.user?.email ?? "";
+      if (email) {
+        void logPasswordResetEvent({ data: { email, event: "complete" } }).catch(() => {});
+      }
       setDone(true);
       // Sign out so the user must log in with the new password.
       await supabase.auth.signOut();
