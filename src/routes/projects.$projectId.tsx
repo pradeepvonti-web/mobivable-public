@@ -33,6 +33,9 @@ import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
 
+type VisualEdit = { path: number[]; text?: string; classes?: string };
+type VisualEditMap = { edits: VisualEdit[] };
+
 type Project = {
   id: string;
   name: string;
@@ -43,7 +46,33 @@ type Project = {
   attachments: Attachment[] | null;
   result: string | null;
   error_text: string | null;
+  visual_edits: VisualEditMap | null;
 };
+
+function getPath(el: HTMLElement, root: HTMLElement): number[] | null {
+  const path: number[] = [];
+  let cur: HTMLElement | null = el;
+  while (cur && cur !== root) {
+    const parent: HTMLElement | null = cur.parentElement;
+    if (!parent) return null;
+    path.unshift(Array.prototype.indexOf.call(parent.children, cur));
+    cur = parent;
+  }
+  return cur === root ? path : null;
+}
+
+function resolvePath(root: HTMLElement, path: number[]): HTMLElement | null {
+  let cur: HTMLElement | null = root;
+  for (const i of path) {
+    if (!cur) return null;
+    cur = (cur.children[i] as HTMLElement) ?? null;
+  }
+  return cur;
+}
+
+function pathKey(p: number[]) {
+  return p.join(".");
+}
 
 export const Route = createFileRoute("/projects/$projectId")({
   component: ProjectPage,
