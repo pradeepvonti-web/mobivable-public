@@ -181,6 +181,144 @@ function Index() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="py-24 border-b border-border">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+            <h2 className="font-display text-5xl uppercase tracking-tighter">Access Tiers</h2>
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              Pricing Matrix v1.0
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
+            {[
+              {
+                name: "Free Beta",
+                tag: "TIER_00",
+                price: "$0",
+                cadence: "/ forever",
+                blurb: "For first-time builders shipping their initial app during the public beta.",
+                cta: "Start Building",
+                featured: false,
+                features: [
+                  "1 published app",
+                  "Unlimited AI iterations",
+                  "Native iOS + Android builds",
+                  "App Store submission",
+                  "Community support",
+                ],
+              },
+              {
+                name: "Starter",
+                tag: "TIER_01",
+                price: "$29",
+                cadence: "/ month",
+                blurb: "For solo founders running a small portfolio of live apps.",
+                cta: "Go Starter",
+                featured: true,
+                features: [
+                  "5 published apps",
+                  "Unlimited AI iterations",
+                  "Source code export",
+                  "Custom domains",
+                  "Priority queue compile",
+                  "Email support",
+                ],
+              },
+              {
+                name: "Pro",
+                tag: "TIER_02",
+                price: "$99",
+                cadence: "/ month",
+                blurb: "For teams and operators shipping production apps at scale.",
+                cta: "Go Pro",
+                featured: false,
+                features: [
+                  "Unlimited published apps",
+                  "Unlimited AI iterations",
+                  "Source code export",
+                  "Custom domains",
+                  "Team workspaces",
+                  "Advanced analytics",
+                  "Dedicated support",
+                ],
+              },
+            ].map((p, i) => (
+              <div
+                key={p.tag}
+                className={`p-8 flex flex-col ${i < 2 ? "md:border-r border-border" : ""} ${p.featured ? "bg-primary/5 relative" : ""}`}
+              >
+                {p.featured && (
+                  <span className="absolute top-0 right-0 bg-primary text-background font-mono text-[10px] uppercase tracking-widest px-3 py-1">
+                    Most Picked
+                  </span>
+                )}
+                <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4">{p.tag}</span>
+                <h3 className="font-display text-3xl uppercase tracking-tighter mb-2">{p.name}</h3>
+                <p className="text-sm text-muted mb-6 max-w-[35ch]">{p.blurb}</p>
+                <div className="flex items-baseline gap-2 mb-8">
+                  <span className="font-display text-5xl">{p.price}</span>
+                  <span className="font-mono text-xs text-muted uppercase">{p.cadence}</span>
+                </div>
+                <ul className="space-y-3 mb-10 flex-1">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-3 text-sm">
+                      <span className="text-primary font-mono mt-0.5">+</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={`w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
+                    p.featured
+                      ? "bg-primary text-background hover:invert"
+                      : "border border-border hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {p.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Feature comparison */}
+          <div className="mt-16 border border-border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left p-5 font-mono text-[10px] uppercase tracking-widest text-muted">Capability</th>
+                  <th className="text-center p-5 font-display uppercase tracking-tight">Free Beta</th>
+                  <th className="text-center p-5 font-display uppercase tracking-tight text-primary">Starter</th>
+                  <th className="text-center p-5 font-display uppercase tracking-tight">Pro</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-xs">
+                {[
+                  ["Published apps", "1", "5", "Unlimited"],
+                  ["AI iterations", "Unlimited", "Unlimited", "Unlimited"],
+                  ["Native iOS + Android compile", "•", "•", "•"],
+                  ["App Store submission", "•", "•", "•"],
+                  ["Source code export", "—", "•", "•"],
+                  ["Custom domains", "—", "•", "•"],
+                  ["Priority compile queue", "—", "•", "•"],
+                  ["Team workspaces", "—", "—", "•"],
+                  ["Advanced analytics", "—", "—", "•"],
+                  ["Support", "Community", "Email", "Dedicated"],
+                ].map((row, idx) => (
+                  <tr key={row[0]} className={idx % 2 === 0 ? "bg-foreground/[0.02]" : ""}>
+                    <td className="p-4 text-foreground uppercase tracking-wider">{row[0]}</td>
+                    <td className="p-4 text-center text-muted">{row[1]}</td>
+                    <td className="p-4 text-center text-foreground">{row[2]}</td>
+                    <td className="p-4 text-center text-foreground">{row[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="py-24 border-b border-border">
         <div className="max-w-7xl mx-auto px-6">
