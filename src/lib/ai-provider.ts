@@ -180,6 +180,14 @@ export function getActiveModels(): { id: string; label: string }[] {
 
 // ─── Model name mapping (friendly → provider model ID) ──────────
 const MODEL_ALIASES: Record<string, Record<string, string>> = {
+  lovable: {
+    "Gemini 2.5 Flash": "google/gemini-2.5-flash",
+    "Gemini 2.5 Pro": "google/gemini-2.5-pro",
+    "Gemini 3 Flash": "google/gemini-3-flash-preview",
+    "GPT-4o": "openai/gpt-5",
+    "GPT-4o Mini": "openai/gpt-5-mini",
+    "Claude Sonnet 4": "google/gemini-2.5-pro",
+  },
   openai: {
     "Gemini 2.5 Flash": "gpt-4o-mini",
     "Gemini 2.5 Pro": "gpt-4o",
