@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/require-auth";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPaddleEnvironment } from "@/lib/paddle";
 import { PageShell } from "@/components/PageShell";
+import { useRequiredSession } from "@/hooks/useRequiredSession";
 import {
   openCustomerPortal,
   changeSubscriptionPlan,
@@ -24,13 +24,7 @@ type Sub = {
 type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "pro" };
 
 export const Route = createFileRoute("/dashboard")({
-  beforeLoad: async () => {
-    await requireAuth();
-  },
   component: DashboardPage,
-  pendingComponent: () => <AuthHydrating />,
-  pendingMs: 0,
-  pendingMinMs: 0,
   head: () => ({
     meta: [
       { title: "Dashboard — Mobivable" },
@@ -53,6 +47,7 @@ const PLAN_QUOTA: Record<Profile["plan"], string> = {
 };
 
 function DashboardPage() {
+  const { session, status } = useRequiredSession();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sub, setSub] = useState<Sub | null>(null);
@@ -63,16 +58,20 @@ function DashboardPage() {
   const portal = useServerFn(openCustomerPortal);
   const changePlan = useServerFn(changeSubscriptionPlan);
 
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    void load();
+  }, [status]);
+
   async function load() {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
+    if (!session?.user) return;
     const env = getPaddleEnvironment();
     const [{ data: prof }, { data: subRow }] = await Promise.all([
-      supabase.from("profiles").select("display_name, plan").eq("id", u.user.id).maybeSingle(),
+      supabase.from("profiles").select("display_name, plan").eq("id", session.user.id).maybeSingle(),
       supabase
         .from("subscriptions")
         .select("status, price_id, product_id, current_period_end, cancel_at_period_end, environment")
-        .eq("user_id", u.user.id)
+        .eq("user_id", session.user.id)
         .eq("environment", env)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -83,9 +82,9 @@ function DashboardPage() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  if (status !== "authenticated") {
+    return <AuthHydrating />;
+  }
 
   async function handleManage() {
     setBusy("portal");

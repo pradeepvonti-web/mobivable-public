@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
-import { requireAuth } from "@/lib/require-auth";
 import { AuthHydrating } from "@/components/AuthHydrating";
+import { useRequiredSession } from "@/hooks/useRequiredSession";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -18,25 +18,22 @@ type Project = {
 };
 
 export const Route = createFileRoute("/projects/$projectId")({
-  beforeLoad: async () => {
-    await requireAuth();
-  },
   component: ProjectPage,
-  pendingComponent: () => <AuthHydrating />,
-  pendingMs: 0,
-  pendingMinMs: 0,
   head: () => ({
     meta: [{ title: "Project — Mobivable" }],
   }),
 });
 
 function ProjectPage() {
+  const { status } = useRequiredSession();
   const { projectId } = Route.useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
+
     (async () => {
       const { data, error } = await supabase
         .from("projects")
@@ -47,7 +44,11 @@ function ProjectPage() {
       setProject(data as Project | null);
       setLoading(false);
     })();
-  }, [projectId]);
+  }, [projectId, status]);
+
+  if (status !== "authenticated") {
+    return <AuthHydrating />;
+  }
 
   if (loading) {
     return (
