@@ -17,7 +17,7 @@ export const Route = createFileRoute("/settings")({
   }),
 });
 
-type ThemePref = "light" | "dark" | "system";
+type ThemePref = "light" | "dark";
 type ApiKey = { id: string; name: string; value: string };
 
 // Loose typing wrapper so we can hit the new user_api_keys table before
