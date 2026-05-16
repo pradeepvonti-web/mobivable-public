@@ -630,7 +630,22 @@ function ProjectPage() {
                 </div>
               </div>
             ) : (
-              <div className="h-full w-full relative">
+              <div
+                className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
+                onClickCapture={(e) => {
+                  if (!visualEdit) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.target as HTMLElement;
+                  setSelectedEl({
+                    tag: t.tagName.toLowerCase(),
+                    text: (t.innerText || "").trim().slice(0, 80),
+                    classes: t.className?.toString().slice(0, 200) || "",
+                  });
+                  setVisualEdit(false);
+                  setMobileView("chat");
+                }}
+              >
                 <FitTrackApp />
               </div>
             )}
