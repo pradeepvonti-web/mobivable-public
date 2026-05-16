@@ -195,17 +195,19 @@ function ProjectPage() {
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
+  const { config: previewConfig } = usePreviewConfig();
+
   async function reloadProject() {
+    const detailSelect = aliasedSelect(previewConfig.projectDetailFields);
     const { data, error } = await supabase
-      .from("projects")
-      .select(
-        "id, name, prompt, model, status, created_at, attachments, result, error_text, visual_edits",
-      )
-      .eq("id", projectId)
+      .from(previewConfig.projectsTable)
+      .select(`${detailSelect}, attachments, error_text, visual_edits`)
+      .eq(previewConfig.projectDetailFields.id, projectId)
       .maybeSingle();
     if (error) setError(error.message);
-    setProject(data as Project | null);
-    const ve = (data as Project | null)?.visual_edits;
+    const row = data as (Project & { created_at: string }) | null;
+    setProject(row);
+    const ve = row?.visual_edits;
     historyPastRef.current = (ve?.past ?? []).map((s) => ({
       edits: s.edits ?? [],
       reorders: s.reorders ?? {},
@@ -216,14 +218,15 @@ function ProjectPage() {
     }));
     setHistoryTick((t) => t + 1);
     setLoading(false);
-    return data as Project | null;
+    return row;
   }
 
   async function loadRecent() {
+    const listSelect = aliasedSelect(previewConfig.projectsListFields);
     const { data } = await supabase
-      .from("projects")
-      .select("id, name")
-      .order("created_at", { ascending: false })
+      .from(previewConfig.projectsTable)
+      .select(listSelect)
+      .order(previewConfig.projectsListFields.createdAt, { ascending: false })
       .limit(8);
     setRecent((data as { id: string; name: string }[]) ?? []);
   }
@@ -243,11 +246,16 @@ function ProjectPage() {
   }
 
   async function loadMessages() {
+    const msgSelect = aliasedSelect({
+      id: previewConfig.messagesFields.id,
+      role: previewConfig.messagesFields.role,
+      content: previewConfig.messagesFields.content,
+    });
     const { data } = await supabase
-      .from("project_messages")
-      .select("id, role, content")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: true });
+      .from(previewConfig.messagesTable)
+      .select(msgSelect)
+      .eq(previewConfig.messagesFields.projectFk, projectId)
+      .order(previewConfig.messagesFields.createdAt, { ascending: true });
     setMessages(
       ((data as { id: string; role: "user" | "assistant"; content: string }[]) ?? []).map((m) => ({
         id: m.id,
