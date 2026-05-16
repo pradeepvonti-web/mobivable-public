@@ -1451,6 +1451,17 @@ function ProjectPage() {
                     fontSize:
                       persisted?.styles?.fontSize ?? `${pxNum(cs.fontSize)}px`,
                   });
+                  selectedOrigRef.current = {
+                    text: persisted?.text ?? txt,
+                    classes: persisted?.classes ?? cls,
+                    styles: {
+                      background: persisted?.styles?.background ?? "",
+                      borderColor: persisted?.styles?.borderColor ?? "",
+                      borderWidth: persisted?.styles?.borderWidth ?? "",
+                      padding: persisted?.styles?.padding ?? "",
+                      fontSize: persisted?.styles?.fontSize ?? "",
+                    },
+                  };
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: txt.trim().slice(0, 80),
