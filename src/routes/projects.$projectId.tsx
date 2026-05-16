@@ -78,6 +78,8 @@ function ProjectPage() {
   const [sending, setSending] = useState(false);
   const [mode, setMode] = useState<"build" | "plan">("build");
   const [modeOpen, setModeOpen] = useState(false);
+  const [visualEdit, setVisualEdit] = useState(false);
+  const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
@@ -144,11 +146,15 @@ function ProjectPage() {
 
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
-    const content = input.trim();
-    if (!content || sending) return;
+    const raw = input.trim();
+    if (!raw || sending) return;
+    const content = selectedEl
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${raw}`
+      : raw;
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    setSelectedEl(null);
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
@@ -453,6 +459,25 @@ function ProjectPage() {
           onSubmit={handleSend}
           className="border-t border-border p-3 bg-background"
         >
+          {selectedEl && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-primary font-mono uppercase shrink-0">{selectedEl.tag}</span>
+                {selectedEl.text && (
+                  <span className="text-muted-foreground truncate">"{selectedEl.text}"</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEl(null)}
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                aria-label="Clear selection"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
             <textarea
               value={input}
@@ -479,10 +504,19 @@ function ProjectPage() {
                 </button>
                 <button
                   type="button"
-                  className="h-8 inline-flex items-center gap-1.5 rounded-full border border-border px-3 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  onClick={() => {
+                    setVisualEdit((v) => !v);
+                    setSelectedEl(null);
+                    if (!visualEdit) setMobileView("preview");
+                  }}
+                  className={`h-8 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs transition-colors ${
+                    visualEdit
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  }`}
                 >
                   <MousePointerClick className="h-3.5 w-3.5" />
-                  <span>Visual edits</span>
+                  <span>{visualEdit ? "Exit visual edits" : "Visual edits"}</span>
                 </button>
               </div>
               <div className="flex items-center gap-2 relative">
@@ -567,6 +601,13 @@ function ProjectPage() {
           {isReady ? "Preview" : "Offline"}
         </div>
 
+        {visualEdit && (
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
+            <MousePointerClick className="h-3.5 w-3.5" />
+            Click any element to select
+          </div>
+        )}
+
         {/* Phone frame */}
         <div className="relative">
           <div
@@ -596,7 +637,22 @@ function ProjectPage() {
                 </div>
               </div>
             ) : (
-              <div className="h-full w-full relative">
+              <div
+                className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
+                onClickCapture={(e) => {
+                  if (!visualEdit) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.target as HTMLElement;
+                  setSelectedEl({
+                    tag: t.tagName.toLowerCase(),
+                    text: (t.innerText || "").trim().slice(0, 80),
+                    classes: t.className?.toString().slice(0, 200) || "",
+                  });
+                  setVisualEdit(false);
+                  setMobileView("chat");
+                }}
+              >
                 <FitTrackApp />
               </div>
             )}
