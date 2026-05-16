@@ -37,7 +37,7 @@ export function AdminDashboard() {
               <Shield className="h-4.5 w-4.5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-sm font-display font-semibold tracking-tight">Admin Dashboard</h1>
+              <h1 className="text-sm font-display uppercase tracking-tight">Admin Dashboard</h1>
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Mobivable Platform</p>
             </div>
           </div>
