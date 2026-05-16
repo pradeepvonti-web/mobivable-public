@@ -33,8 +33,35 @@ import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
 
-type VisualEdit = { path: number[]; text?: string; classes?: string };
+type VisualStyles = {
+  background?: string;
+  borderColor?: string;
+  borderWidth?: string;
+  padding?: string;
+  fontSize?: string;
+};
+type VisualEdit = {
+  path: number[];
+  text?: string;
+  classes?: string;
+  styles?: VisualStyles;
+};
 type VisualEditMap = { edits: VisualEdit[] };
+
+const STYLE_KEYS: (keyof VisualStyles)[] = [
+  "background",
+  "borderColor",
+  "borderWidth",
+  "padding",
+  "fontSize",
+];
+const STYLE_CSS: Record<keyof VisualStyles, string> = {
+  background: "background",
+  borderColor: "borderColor",
+  borderWidth: "borderWidth",
+  padding: "padding",
+  fontSize: "fontSize",
+};
 
 type Project = {
   id: string;
@@ -113,6 +140,7 @@ function ProjectPage() {
   >(null);
   const [editText, setEditText] = useState("");
   const [editClasses, setEditClasses] = useState("");
+  const [editStyles, setEditStyles] = useState<VisualStyles>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
@@ -320,7 +348,6 @@ function ProjectPage() {
     visualEditsRef.current = edits;
     const root = previewRootRef.current;
     if (!root || edits.length === 0) return;
-    // Defer to allow children to mount
     const id = requestAnimationFrame(() => {
       for (const edit of edits) {
         const el = resolvePath(root, edit.path);
@@ -329,10 +356,33 @@ function ProjectPage() {
         if (typeof edit.text === "string" && el.children.length === 0) {
           el.textContent = edit.text;
         }
+        if (edit.styles) {
+          for (const k of STYLE_KEYS) {
+            const v = edit.styles[k];
+            if (typeof v === "string") {
+              (el.style as unknown as Record<string, string>)[STYLE_CSS[k]] = v;
+            }
+          }
+        }
       }
     });
     return () => cancelAnimationFrame(id);
   }, [project?.visual_edits, project?.status, project?.result]);
+
+  // Live-preview style edits on the selected element
+  useEffect(() => {
+    const el = selectedElRef.current;
+    if (!el) return;
+    for (const k of STYLE_KEYS) {
+      const v = editStyles[k];
+      const css = STYLE_CSS[k];
+      if (typeof v === "string" && v !== "") {
+        (el.style as unknown as Record<string, string>)[css] = v;
+      } else {
+        el.style.removeProperty(css.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`));
+      }
+    }
+  }, [editStyles]);
 
   async function saveEdit() {
     if (!selectedEl || !selectedElRef.current) return;
@@ -353,9 +403,14 @@ function ProjectPage() {
       const existing = visualEditsRef.current.filter(
         (e) => pathKey(e.path) !== pathKey(selectedEl.path),
       );
+      const stylesClean: VisualStyles = {};
+      for (const k of STYLE_KEYS) {
+        const v = editStyles[k];
+        if (typeof v === "string" && v !== "") stylesClean[k] = v;
+      }
       const next: VisualEdit[] = [
         ...existing,
-        { path: selectedEl.path, text: newText, classes: cleaned },
+        { path: selectedEl.path, text: newText, classes: cleaned, styles: stylesClean },
       ];
       visualEditsRef.current = next;
 
@@ -868,6 +923,82 @@ function ProjectPage() {
                       className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono leading-relaxed focus:outline-none focus:border-primary/60"
                     />
                   </label>
+
+                  <div className="space-y-3 rounded-xl border border-border bg-background/40 p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Style</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block">
+                        <span className="text-[10px] text-muted-foreground">Background</span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editStyles.background || "#000000"}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, background: e.target.value }))}
+                            className="h-7 w-9 rounded border border-border bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={editStyles.background || ""}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, background: e.target.value }))}
+                            placeholder="transparent"
+                            className="flex-1 min-w-0 rounded border border-border bg-background px-1.5 py-1 text-[10px] font-mono"
+                          />
+                        </div>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] text-muted-foreground">Border color</span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editStyles.borderColor || "#000000"}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, borderColor: e.target.value }))}
+                            className="h-7 w-9 rounded border border-border bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={editStyles.borderColor || ""}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, borderColor: e.target.value }))}
+                            placeholder="none"
+                            className="flex-1 min-w-0 rounded border border-border bg-background px-1.5 py-1 text-[10px] font-mono"
+                          />
+                        </div>
+                      </label>
+                    </div>
+                    {([
+                      ["borderWidth", "Border width", 0, 16],
+                      ["padding", "Padding", 0, 64],
+                      ["fontSize", "Font size", 8, 72],
+                    ] as const).map(([key, label, min, max]) => {
+                      const num = parseFloat(editStyles[key] || "0") || 0;
+                      return (
+                        <label key={key} className="block">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{label}</span>
+                            <span className="text-[10px] font-mono text-foreground">{num}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={1}
+                            value={num}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, [key]: `${e.target.value}px` }))}
+                            className="mt-1 w-full accent-primary"
+                          />
+                        </label>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditStyles({ background: "", borderColor: "", borderWidth: "", padding: "", fontSize: "" })
+                      }
+                      className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    >
+                      Reset styles
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={saveEdit}
@@ -949,6 +1080,31 @@ function ProjectPage() {
                   const txt = t.children.length === 0 ? (t.textContent || "") : "";
                   setEditText(txt);
                   setEditClasses(cls);
+                  const persisted = visualEditsRef.current.find(
+                    (e) => pathKey(e.path) === pathKey(path),
+                  );
+                  const cs = window.getComputedStyle(t);
+                  const toHex = (rgb: string): string => {
+                    const m = rgb.match(/\d+(\.\d+)?/g);
+                    if (!m || m.length < 3) return "";
+                    const [r, g, b, a] = m.map(Number);
+                    if (a === 0) return "";
+                    const h = (n: number) => n.toString(16).padStart(2, "0");
+                    return `#${h(r)}${h(g)}${h(b)}`;
+                  };
+                  const pxNum = (v: string) => parseFloat(v) || 0;
+                  setEditStyles({
+                    background:
+                      persisted?.styles?.background ?? toHex(cs.backgroundColor),
+                    borderColor:
+                      persisted?.styles?.borderColor ?? toHex(cs.borderTopColor),
+                    borderWidth:
+                      persisted?.styles?.borderWidth ?? `${pxNum(cs.borderTopWidth)}px`,
+                    padding:
+                      persisted?.styles?.padding ?? `${pxNum(cs.paddingTop)}px`,
+                    fontSize:
+                      persisted?.styles?.fontSize ?? `${pxNum(cs.fontSize)}px`,
+                  });
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: txt.trim().slice(0, 80),
