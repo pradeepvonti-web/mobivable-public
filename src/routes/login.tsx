@@ -23,6 +23,11 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorHint, setErrorHint] = useState<string | null>(null);
+  const logAttempt = useServerFn(logAdminLoginAttempt);
+  function audit(targetEmail: string, success: boolean, reason?: string) {
+    // Fire-and-forget; server filters to admin emails only.
+    void logAttempt({ data: { email: targetEmail, success, reason } }).catch(() => {});
+  }
 
   function describeAuthError(msg: string, context: "user" | "admin"): { title: string; hint: string } {
     const m = msg.toLowerCase();
