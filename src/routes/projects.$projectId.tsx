@@ -2,8 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
+import {
+  ArrowLeft,
+  MessageSquare,
+  Database,
+  Code2,
+  Image as ImageIcon,
+  Settings,
+  History,
+  LifeBuoy,
+  Loader2,
+  RefreshCw,
+  Smartphone,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { PageShell } from "@/components/PageShell";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
@@ -25,9 +37,19 @@ type Project = {
 export const Route = createFileRoute("/projects/$projectId")({
   component: ProjectPage,
   head: () => ({
-    meta: [{ title: "Project — Mobivable" }],
+    meta: [{ title: "Workspace — Mobivable" }],
   }),
 });
+
+const SIDE_ITEMS = [
+  { icon: MessageSquare, label: "Chat", active: true },
+  { icon: Database, label: "Backend" },
+  { icon: Code2, label: "Env Variables" },
+  { icon: ImageIcon, label: "Assets" },
+  { icon: History, label: "Ver. History" },
+  { icon: LifeBuoy, label: "Get Support" },
+  { icon: Settings, label: "Settings" },
+];
 
 function ProjectPage() {
   const { status } = useRequiredSession();
@@ -36,6 +58,7 @@ function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
   const generateFn = useServerFn(generateProject);
   const triggeredRef = useRef(false);
 
@@ -51,6 +74,15 @@ function ProjectPage() {
     setProject(data as Project | null);
     setLoading(false);
     return data as Project | null;
+  }
+
+  async function loadRecent() {
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name")
+      .order("created_at", { ascending: false })
+      .limit(8);
+    setRecent((data as { id: string; name: string }[]) ?? []);
   }
 
   async function runGeneration() {
@@ -69,14 +101,10 @@ function ProjectPage() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
+    loadRecent();
     (async () => {
       const p = await reloadProject();
-      if (
-        p &&
-        p.status === "building" &&
-        !p.result &&
-        !triggeredRef.current
-      ) {
+      if (p && p.status === "building" && !p.result && !triggeredRef.current) {
         triggeredRef.current = true;
         runGeneration();
       }
@@ -84,138 +112,262 @@ function ProjectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, status]);
 
-  if (status !== "authenticated") {
-    return <AuthHydrating />;
-  }
+  if (status !== "authenticated") return <AuthHydrating />;
 
-  if (loading) {
-    return (
-      <PageShell eyebrow="PROJECT" title="Loading…" intro="">
-        <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
-          [···] Loading
-        </p>
-      </PageShell>
-    );
-  }
-
-  if (!project) {
-    return (
-      <PageShell eyebrow="PROJECT" title="Not found" intro="">
-        <p className="text-sm text-muted-foreground mb-4">
-          {error ?? "This project doesn't exist or you don't have access."}
-        </p>
-        <Link
-          to="/dashboard"
-          className="inline-block px-5 py-3 bg-primary text-background font-display text-xs uppercase tracking-wider hover:invert transition-all"
-        >
-          Back to dashboard
-        </Link>
-      </PageShell>
-    );
-  }
-
-  const isBuilding = project.status === "building" || generating;
-  const isFailed = project.status === "failed";
-  const statusLabel = generating
-    ? "Generating…"
-    : project.status === "building"
-      ? "Building…"
-      : project.status;
+  const isBuilding = !!project && (project.status === "building" || generating);
+  const isReady = !!project && project.status === "ready" && !!project.result;
+  const isFailed = !!project && project.status === "failed";
 
   return (
-    <PageShell eyebrow="PROJECT" title={project.name} intro="Your new mobile app project.">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <section className="border border-border p-8">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
-            Status
+    <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex">
+      {/* Left rail */}
+      <aside className="w-60 shrink-0 border-r border-border flex flex-col">
+        <div className="p-4 border-b border-border flex items-center gap-2">
+          <Link
+            to="/dashboard"
+            className="h-9 w-9 grid place-items-center rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <Link
+            to="/"
+            className="font-display text-sm uppercase tracking-wider hover:text-primary transition-colors"
+          >
+            Mobivable
+          </Link>
+        </div>
+        <div className="p-4">
+          <Link
+            to="/"
+            className="block w-full text-center px-4 py-2 rounded-full border border-primary/40 text-primary font-display text-xs uppercase tracking-wider hover:bg-primary/10 transition-colors"
+          >
+            + New Project
+          </Link>
+        </div>
+        <div className="px-2 pb-3">
+          <p className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Recent
           </p>
-          <div className="flex items-center gap-3 mb-6">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                isFailed
-                  ? "bg-destructive"
-                  : isBuilding
-                    ? "bg-primary animate-pulse"
-                    : "bg-primary"
-              }`}
-            />
-            <span className="font-display text-2xl uppercase tracking-tight">
-              {statusLabel}
-            </span>
-          </div>
-          {isBuilding && (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Running your prompt through {project.model}…
-            </p>
-          )}
-          {isFailed && (
-            <div className="space-y-3">
-              <p className="text-sm text-destructive">
-                {project.error_text ?? error ?? "Generation failed."}
-              </p>
-              <button
-                onClick={runGeneration}
-                disabled={generating}
-                className="px-4 py-2 border border-border text-xs font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+          <nav className="space-y-0.5">
+            {recent.map((r) => (
+              <Link
+                key={r.id}
+                to="/projects/$projectId"
+                params={{ projectId: r.id }}
+                className={`block px-3 py-2 rounded-md text-sm truncate transition-colors ${
+                  r.id === projectId
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-muted/40"
+                }`}
               >
-                Retry generation
-              </button>
-            </div>
-          )}
-        </section>
-
-        <section className="border border-border p-8">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
-            Prompt
-          </p>
-          <p className="text-lg text-foreground leading-relaxed whitespace-pre-wrap">
-            {project.prompt}
-          </p>
-          {project.attachments && project.attachments.length > 0 && (
-            <div className="mt-6 flex flex-wrap gap-3">
-              {project.attachments.map((a) => (
-                <a
-                  key={a.path}
-                  href={a.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-24 w-24 rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
-                >
-                  <img src={a.url} alt={a.name} className="h-full w-full object-cover" />
-                </a>
-              ))}
-            </div>
-          )}
-          <div className="mt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground border-t border-border pt-4">
-            Model · {project.model}
-          </div>
-        </section>
-
-        {project.result && (
-          <section className="border border-border p-8">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
-              Build brief
-            </p>
-            <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-              <ReactMarkdown>{project.result}</ReactMarkdown>
-            </div>
+                {r.name}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <div className="mt-auto border-t border-border p-2">
+          {SIDE_ITEMS.map(({ icon: Icon, label, active }) => (
             <button
-              onClick={runGeneration}
-              disabled={generating}
-              className="mt-6 px-4 py-2 border border-border text-xs font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+              key={label}
+              type="button"
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                active
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+              }`}
             >
-              {generating ? "Regenerating…" : "Regenerate"}
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
             </button>
-          </section>
-        )}
+          ))}
+        </div>
+      </aside>
 
-        <Link
-          to="/dashboard"
-          className="inline-block px-5 py-3 border border-border font-display text-xs uppercase tracking-wider hover:border-primary hover:text-primary transition-colors"
-        >
-          ← Back to dashboard
-        </Link>
-      </div>
-    </PageShell>
+      {/* Chat thread */}
+      <section className="w-[480px] shrink-0 border-r border-border flex flex-col">
+        <header className="p-4 border-b border-border flex items-center gap-3">
+          <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          </div>
+          <h1 className="font-display text-lg uppercase tracking-tight truncate">
+            {project?.name ?? "Loading…"}
+          </h1>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {loading && (
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              [···] Loading
+            </p>
+          )}
+
+          {!loading && !project && (
+            <p className="text-sm text-muted-foreground">
+              {error ?? "Project not found."}
+            </p>
+          )}
+
+          {project && (
+            <>
+              {/* User prompt bubble */}
+              <div className="flex justify-end">
+                <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-4">
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {project.prompt}
+                  </p>
+                  {project.attachments && project.attachments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {project.attachments.map((a) => (
+                        <a
+                          key={a.path}
+                          href={a.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="h-16 w-16 rounded-md overflow-hidden border border-border"
+                        >
+                          <img
+                            src={a.url}
+                            alt={a.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {new Date(project.created_at).toLocaleTimeString()} ·{" "}
+                    {project.model}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status / assistant bubble */}
+              <div className="flex justify-start">
+                <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        isFailed
+                          ? "bg-destructive"
+                          : isBuilding
+                            ? "bg-primary animate-pulse"
+                            : "bg-primary"
+                      }`}
+                    />
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {isFailed
+                        ? "Failed"
+                        : isBuilding
+                          ? "Building plan…"
+                          : "Plan ready"}
+                    </span>
+                  </div>
+
+                  {isBuilding && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Running through {project.model}…</span>
+                    </div>
+                  )}
+
+                  {isFailed && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-destructive">
+                        {project.error_text ?? error ?? "Generation failed."}
+                      </p>
+                      <button
+                        onClick={runGeneration}
+                        disabled={generating}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-border text-[11px] font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw className="h-3 w-3" /> Retry
+                      </button>
+                    </div>
+                  )}
+
+                  {isReady && project.result && (
+                    <>
+                      <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
+                        <ReactMarkdown>{project.result}</ReactMarkdown>
+                      </div>
+                      <button
+                        onClick={runGeneration}
+                        disabled={generating}
+                        className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 border border-border text-[11px] font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        {generating ? "Regenerating…" : "Regenerate"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Preview pane */}
+      <section className="flex-1 relative grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+        <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              isReady ? "bg-primary" : "bg-muted-foreground"
+            }`}
+          />
+          {isReady ? "Preview" : "Offline"}
+        </div>
+
+        {/* Phone frame */}
+        <div className="relative">
+          <div
+            aria-hidden
+            className="absolute -inset-6 rounded-[3rem] blur-2xl opacity-50"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in oklab, var(--primary) 60%, transparent), transparent 70%)",
+            }}
+          />
+          <div className="relative h-[600px] w-[300px] rounded-[2.5rem] border-[10px] border-foreground/80 bg-card shadow-2xl overflow-hidden">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-foreground/80 z-10" />
+            <div className="h-full w-full grid place-items-center p-6">
+              {isBuilding && (
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="font-display text-sm uppercase tracking-wider">
+                    Loading app…
+                  </p>
+                </div>
+              )}
+              {isFailed && (
+                <div className="text-center">
+                  <Smartphone className="h-10 w-10 mx-auto text-destructive mb-3" />
+                  <p className="font-display text-sm uppercase tracking-wider text-destructive">
+                    Build failed
+                  </p>
+                </div>
+              )}
+              {isReady && project && (
+                <div className="text-center space-y-3">
+                  <div className="h-14 w-14 mx-auto rounded-2xl bg-primary/20 grid place-items-center">
+                    <Smartphone className="h-7 w-7 text-primary" />
+                  </div>
+                  <p className="font-display text-base uppercase tracking-tight">
+                    {project.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Your app blueprint is ready. Preview rendering coming soon.
+                  </p>
+                </div>
+              )}
+              {!project && !loading && (
+                <p className="text-xs text-muted-foreground">No preview</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
