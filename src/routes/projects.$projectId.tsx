@@ -2128,8 +2128,8 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 lg:p-8 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+    <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+      <div className="flex-1 overflow-y-auto">
         <header className="p-5 border-b border-border flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 rounded-lg bg-primary/15 grid place-items-center shrink-0">
