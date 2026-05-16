@@ -76,6 +76,8 @@ function ProjectPage() {
   >([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [mode, setMode] = useState<"build" | "plan">("build");
+  const [modeOpen, setModeOpen] = useState(false);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
