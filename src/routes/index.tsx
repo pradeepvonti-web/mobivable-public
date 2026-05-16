@@ -26,6 +26,26 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+function FaqItem({ question, answer, isLast }: { question: string; answer: string; isLast?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`p-8 ${isLast ? "" : "border-b border-border"}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-expanded={open}
+      >
+        <span className="font-display text-xl uppercase tracking-tighter">{question}</span>
+        <ChevronDown className={`size-5 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <p className="mt-4 text-sm text-muted leading-relaxed max-w-[70ch]">{answer}</p>
+      )}
+    </div>
+  );
+}
+
 function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
