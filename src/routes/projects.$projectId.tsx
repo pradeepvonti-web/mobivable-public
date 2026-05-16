@@ -48,7 +48,13 @@ type VisualEdit = {
   classes?: string;
   styles?: VisualStyles;
 };
-type VisualEditMap = { edits: VisualEdit[]; reorders?: Record<string, number[]> };
+type VisualSnapshot = { edits: VisualEdit[]; reorders: Record<string, number[]> };
+type VisualEditMap = {
+  edits: VisualEdit[];
+  reorders?: Record<string, number[]>;
+  past?: VisualSnapshot[];
+  future?: VisualSnapshot[];
+};
 
 const STYLE_KEYS: (keyof VisualStyles)[] = [
   "background",
