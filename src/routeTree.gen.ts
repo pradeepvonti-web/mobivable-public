@@ -9,16 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -53,7 +65,9 @@ export interface FileRoutesByFullPath {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,7 +75,9 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,13 +86,31 @@ export interface FileRoutesById {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/blog' | '/community' | '/docs' | '/gallery' | '/pricing'
+  fullPaths:
+    | '/'
+    | '/blog'
+    | '/community'
+    | '/docs'
+    | '/gallery'
+    | '/login'
+    | '/pricing'
+    | '/signup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/blog' | '/community' | '/docs' | '/gallery' | '/pricing'
+  to:
+    | '/'
+    | '/blog'
+    | '/community'
+    | '/docs'
+    | '/gallery'
+    | '/login'
+    | '/pricing'
+    | '/signup'
   id:
     | '__root__'
     | '/'
@@ -84,7 +118,9 @@ export interface FileRouteTypes {
     | '/community'
     | '/docs'
     | '/gallery'
+    | '/login'
     | '/pricing'
+    | '/signup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,16 +129,32 @@ export interface RootRouteChildren {
   CommunityRoute: typeof CommunityRoute
   DocsRoute: typeof DocsRoute
   GalleryRoute: typeof GalleryRoute
+  LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pricing': {
       id: '/pricing'
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -149,7 +201,9 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityRoute: CommunityRoute,
   DocsRoute: DocsRoute,
   GalleryRoute: GalleryRoute,
+  LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
+  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

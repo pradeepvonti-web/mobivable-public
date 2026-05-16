@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import appPreview from "@/assets/app-preview.jpg";
@@ -192,8 +192,9 @@ function Index() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
-            {[
+            {([
               {
+                plan: "free_beta" as const,
                 name: "Free Beta",
                 tag: "TIER_00",
                 price: "$0",
@@ -210,6 +211,7 @@ function Index() {
                 ],
               },
               {
+                plan: "starter" as const,
                 name: "Starter",
                 tag: "TIER_01",
                 price: "$29",
@@ -227,6 +229,7 @@ function Index() {
                 ],
               },
               {
+                plan: "pro" as const,
                 name: "Pro",
                 tag: "TIER_02",
                 price: "$99",
@@ -244,7 +247,7 @@ function Index() {
                   "Dedicated support",
                 ],
               },
-            ].map((p, i) => (
+            ]).map((p, i) => (
               <div
                 key={p.tag}
                 className={`p-8 flex flex-col ${i < 2 ? "md:border-r border-border" : ""} ${p.featured ? "bg-primary/5 relative" : ""}`}
@@ -269,15 +272,17 @@ function Index() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  className={`w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
+                <Link
+                  to="/signup"
+                  search={{ plan: p.plan }}
+                  className={`block text-center w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
                     p.featured
                       ? "bg-primary text-background hover:invert"
                       : "border border-border hover:border-primary hover:text-primary"
                   }`}
                 >
                   {p.cta}
-                </button>
+                </Link>
               </div>
             ))}
           </div>
