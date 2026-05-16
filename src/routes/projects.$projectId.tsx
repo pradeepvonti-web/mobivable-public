@@ -3206,7 +3206,7 @@ function AssetsPanel({ projectId, onClose, onChanged }: { projectId: string; onC
               description="Upload a custom icon · 1024x1024 PNG recommended"
               projectId={projectId}
               url={iconUrl}
-              onUploaded={setIconUrl}
+              onUploaded={(u) => { setIconUrl(u); onChanged?.(); }}
             />
             <AssetCard
               kind="splash"
@@ -3214,7 +3214,7 @@ function AssetsPanel({ projectId, onClose, onChanged }: { projectId: string; onC
               description="Upload a custom splash screen · 1024x1024 PNG recommended"
               projectId={projectId}
               url={splashUrl}
-              onUploaded={setSplashUrl}
+              onUploaded={(u) => { setSplashUrl(u); onChanged?.(); }}
             />
           </>
         )}
