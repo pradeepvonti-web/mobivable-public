@@ -76,8 +76,8 @@ export function AdminFeatureFlags() {
               } ${isSaving ? "opacity-60" : ""}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg grid place-items-center ${enabled ? "bg-primary/15" : "bg-muted"}`}>
-                  <Icon className={`h-5 w-5 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
+                <div className={`size-9 rounded-sm grid place-items-center ${enabled ? "bg-primary" : "bg-muted"}`}>
+                  <Icon className={`h-4 w-4 ${enabled ? "text-primary-foreground" : "text-muted-foreground"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{label}</p>
