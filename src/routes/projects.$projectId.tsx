@@ -553,19 +553,23 @@ function ProjectPage() {
     }
   }
 
-  async function applyHistorySnapshot(snap: VisualEditMap) {
+  async function applyHistorySnapshot(snap: VisualSnapshot) {
     setSelectedEl(null);
     selectedElRef.current = null;
     setPreviewKey((k) => k + 1);
-    await persistVisualEdits(snap.edits ?? [], snap.reorders ?? {}, false);
+    await persistVisualEdits(snap.edits, snap.reorders, false);
+  }
+
+  function currentSnapshot(): VisualSnapshot {
+    const ve = project?.visual_edits;
+    return { edits: ve?.edits ?? [], reorders: ve?.reorders ?? {} };
   }
 
   async function undoVisualEdit() {
     const past = historyPastRef.current;
     if (!past.length) return;
     const snap = past.pop()!;
-    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-    historyFutureRef.current.push(current);
+    historyFutureRef.current.push(currentSnapshot());
     setHistoryTick((t) => t + 1);
     await applyHistorySnapshot(snap);
   }
@@ -574,8 +578,7 @@ function ProjectPage() {
     const future = historyFutureRef.current;
     if (!future.length) return;
     const snap = future.pop()!;
-    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-    historyPastRef.current.push(current);
+    historyPastRef.current.push(currentSnapshot());
     setHistoryTick((t) => t + 1);
     await applyHistorySnapshot(snap);
   }
