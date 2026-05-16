@@ -31,7 +31,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "AI App Studio"
+const SITE_NAME = "Mobivable"
 const SENDER_DOMAIN = "notify.mobivable.dev"
 const ROOT_DOMAIN = "mobivable.dev"
 const FROM_DOMAIN = "mobivable.dev"
