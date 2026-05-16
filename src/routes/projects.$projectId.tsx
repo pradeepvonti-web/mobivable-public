@@ -1040,6 +1040,59 @@ function ProjectPage() {
           </div>
         </header>
 
+        {/* Agent brief: functionalities + templates */}
+        {(() => {
+          const a = AGENTS[selectedAgent];
+          const templates = AGENT_TEMPLATES[selectedAgent] ?? [];
+          return (
+            <div className="px-4 py-3 border-b border-border bg-card/40">
+              <div className="flex items-start gap-2">
+                <div className="h-6 w-6 rounded-md bg-primary/15 grid place-items-center shrink-0">
+                  <Users className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display text-sm leading-tight">{a.name}</p>
+                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{a.short}</p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+                  Functionalities
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {a.tasks.map((t) => (
+                    <span
+                      key={t}
+                      className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-primary/30 bg-primary/5 text-primary/90"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {templates.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+                    Templates
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {templates.map((tpl) => (
+                      <button
+                        key={tpl}
+                        type="button"
+                        onClick={() => setInput(tpl)}
+                        className="text-left text-xs px-3 py-2 rounded-md border border-border bg-background hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                      >
+                        {tpl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading && (
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
