@@ -525,14 +525,23 @@ function ProjectPage() {
     reorders: Record<string, number[]>,
     recordHistory = true,
   ) {
-    const payload: VisualEditMap = { edits, reorders };
     if (recordHistory) {
-      const prev: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-      historyPastRef.current.push(prev);
+      const prev = project?.visual_edits;
+      const prevSnap: VisualSnapshot = {
+        edits: prev?.edits ?? [],
+        reorders: prev?.reorders ?? {},
+      };
+      historyPastRef.current.push(prevSnap);
       if (historyPastRef.current.length > 50) historyPastRef.current.shift();
       historyFutureRef.current = [];
       setHistoryTick((t) => t + 1);
     }
+    const payload: VisualEditMap = {
+      edits,
+      reorders,
+      past: historyPastRef.current.slice(-50),
+      future: historyFutureRef.current.slice(-50),
+    };
     const { error: upErr } = await supabase
       .from("projects")
       .update({ visual_edits: payload })
