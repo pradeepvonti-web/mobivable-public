@@ -47,6 +47,7 @@ function FaqItem({ question, answer, isLast }: { question: string; answer: strin
 }
 
 function Index() {
+  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   return (
     <div className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
       <SiteNav />
