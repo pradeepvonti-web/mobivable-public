@@ -43,6 +43,7 @@ export function AdminDashboard() {
             </div>
           </div>
           <div className="flex-1" />
+          <ThemeToggle />
           <a href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             ← Back to App
           </a>
