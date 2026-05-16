@@ -82,6 +82,8 @@ export function AppPromptComposer() {
   const [uploading, setUploading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+  const typedPlaceholder = useTypewriter(TYPED_PHRASES, !prompt && !submitting);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
