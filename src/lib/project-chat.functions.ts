@@ -177,22 +177,25 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             role: "system",
             content:
               "You are updating a mobile app's full design/plan document in markdown. " +
-              "Given the current plan and the latest conversation (including the user's newest request and the assistant's reply), " +
-              "output the COMPLETE updated plan in markdown — not a diff, not commentary. " +
-              "Preserve existing structure and sections (e.g. Overview, Screens, Components, Data, Flows). " +
-              "Apply the user's requested UI/feature changes concretely (new screens, components, copy, states). " +
-              "Respond with ONLY the markdown document, no preamble.",
+              "Return the COMPLETE updated plan, not a diff and not commentary. " +
+              "Keep the structure clear with markdown sections such as Pitch, Core features, Screens, Data model, and Palette when relevant. " +
+              "Make the latest user request fully reflected in the final plan. " +
+              "Respond with markdown only.",
           },
           {
             role: "user",
             content:
               `App idea: ${project.prompt}\n\n` +
               `Current plan:\n${project.result ?? "(none yet)"}\n\n` +
+              `Conversation so far:\n${(history ?? [])
+                .map((m) => `${m.role}: ${m.content}`)
+                .join("\n\n")}\n\n` +
               `Latest user request:\n${data.content}\n\n` +
               `Assistant reply:\n${buffer}\n\n` +
-              `Now output the full updated plan in markdown.`,
+              `Now write the full updated plan in markdown.`,
           },
         ];
+
         const rewriteRes = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -208,21 +211,40 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             }),
           },
         );
-        if (rewriteRes.ok) {
+
+        if (!rewriteRes.ok) {
+          const body = await rewriteRes.text();
+          console.error("[project-chat] plan rewrite failed", {
+            projectId: project.id,
+            status: rewriteRes.status,
+            body: body.slice(0, 400),
+          });
+        } else {
           const json = (await rewriteRes.json()) as {
             choices?: { message?: { content?: string } }[];
           };
-          const newResult = json.choices?.[0]?.message?.content?.trim();
-          if (newResult && newResult.length > 50) {
-            await supabase
-              .from("projects")
-              .update({ result: newResult, status: "ready" })
-              .eq("id", project.id);
+          const rewritten = json.choices?.[0]?.message?.content?.trim() ?? "";
+          const nextResult = rewritten.length >= 50 ? rewritten : buffer.trim();
+
+          const { error: updateErr } = await supabase
+            .from("projects")
+            .update({ result: nextResult, status: "ready", error_text: null })
+            .eq("id", project.id);
+
+          if (updateErr) {
+            console.error("[project-chat] failed to persist updated plan", {
+              projectId: project.id,
+              error: updateErr.message,
+            });
+          } else {
             yield { type: "project_updated" as const };
           }
         }
-      } catch {
-        /* non-fatal — chat reply already saved */
+      } catch (error) {
+        console.error("[project-chat] unexpected rewrite error", {
+          projectId: project.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
