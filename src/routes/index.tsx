@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
