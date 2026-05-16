@@ -65,6 +65,29 @@ const STYLE_CSS: Record<keyof VisualStyles, string> = {
   fontSize: "fontSize",
 };
 
+const CLASS_PRESETS: { label: string; classes: string[] }[] = [
+  {
+    label: "Spacing",
+    classes: ["p-1", "p-2", "p-4", "p-6", "p-8", "px-4", "py-2", "m-2", "mx-auto", "gap-2", "gap-4"],
+  },
+  {
+    label: "Layout",
+    classes: ["flex", "inline-flex", "grid", "block", "hidden", "items-center", "justify-center", "justify-between", "flex-col", "flex-1", "w-full", "h-full"],
+  },
+  {
+    label: "Text",
+    classes: ["text-xs", "text-sm", "text-base", "text-lg", "text-xl", "text-2xl", "font-medium", "font-semibold", "font-bold", "uppercase", "text-center", "tracking-wide"],
+  },
+  {
+    label: "Color",
+    classes: ["text-primary", "text-foreground", "text-muted-foreground", "bg-primary", "bg-background", "bg-muted", "bg-card"],
+  },
+  {
+    label: "Border",
+    classes: ["border", "border-2", "border-border", "border-primary", "rounded", "rounded-md", "rounded-lg", "rounded-xl", "rounded-full", "shadow", "shadow-lg"],
+  },
+];
+
 type Project = {
   id: string;
   name: string;
