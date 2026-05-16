@@ -15,28 +15,43 @@ export const Route = createFileRoute("/pricing")({
   }),
 });
 
-const tiers = [
+const tiers: Array<{
+  code: string;
+  name: string;
+  plan: PlanValue;
+  price: string;
+  note: string;
+  features: string[];
+  highlight?: boolean;
+  cta: string;
+}> = [
+  {
+    code: "T-00",
+    name: "Free Beta",
+    plan: "free_beta",
+    price: "$0",
+    note: "Free during public beta",
+    features: ["Unlimited AI iterations", "1 published app", "Native iOS + Android builds", "App Store submission", "Community support"],
+    cta: "Start Free",
+  },
   {
     code: "T-01",
-    name: "Initiate",
-    price: "Free",
-    note: "During public beta",
-    features: ["Unlimited AI iterations", "1 published app", "Mobivable subdomain", "Community support"],
+    name: "Starter",
+    plan: "starter",
+    price: "$29",
+    note: "Per month",
+    features: ["5 published apps", "Source code export", "Custom domains", "Priority compile queue", "Email support"],
+    highlight: true,
+    cta: "Go Starter",
   },
   {
     code: "T-02",
-    name: "Operator",
-    price: "$29",
+    name: "Pro",
+    plan: "pro",
+    price: "$99",
     note: "Per month",
-    features: ["Everything in Initiate", "Unlimited published apps", "App Store + Play submissions", "Custom domain & branding", "Priority queue"],
-    highlight: true,
-  },
-  {
-    code: "T-03",
-    name: "Syndicate",
-    price: "Custom",
-    note: "Annual contract",
-    features: ["Everything in Operator", "Dedicated infra", "SSO + SCIM", "SLA & security review", "Embedded AI architect"],
+    features: ["Unlimited published apps", "Team workspaces", "Advanced analytics", "Dedicated support", "Everything in Starter"],
+    cta: "Go Pro",
   },
 ];
 
