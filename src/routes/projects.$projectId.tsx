@@ -314,6 +314,65 @@ function ProjectPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, project?.result]);
 
+  // Apply persisted visual edits to the rendered preview
+  useEffect(() => {
+    const edits = project?.visual_edits?.edits ?? [];
+    visualEditsRef.current = edits;
+    const root = previewRootRef.current;
+    if (!root || edits.length === 0) return;
+    // Defer to allow children to mount
+    const id = requestAnimationFrame(() => {
+      for (const edit of edits) {
+        const el = resolvePath(root, edit.path);
+        if (!el) continue;
+        if (typeof edit.classes === "string") el.className = edit.classes;
+        if (typeof edit.text === "string" && el.children.length === 0) {
+          el.textContent = edit.text;
+        }
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [project?.visual_edits, project?.status, project?.result]);
+
+  async function saveEdit() {
+    if (!selectedEl || !selectedElRef.current) return;
+    setSavingEdit(true);
+    try {
+      const el = selectedElRef.current;
+      const newText = editText;
+      const newClasses = editClasses;
+      // Apply to DOM (preserve the selected outline class)
+      if (el.children.length === 0 && newText !== el.textContent) {
+        el.textContent = newText;
+      }
+      const cls = newClasses.split(/\s+/).filter(Boolean);
+      if (!cls.includes("visual-edit-selected")) cls.push("visual-edit-selected");
+      el.className = cls.join(" ");
+
+      const cleaned = cls.filter((c) => c !== "visual-edit-selected").join(" ");
+      const existing = visualEditsRef.current.filter(
+        (e) => pathKey(e.path) !== pathKey(selectedEl.path),
+      );
+      const next: VisualEdit[] = [
+        ...existing,
+        { path: selectedEl.path, text: newText, classes: cleaned },
+      ];
+      visualEditsRef.current = next;
+
+      const { error: upErr } = await supabase
+        .from("projects")
+        .update({ visual_edits: { edits: next } })
+        .eq("id", projectId);
+      if (upErr) {
+        setError(upErr.message);
+      } else {
+        setProject((p) => (p ? { ...p, visual_edits: { edits: next } } : p));
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   if (status !== "authenticated") return <AuthHydrating />;
 
   const isBuilding = !!project && (project.status === "building" || generating);
