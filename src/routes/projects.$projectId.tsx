@@ -33,6 +33,9 @@ import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
 
+type VisualEdit = { path: number[]; text?: string; classes?: string };
+type VisualEditMap = { edits: VisualEdit[] };
+
 type Project = {
   id: string;
   name: string;
@@ -43,7 +46,33 @@ type Project = {
   attachments: Attachment[] | null;
   result: string | null;
   error_text: string | null;
+  visual_edits: VisualEditMap | null;
 };
+
+function getPath(el: HTMLElement, root: HTMLElement): number[] | null {
+  const path: number[] = [];
+  let cur: HTMLElement | null = el;
+  while (cur && cur !== root) {
+    const parent: HTMLElement | null = cur.parentElement;
+    if (!parent) return null;
+    path.unshift(Array.prototype.indexOf.call(parent.children, cur));
+    cur = parent;
+  }
+  return cur === root ? path : null;
+}
+
+function resolvePath(root: HTMLElement, path: number[]): HTMLElement | null {
+  let cur: HTMLElement | null = root;
+  for (const i of path) {
+    if (!cur) return null;
+    cur = (cur.children[i] as HTMLElement) ?? null;
+  }
+  return cur;
+}
+
+function pathKey(p: number[]) {
+  return p.join(".");
+}
 
 export const Route = createFileRoute("/projects/$projectId")({
   component: ProjectPage,
@@ -79,8 +108,15 @@ function ProjectPage() {
   const [mode, setMode] = useState<"build" | "plan">("build");
   const [modeOpen, setModeOpen] = useState(false);
   const [visualEdit, setVisualEdit] = useState(false);
-  const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
+  const [selectedEl, setSelectedEl] = useState<
+    { tag: string; text: string; classes: string; path: number[] } | null
+  >(null);
+  const [editText, setEditText] = useState("");
+  const [editClasses, setEditClasses] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
+  const previewRootRef = useRef<HTMLDivElement | null>(null);
+  const visualEditsRef = useRef<VisualEdit[]>([]);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -95,7 +131,7 @@ function ProjectPage() {
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, name, prompt, model, status, created_at, attachments, result, error_text",
+        "id, name, prompt, model, status, created_at, attachments, result, error_text, visual_edits",
       )
       .eq("id", projectId)
       .maybeSingle();
@@ -277,6 +313,65 @@ function ProjectPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, project?.result]);
+
+  // Apply persisted visual edits to the rendered preview
+  useEffect(() => {
+    const edits = project?.visual_edits?.edits ?? [];
+    visualEditsRef.current = edits;
+    const root = previewRootRef.current;
+    if (!root || edits.length === 0) return;
+    // Defer to allow children to mount
+    const id = requestAnimationFrame(() => {
+      for (const edit of edits) {
+        const el = resolvePath(root, edit.path);
+        if (!el) continue;
+        if (typeof edit.classes === "string") el.className = edit.classes;
+        if (typeof edit.text === "string" && el.children.length === 0) {
+          el.textContent = edit.text;
+        }
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [project?.visual_edits, project?.status, project?.result]);
+
+  async function saveEdit() {
+    if (!selectedEl || !selectedElRef.current) return;
+    setSavingEdit(true);
+    try {
+      const el = selectedElRef.current;
+      const newText = editText;
+      const newClasses = editClasses;
+      // Apply to DOM (preserve the selected outline class)
+      if (el.children.length === 0 && newText !== el.textContent) {
+        el.textContent = newText;
+      }
+      const cls = newClasses.split(/\s+/).filter(Boolean);
+      if (!cls.includes("visual-edit-selected")) cls.push("visual-edit-selected");
+      el.className = cls.join(" ");
+
+      const cleaned = cls.filter((c) => c !== "visual-edit-selected").join(" ");
+      const existing = visualEditsRef.current.filter(
+        (e) => pathKey(e.path) !== pathKey(selectedEl.path),
+      );
+      const next: VisualEdit[] = [
+        ...existing,
+        { path: selectedEl.path, text: newText, classes: cleaned },
+      ];
+      visualEditsRef.current = next;
+
+      const { error: upErr } = await supabase
+        .from("projects")
+        .update({ visual_edits: { edits: next } })
+        .eq("id", projectId);
+      if (upErr) {
+        setError(upErr.message);
+      } else {
+        setProject((p) => (p ? { ...p, visual_edits: { edits: next } } : p));
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   if (status !== "authenticated") return <AuthHydrating />;
 
@@ -504,26 +599,63 @@ function ProjectPage() {
           className="border-t border-border p-3 bg-background"
         >
           {selectedEl && (
-            <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-primary font-mono uppercase shrink-0">{selectedEl.tag}</span>
-                {selectedEl.text && (
-                  <span className="text-muted-foreground truncate">"{selectedEl.text}"</span>
-                )}
+            <div className="mb-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-primary font-mono uppercase shrink-0">
+                    {selectedEl.tag}
+                  </span>
+                  <span className="text-muted-foreground font-mono truncate">
+                    {selectedEl.path.join(".")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current = null;
+                    setSelectedEl(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label="Clear selection"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  selectedElRef.current?.classList.remove("visual-edit-selected");
-                  selectedElRef.current = null;
-                  setSelectedEl(null);
-                }}
-                className="text-muted-foreground hover:text-foreground shrink-0"
-                aria-label="Clear selection"
-              >
-                ✕
-              </button>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Text
+                </span>
+                <input
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  placeholder="(no text content)"
+                  className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Classes
+                </span>
+                <input
+                  value={editClasses}
+                  onChange={(e) => setEditClasses(e.target.value)}
+                  placeholder="tailwind classes"
+                  className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={savingEdit}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1 text-[11px] font-display uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                  Save edit
+                </button>
+              </div>
             </div>
           )}
           {pending.length > 0 && (
@@ -723,19 +855,32 @@ function ProjectPage() {
               </div>
             ) : (
               <div
+                ref={previewRootRef}
                 className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
                 onClickCapture={(e) => {
                   if (!visualEdit) return;
                   e.preventDefault();
                   e.stopPropagation();
                   const t = e.target as HTMLElement;
+                  const root = previewRootRef.current;
+                  if (!root) return;
+                  const path = getPath(t, root);
+                  if (!path) return;
                   selectedElRef.current?.classList.remove("visual-edit-selected");
                   t.classList.add("visual-edit-selected");
                   selectedElRef.current = t;
+                  const cls = (t.className?.toString() || "")
+                    .split(/\s+/)
+                    .filter((c) => c && c !== "visual-edit-selected")
+                    .join(" ");
+                  const txt = t.children.length === 0 ? (t.textContent || "") : "";
+                  setEditText(txt);
+                  setEditClasses(cls);
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
-                    text: (t.innerText || "").trim().slice(0, 80),
-                    classes: t.className?.toString().slice(0, 200) || "",
+                    text: txt.trim().slice(0, 80),
+                    classes: cls.slice(0, 200),
+                    path,
                   });
                   setVisualEdit(false);
                   setMobileView("chat");
