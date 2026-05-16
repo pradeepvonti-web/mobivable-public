@@ -862,7 +862,7 @@ function ProjectPage() {
             to="/dashboard"
             className="font-display text-sm uppercase tracking-wider hover:text-primary transition-colors"
           >
-            Agentic Mobile Studio
+            Mobivable Agentic Mobile Studio
           </Link>
         </div>
         <div className="p-4">
