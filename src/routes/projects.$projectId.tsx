@@ -2217,6 +2217,16 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
               {error && (
                 <p className="text-xs text-destructive">{error}</p>
               )}
+              {testResult && (
+                <p
+                  className={`text-xs font-mono ${
+                    testResult.ok ? "text-emerald-500" : "text-destructive"
+                  }`}
+                >
+                  {testResult.ok ? "✓ " : "✗ "}
+                  {testResult.message}
+                </p>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <button
