@@ -82,11 +82,12 @@ function SettingsPage() {
         | null;
       if (prof) {
         setDisplayName(prof.display_name ?? "");
-        setThemePref(prof.theme_preference ?? "system");
+        const pref: ThemePref = prof.theme_preference === "dark" ? "dark" : "light";
+        setThemePref(pref);
         setPlan(prof.plan ?? null);
-        setTheme(prof.theme_preference ?? "system");
+        setTheme(pref);
       }
-      setKeys(((keysRes.data ?? []) as ApiKey[]) ?? []);
+      setKeys((keysRes.data as ApiKey[] | null) ?? []);
       setLoading(false);
     })();
   }, [status, session?.user?.id, setTheme]);
