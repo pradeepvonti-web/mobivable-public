@@ -168,21 +168,26 @@ function ProjectPage() {
       ? (saved as AgentRole)
       : "product_manager";
   });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(agentStorageKey, selectedAgent);
-  }, [agentStorageKey, selectedAgent]);
-  // Reset when navigating to a different project
+  const agentHydratedRef = useRef(false);
+  // Hydrate from localStorage on mount and whenever the project changes.
+  // Runs BEFORE the persist effect on first mount so we don't clobber the saved value.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(agentStorageKey);
-    if (saved && (ALL_ROLES as string[]).includes(saved)) {
-      setSelectedAgent(saved as AgentRole);
-    } else {
-      setSelectedAgent("product_manager");
-    }
+    const next: AgentRole =
+      saved && (ALL_ROLES as string[]).includes(saved)
+        ? (saved as AgentRole)
+        : "product_manager";
+    setSelectedAgent(next);
+    agentHydratedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+  // Persist only after hydration so the initial SSR default doesn't overwrite storage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!agentHydratedRef.current) return;
+    window.localStorage.setItem(agentStorageKey, selectedAgent);
+  }, [agentStorageKey, selectedAgent]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<
