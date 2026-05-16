@@ -47,6 +47,7 @@ import {
   ClipboardList,
   Paperclip,
   ChevronRight,
+  Terminal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +67,8 @@ import { useTheme } from "@/components/theme-toggle";
 import { ExportPanel } from "@/components/ExportPanel";
 import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 import { AIProviderSettings } from "@/components/AIProviderSettings";
+import { CodeEditorPanel } from "@/components/CodeEditorPanel";
+import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -176,6 +179,8 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
+  { icon: Code2, label: "Code" },
+  { icon: Terminal, label: "Console" },
   { icon: Database, label: "Backend" },
   { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
@@ -293,7 +298,8 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro";
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console">(null);
+  const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -1129,6 +1135,8 @@ function ProjectPage() {
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
+              (label === "Code" && sidePanel === "code") ||
+              (label === "Console" && sidePanel === "console") ||
               (label === "Backend" && sidePanel === "backend") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets");
@@ -1145,6 +1153,10 @@ function ProjectPage() {
                     setSidePanel("env");
                   } else if (label === "Assets") {
                     setSidePanel("assets");
+                  } else if (label === "Code") {
+                    setSidePanel("code");
+                  } else if (label === "Console") {
+                    setSidePanel("console");
                   } else if (label === "Chat") setSidePanel(null);
                 }}
                 title={locked ? "Backend is a Pro feature" : undefined}
@@ -1823,6 +1835,35 @@ function ProjectPage() {
       )}
       {sidePanel === "assets" && (
         <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} onChanged={() => setAssetsTick((t) => t + 1)} />
+      )}
+      {sidePanel === "code" && (
+        <CodeEditorPanel
+          projectResult={project?.result ?? null}
+          projectPrompt={project?.prompt ?? ""}
+          projectModel={project?.model ?? ""}
+          onClose={() => setSidePanel(null)}
+        />
+      )}
+      {sidePanel === "console" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <Terminal className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Error Console</h2>
+                <p className="text-[10px] text-muted-foreground truncate">Runtime logs and errors</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+              Close
+            </button>
+          </header>
+          <div className="flex-1 overflow-hidden">
+            <ErrorConsolePanel entries={consoleEntries} onClear={clearConsole} onClose={() => setSidePanel(null)} />
+          </div>
+        </section>
       )}
 
       {upgradeOpen && (
