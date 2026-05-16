@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Menu, X } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Treat Space like Enter to activate links inside the mobile sheet.
 // Browsers activate anchors on Enter natively, but Space is a no-op
@@ -201,6 +202,7 @@ export function SiteNav() {
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle className="hidden sm:inline-flex" />
           <button className="hidden sm:inline-block px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
             Start Building
           </button>
