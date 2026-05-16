@@ -53,7 +53,7 @@ export function AdminPayments() {
           <h2 className="font-display uppercase text-2xl tracking-tight">Payments & Subscriptions</h2>
           <p className="text-sm text-muted-foreground mt-1">Monitor revenue, manage subscriptions, and view plan distribution.</p>
         </div>
-        <button onClick={refresh} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted/40">Refresh</button>
+        <AdminActionButton icon={AdminIcons.refresh} onClick={refresh}>Refresh</AdminActionButton>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
