@@ -173,7 +173,7 @@ export function SiteNav() {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden md:flex gap-6 text-xs font-mono uppercase tracking-widest text-muted">
+        <div className="hidden md:flex gap-6 text-xs font-mono uppercase tracking-widest text-muted-foreground">
           {sectionLinks.map((l) => {
             const isActive = isHome && activeSection === l.id;
             return (
