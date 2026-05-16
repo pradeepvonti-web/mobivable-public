@@ -282,7 +282,7 @@ function Index() {
                 <h3 className="font-display text-3xl uppercase tracking-tighter mb-2">{p.name}</h3>
                 <p className="text-sm text-muted mb-6 max-w-[35ch]">{p.blurb}</p>
                 <div className="flex items-baseline gap-2 mb-8">
-                  <span className="font-display text-5xl">{p.price}</span>
+                  <span className="font-display text-5xl">${billing === "yearly" ? p.yearly : p.monthly}</span>
                   <span className="font-mono text-xs text-muted uppercase">{p.cadence}</span>
                 </div>
                 <ul className="space-y-3 mb-10 flex-1">
