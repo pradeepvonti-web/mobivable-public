@@ -80,7 +80,7 @@ function CheckoutPage() {
       priceId,
       customerEmail: user.email,
       customData: { userId: user.id },
-      successUrl: `${window.location.origin}/checkout/success?plan=${plan}`,
+      successUrl: `${window.location.origin}/checkout/success`,
     }).catch((e) => {
       launched.current = false;
       setError(e instanceof Error ? e.message : "Failed to open checkout");
