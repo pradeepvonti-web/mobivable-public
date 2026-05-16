@@ -145,6 +145,8 @@ function ProjectPage() {
   const selectedElRef = useRef<HTMLElement | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
   const visualEditsRef = useRef<VisualEdit[]>([]);
+  const reordersRef = useRef<Record<string, number[]>>({});
+  const dragSrcRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
