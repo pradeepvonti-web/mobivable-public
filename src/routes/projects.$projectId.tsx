@@ -179,8 +179,8 @@ function ProjectPage() {
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
   const dragSrcRef = useRef<HTMLElement | null>(null);
-  const historyPastRef = useRef<VisualEditMap[]>([]);
-  const historyFutureRef = useRef<VisualEditMap[]>([]);
+  const historyPastRef = useRef<VisualSnapshot[]>([]);
+  const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
   const [newClassInput, setNewClassInput] = useState("");
