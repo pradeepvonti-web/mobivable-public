@@ -486,9 +486,9 @@ function ProjectPage() {
     }
   }
 
-  async function handleSend(e?: React.FormEvent) {
-    e?.preventDefault();
-    const raw = input.trim();
+  async function handleSend(e?: React.FormEvent | { preventDefault?: () => void }, overrideText?: string) {
+    e?.preventDefault?.();
+    const raw = (overrideText ?? input).trim();
     if ((!raw && pending.length === 0) || sending) return;
     const attachBlock = pending.length
       ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
@@ -1077,14 +1077,29 @@ function ProjectPage() {
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {templates.map((tpl) => (
-                      <button
+                      <div
                         key={tpl}
-                        type="button"
-                        onClick={() => setInput(tpl)}
-                        className="text-left text-xs px-3 py-2 rounded-md border border-border bg-background hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        className="group flex items-stretch gap-1 rounded-md border border-border bg-background hover:border-primary/40 transition-colors overflow-hidden"
                       >
-                        {tpl}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setInput(tpl)}
+                          title="Insert into chat input"
+                          className="flex-1 text-left text-xs px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          {tpl}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sending}
+                          onClick={() => handleSend(undefined, tpl)}
+                          title="Send now"
+                          aria-label="Send template"
+                          className="px-2.5 grid place-items-center border-l border-border text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
