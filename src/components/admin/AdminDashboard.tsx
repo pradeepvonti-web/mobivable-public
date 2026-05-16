@@ -10,6 +10,7 @@ import { AdminAIConfig } from "./AdminAIConfig";
 import { AdminFeatureFlags } from "./AdminFeatureFlags";
 import { AdminPayments } from "./AdminPayments";
 import { AdminActivity } from "./AdminActivity";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -42,6 +43,7 @@ export function AdminDashboard() {
             </div>
           </div>
           <div className="flex-1" />
+          <ThemeToggle />
           <a href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             ← Back to App
           </a>
