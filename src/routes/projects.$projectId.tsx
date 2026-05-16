@@ -1493,7 +1493,10 @@ function ProjectPage() {
                               {
                                 icon: BookOpen,
                                 label: "Knowledge",
-                                onClick: stub("Knowledge"),
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  setKnowledgeOpen(true);
+                                },
                               },
                               {
                                 icon: Github,
