@@ -105,7 +105,7 @@ function LoginPage() {
               });
               setSubmitting(false);
               if (error) setError(error.message);
-              else navigate({ to: "/" });
+              else navigate({ to: "/dashboard" });
             }}
             className="w-full py-3 border border-dashed border-primary text-primary font-display uppercase tracking-wider hover:bg-primary hover:text-background transition-all disabled:opacity-50"
           >
