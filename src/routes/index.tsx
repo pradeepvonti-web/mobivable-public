@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
+import { SiteNav } from "@/components/SiteNav";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -26,28 +27,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
-      {/* Header */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-6 bg-primary rounded-sm" />
-            <span className="font-display text-2xl tracking-tighter uppercase">Mobivable</span>
-          </div>
-          <div className="hidden md:flex gap-8 text-xs font-mono uppercase tracking-widest text-muted">
-            <a href="#engine" className="hover:text-primary transition-colors">Engine</a>
-            <a href="#process" className="hover:text-primary transition-colors">Process</a>
-            <a href="#infrastructure" className="hover:text-primary transition-colors">Infrastructure</a>
-            <a href="#" className="hover:text-primary transition-colors">Docs</a>
-            <a href="#" className="hover:text-primary transition-colors">Pricing</a>
-            <a href="#" className="hover:text-primary transition-colors">Gallery</a>
-            <a href="#" className="hover:text-primary transition-colors">Blog</a>
-            <a href="#" className="hover:text-primary transition-colors">Community</a>
-          </div>
-          <button className="px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
-            Start Building
-          </button>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* Hero */}
       <header id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
