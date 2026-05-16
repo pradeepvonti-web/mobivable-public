@@ -17,7 +17,7 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   { label: "Habit Coach", prompt: "habit coach app" },
   { label: "Mood Journal", prompt: "mood journal app" },
 ];
-const DEFAULT_MODEL = "Gemini 3 Flash";
+const FALLBACK_DEFAULT_MODEL = "Gemini 3 Flash";
 const MODELS = [
   "Gemini 3 Flash",
   "Gemini 2.5 Pro",
@@ -105,15 +105,33 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
-  const [model, setModelState] = useState(DEFAULT_MODEL);
+  const [defaultModel, setDefaultModel] = useState(FALLBACK_DEFAULT_MODEL);
+  const [model, setModelState] = useState(FALLBACK_DEFAULT_MODEL);
+  const [userPicked, setUserPicked] = useState(false);
   useEffect(() => {
     try {
       const saved = localStorage.getItem("preferred-model");
-      if (saved && MODELS.includes(saved)) setModelState(saved);
+      if (saved && MODELS.includes(saved)) {
+        setModelState(saved);
+        setUserPicked(true);
+      }
     } catch {}
-  }, []);
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "default_model")
+        .maybeSingle();
+      const v = typeof data?.value === "string" ? data.value : null;
+      if (v && MODELS.includes(v)) {
+        setDefaultModel(v);
+        setModelState((curr) => (userPicked ? curr : v));
+      }
+    })();
+  }, [userPicked]);
   const setModel = (m: string) => {
     setModelState(m);
+    setUserPicked(true);
     try {
       localStorage.setItem("preferred-model", m);
     } catch {}
@@ -320,7 +338,7 @@ export function AppPromptComposer() {
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                   <span>{model}</span>
-                  {model === DEFAULT_MODEL && (
+                  {model === defaultModel && (
                     <span className="text-[10px] uppercase tracking-wider text-primary/80 font-display">
                       Default
                     </span>
@@ -342,7 +360,7 @@ export function AppPromptComposer() {
                         }`}
                       >
                         <span>{m}</span>
-                        {m === DEFAULT_MODEL && (
+                        {m === defaultModel && (
                           <span className="text-[10px] uppercase tracking-wider text-primary/80 font-display">
                             Recommended
                           </span>
