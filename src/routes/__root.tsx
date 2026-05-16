@@ -10,6 +10,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { useTheme, themeNoFlashScript } from "@/components/theme-toggle";
 
 function NotFoundComponent() {
   return (
