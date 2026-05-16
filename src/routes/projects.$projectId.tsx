@@ -2996,6 +2996,68 @@ function AssetCard({
         </button>
       )}
 
+      <div className="border-t border-border pt-3 space-y-2">
+        {!aiOpen ? (
+          <button
+            type="button"
+            disabled={busy || generating}
+            onClick={() => setAiOpen(true)}
+            className="w-full px-3 py-2 rounded-md border border-primary/40 text-xs flex items-center justify-center gap-1.5 text-primary hover:bg-primary/5 disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate with AI
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder={
+                kind === "icon"
+                  ? "e.g. minimalist purple diamond crystal logo"
+                  : "e.g. soft gradient sunrise with subtle mountain silhouette"
+              }
+              rows={2}
+              maxLength={500}
+              disabled={generating}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:border-primary resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiOpen(false);
+                  setAiPrompt("");
+                  setErr(null);
+                }}
+                disabled={generating}
+                className="px-3 py-2 rounded-md border border-border text-xs hover:bg-muted/50 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating || aiPrompt.trim().length < 3}
+                className="flex-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {err && <p className="text-xs text-destructive">{err}</p>}
     </div>
   );
