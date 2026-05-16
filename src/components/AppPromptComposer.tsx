@@ -22,6 +22,11 @@ const TYPED_PHRASES = [
   "fitness tracker app",
   "habit coach app",
   "mood journal app",
+  "workout scheduler app",
+  "sleep tracker app",
+  "budget planner app",
+  "language learning app",
+  "meditation timer app",
 ];
 
 type Attachment = { path: string; url: string; name: string };
