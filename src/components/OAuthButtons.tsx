@@ -24,7 +24,7 @@ export function OAuthButtons({ onError }: Props) {
         return;
       }
       if (result.redirected) return; // browser is navigating away
-      navigate({ to: "/" });
+      navigate({ to: "/dashboard" });
     } catch (e) {
       onError?.(e instanceof Error ? e.message : `${provider} sign-in failed.`);
       setPending(null);
