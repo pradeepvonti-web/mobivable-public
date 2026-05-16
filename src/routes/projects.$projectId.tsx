@@ -2737,11 +2737,50 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
           <p className="text-sm font-medium">Add new variable</p>
           <input
             value={newName}
-            onChange={(e) => setNewName(e.target.value.toUpperCase())}
-            placeholder="EXPO_PUBLIC_MY_VAR"
-            maxLength={100}
+            onChange={(e) => setNewName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
+            placeholder={newPublic ? "MY_VAR (EXPO_PUBLIC_ added)" : "MY_SECRET"}
+            maxLength={64}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
           />
+          {(() => {
+            const previewName =
+              newPublic && newName && !newName.startsWith("EXPO_PUBLIC_")
+                ? `EXPO_PUBLIC_${newName}`
+                : newName;
+            const liveError =
+              previewName
+                ? validateEnvName(previewName, {
+                    requirePublic: newPublic,
+                    existing: vars.map((v) => v.name),
+                  })
+                : null;
+            return (
+              <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                <span className="text-muted-foreground truncate">
+                  {previewName ? `→ ${previewName}` : "UPPER_SNAKE_CASE, A–Z 0–9 _"}
+                </span>
+                {liveError && newName && (
+                  <span className="text-destructive truncate">{liveError}</span>
+                )}
+              </div>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={() => setNewPublic((p) => !p)}
+            className={`w-full px-3 py-2 rounded-md border text-xs flex items-center justify-between gap-1.5 transition-colors ${
+              newPublic
+                ? "border-primary/50 bg-primary/10 text-foreground"
+                : "border-border hover:bg-muted/50 text-muted-foreground"
+            }`}
+            title="Expose this variable to the client app (Expo requires the EXPO_PUBLIC_ prefix)"
+          >
+            <span className="flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5" />
+              Public (EXPO_PUBLIC_ prefix)
+            </span>
+            <span className="text-[10px] uppercase tracking-widest">{newPublic ? "On" : "Off"}</span>
+          </button>
           <div className="flex gap-2">
             <input
               value={newValue}
