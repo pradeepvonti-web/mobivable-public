@@ -44,7 +44,7 @@ export function AdminActivity() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight">Admin Activity</h2>
+          <h2 className="font-display uppercase text-2xl font-semibold tracking-tight">Admin Activity</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Sign-in attempts targeting admin accounts (latest 100).
           </p>
@@ -66,7 +66,7 @@ export function AdminActivity() {
         <Kpi label="Failed" value={failCount} tone="bad" />
       </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -106,7 +106,7 @@ export function AdminActivity() {
                     </td>
                     <td className="px-4 py-3">
                       {e.success ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium">
                           <CheckCircle2 className="h-3 w-3" /> Success
                         </span>
                       ) : (
@@ -178,7 +178,7 @@ function PasswordResetSection() {
     <div className="space-y-4 pt-4 border-t border-border">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight">Password Resets</h2>
+          <h2 className="font-display uppercase text-2xl font-semibold tracking-tight">Password Resets</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Reset link requests and successful completions (latest 100).
           </p>
@@ -200,7 +200,7 @@ function PasswordResetSection() {
         <Kpi label="Completed" value={completes} tone="ok" />
       </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -227,11 +227,11 @@ function PasswordResetSection() {
                     </td>
                     <td className="px-4 py-3">
                       {e.event === "complete" ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium">
                           <MailCheck className="h-3 w-3" /> Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-500 px-2 py-0.5 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/10 text-foreground px-2 py-0.5 text-[11px] font-medium">
                           <KeyRound className="h-3 w-3" /> Requested
                         </span>
                       )}
@@ -256,9 +256,9 @@ function PasswordResetSection() {
 
 function Kpi({ label, value, tone }: { label: string; value: number; tone?: "ok" | "bad" }) {
   const color =
-    tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
+    tone === "ok" ? "text-primary" : tone === "bad" ? "text-destructive" : "text-foreground";
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</p>
       <p className={`mt-1 font-display text-2xl font-semibold ${color}`}>{value}</p>
     </div>

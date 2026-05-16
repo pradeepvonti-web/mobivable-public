@@ -33,7 +33,7 @@ export function AdminDashboard() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto max-w-[1440px] flex items-center gap-4 px-6 h-16">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/60 grid place-items-center">
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 grid place-items-center">
               <Shield className="h-4.5 w-4.5 text-primary-foreground" />
             </div>
             <div>

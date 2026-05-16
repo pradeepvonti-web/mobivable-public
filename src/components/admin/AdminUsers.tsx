@@ -69,7 +69,7 @@ export function AdminUsers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="font-display text-2xl tracking-tight">User Management</h2>
+          <h2 className="font-display uppercase text-2xl tracking-tight">User Management</h2>
           <p className="text-sm text-muted-foreground mt-1">{users.length} registered users</p>
         </div>
         <div className="relative">
@@ -79,12 +79,12 @@ export function AdminUsers() {
             placeholder="Search users…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 rounded-xl border border-border bg-card text-sm w-72 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="pl-9 pr-4 py-2 rounded-lg border border-border bg-card text-sm w-72 focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -128,7 +128,7 @@ export function AdminUsers() {
                       {u.roles.length === 0 && <span className="text-[9px] text-muted-foreground">user</span>}
                       {u.roles.map((r) => (
                         <span key={r} className={`text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-full ${
-                          r === "admin" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-primary/10 text-primary"
+                          r === "admin" ? "bg-muted/20 text-foreground" : "bg-primary/10 text-primary"
                         }`}>
                           {r}
                         </span>
@@ -145,7 +145,7 @@ export function AdminUsers() {
                       onClick={() => handleToggleAdmin(u)}
                       className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-lg border transition-colors ${
                         u.roles.includes("admin")
-                          ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                          ? "border-border text-foreground hover:bg-muted/10"
                           : "border-border text-muted-foreground hover:bg-muted/40"
                       }`}
                     >

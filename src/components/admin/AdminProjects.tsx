@@ -50,7 +50,7 @@ export function AdminProjects() {
   }
 
   const statusColor = (s: string) =>
-    s === "ready" ? "bg-emerald-500" : s === "failed" ? "bg-destructive" : s === "generating" ? "bg-blue-500" : "bg-muted-foreground";
+    s === "ready" ? "bg-primary" : s === "failed" ? "bg-destructive" : s === "generating" ? "bg-muted-foreground" : "bg-muted-foreground";
 
   if (loading) {
     return <div className="grid place-items-center h-64 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -60,14 +60,14 @@ export function AdminProjects() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="font-display text-2xl tracking-tight">Project Management</h2>
+          <h2 className="font-display uppercase text-2xl tracking-tight">Project Management</h2>
           <p className="text-sm text-muted-foreground mt-1">{projects.length} total projects</p>
         </div>
         <div className="flex items-center gap-3">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs rounded-xl border border-border bg-card px-3 py-2 capitalize"
+            className="text-xs rounded-lg border border-border bg-card px-3 py-2 capitalize"
           >
             <option value="all">All statuses</option>
             {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -79,13 +79,13 @@ export function AdminProjects() {
               placeholder="Search projects…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl border border-border bg-card text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="pl-9 pr-4 py-2 rounded-lg border border-border bg-card text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
