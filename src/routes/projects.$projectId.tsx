@@ -634,25 +634,36 @@ function ProjectPage() {
             + New Project
           </Link>
         </div>
-        <div className="px-2 pb-3">
-          <p className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Recent
-          </p>
+        <div className="px-2 pb-3 flex-1 overflow-y-auto">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Agents
+            </p>
+            <Users className="h-3 w-3 text-muted-foreground" />
+          </div>
           <nav className="space-y-0.5">
-            {recent.map((r) => (
-              <Link
-                key={r.id}
-                to="/projects/$projectId"
-                params={{ projectId: r.id }}
-                className={`block px-3 py-2 rounded-md text-sm truncate transition-colors ${
-                  r.id === projectId
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground hover:bg-muted/40"
-                }`}
-              >
-                {r.name}
-              </Link>
-            ))}
+            {ALL_ROLES.map((role) => {
+              const a = AGENTS[role];
+              const active = role === selectedAgent;
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setSelectedAgent(role)}
+                  title={a.short}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="truncate font-medium">{a.name}</div>
+                  <div className="truncate text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                    {a.tasks[0]}
+                  </div>
+                </button>
+              );
+            })}
           </nav>
         </div>
         <div className="mt-auto border-t border-border p-2">
