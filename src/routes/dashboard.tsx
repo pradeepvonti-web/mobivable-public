@@ -23,24 +23,7 @@ type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "p
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
-    // Wait for session to hydrate from storage (OAuth redirect race).
-    let session = (await supabase.auth.getSession()).data.session;
-    if (!session) {
-      session = await new Promise((resolve) => {
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-          if (s) {
-            clearTimeout(timer);
-            sub.subscription.unsubscribe();
-            resolve(s);
-          }
-        });
-        const timer = setTimeout(() => {
-          sub.subscription.unsubscribe();
-          resolve(null);
-        }, 1500);
-      });
-    }
-    if (!session) throw redirect({ to: "/login" });
+    await requireAuth();
   },
   component: DashboardPage,
   head: () => ({
