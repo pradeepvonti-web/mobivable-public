@@ -1177,7 +1177,7 @@ function ProjectPage() {
               type="button"
               onClick={() => setPaneTab("preview")}
               aria-label="Dev Preview"
-              title="Dev Preview"
+              title="Simulated phone frame for development"
               className={`inline-flex items-center justify-center h-7 w-9 rounded-full transition-colors ${paneTab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Smartphone className="h-3.5 w-3.5" />
@@ -1220,6 +1220,7 @@ function ProjectPage() {
             </button>
             <button
               type="button"
+              title="Open on a real phone or tablet"
               onClick={() => {
                 if (typeof window !== "undefined") {
                   window.open(window.location.href, "_blank", "noopener,noreferrer");
