@@ -20,6 +20,51 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
+
+  function describeAuthError(msg: string, context: "user" | "admin"): { title: string; hint: string } {
+    const m = msg.toLowerCase();
+    if (m.includes("invalid login") || m.includes("invalid_credentials") || m.includes("invalid credentials")) {
+      return {
+        title: context === "admin"
+          ? "Admin sign-in failed: wrong email or password."
+          : "Wrong email or password.",
+        hint: "Double-check the credentials. If the admin account hasn't been provisioned yet, contact the platform owner to reset it.",
+      };
+    }
+    if (m.includes("email not confirmed") || m.includes("not confirmed")) {
+      return { title: "Email not confirmed.", hint: "Check your inbox for the confirmation link before signing in." };
+    }
+    if (m.includes("user not found") || m.includes("no user")) {
+      return {
+        title: context === "admin" ? "Admin account is missing." : "No account found for this email.",
+        hint: context === "admin"
+          ? "The admin user hasn't been created. Ask the platform owner to provision it, or claim admin access on the /admin page."
+          : "Create an account or use a different email.",
+      };
+    }
+    if (m.includes("rate") || m.includes("too many")) {
+      return { title: "Too many attempts.", hint: "Wait a minute before trying again." };
+    }
+    if (m.includes("network") || m.includes("fetch")) {
+      return { title: "Network error.", hint: "Check your connection and retry." };
+    }
+    return {
+      title: context === "admin" ? `Admin sign-in failed: ${msg}` : msg,
+      hint: "Verify the email and password are correct. If the issue persists, contact the platform owner.",
+    };
+  }
+
+  function showAuthError(msg: string, context: "user" | "admin") {
+    const { title, hint } = describeAuthError(msg, context);
+    setError(title);
+    setErrorHint(hint);
+  }
+
+  function clearError() {
+    setError(null);
+    setErrorHint(null);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
