@@ -50,15 +50,9 @@ export function AdminActivity() {
             Sign-in attempts targeting admin accounts (latest 100).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs hover:bg-muted/40 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        <AdminActionButton icon={AdminIcons.refresh} onClick={load} disabled={loading} loading={loading}>
           Refresh
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
