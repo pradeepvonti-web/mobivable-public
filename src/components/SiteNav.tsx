@@ -243,7 +243,7 @@ export function SiteNav() {
                 >
                   <span>{l.label}</span>
                   {isActive && (
-                    <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
                   )}
                 </a>
               );
