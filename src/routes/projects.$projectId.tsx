@@ -36,6 +36,8 @@ import {
   KeyRound,
   EyeOff,
   Trash2,
+  Pencil,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -2360,6 +2362,54 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editVisible, setEditVisible] = useState(true);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEdit(v: EnvVar) {
+    setEditId(v.id);
+    setEditValue(v.value);
+    setEditVisible(v.visible);
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setEditValue("");
+    setEditError(null);
+  }
+
+  async function saveEdit(id: string) {
+    setEditError(null);
+    if (editValue.length > 4000) {
+      setEditError("Value too long");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { error: err } = await (supabase as unknown as {
+        from: (t: string) => {
+          update: (row: Record<string, unknown>) => {
+            eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+          };
+        };
+      })
+        .from("project_env_vars")
+        .update({ value: editValue, visible: editVisible })
+        .eq("id", id);
+      if (err) throw new Error(err.message);
+      setVars((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, value: editValue, visible: editVisible } : v)),
+      );
+      cancelEdit();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   const systemVars = [
     { name: "EXPO_PUBLIC_PROJECT_ID", value: projectId },
@@ -2515,40 +2565,101 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
               <p className="text-xs text-muted-foreground/70">Add variables using the form below</p>
             </div>
           ) : (
-            vars.map((v) => (
-              <div key={v.id} className="rounded-lg border border-border bg-card p-3 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono flex-1 truncate">{v.name}</span>
-                  {!v.visible && (
-                    <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                      Hidden
-                    </span>
+            vars.map((v) => {
+              const isEditing = editId === v.id;
+              return (
+                <div key={v.id} className="rounded-lg border border-border bg-card p-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono flex-1 truncate">{v.name}</span>
+                    {!v.visible && !isEditing && (
+                      <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        Hidden
+                      </span>
+                    )}
+                    {isEditing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditVisible((x) => !x)}
+                          className="text-muted-foreground hover:text-foreground"
+                          title={editVisible ? "Set hidden" : "Set visible"}
+                        >
+                          {editVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveEdit(v.id)}
+                          disabled={editSaving}
+                          className="text-primary hover:opacity-80 disabled:opacity-40"
+                          title="Save"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Cancel"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setReveal((r) => ({ ...r, [v.id]: !r[v.id] }))}
+                          className="text-muted-foreground hover:text-foreground"
+                          title={reveal[v.id] ? "Hide value" : "Reveal value"}
+                        >
+                          {reveal[v.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(v)}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeVar(v.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <>
+                      <input
+                        autoFocus
+                        type={editVisible ? "text" : "password"}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(v.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        maxLength={4000}
+                        className="w-full px-2 py-1.5 rounded border border-primary/50 bg-background text-xs font-mono focus:outline-none focus:border-primary"
+                      />
+                      {editError && <p className="text-[11px] text-destructive">{editError}</p>}
+                    </>
+                  ) : (
+                    <input
+                      readOnly
+                      type={reveal[v.id] || v.visible ? "text" : "password"}
+                      value={v.value}
+                      className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs font-mono"
+                    />
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setReveal((r) => ({ ...r, [v.id]: !r[v.id] }))}
-                    className="text-muted-foreground hover:text-foreground"
-                    title={reveal[v.id] ? "Hide value" : "Reveal value"}
-                  >
-                    {reveal[v.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeVar(v.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
                 </div>
-                <input
-                  readOnly
-                  type={reveal[v.id] || v.visible ? "text" : "password"}
-                  value={v.value}
-                  className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs font-mono"
-                />
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
