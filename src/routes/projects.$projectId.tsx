@@ -358,6 +358,39 @@ function ProjectPage() {
           </div>
         </div>
       </section>
+
+      {/* Mobile bottom action bar */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur border-t border-border grid grid-cols-3 h-16">
+        <button
+          type="button"
+          onClick={() => setMobileView("chat")}
+          className={`flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider transition-colors ${
+            mobileView === "chat" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Chat
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView("preview")}
+          className={`flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider transition-colors ${
+            mobileView === "preview" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <Eye className="h-4 w-4" />
+          Preview
+        </button>
+        <button
+          type="button"
+          onClick={runGeneration}
+          disabled={generating || !project}
+          className="flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+        >
+          <RefreshCw className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} />
+          {generating ? "Building" : "Retry"}
+        </button>
+      </nav>
     </div>
   );
 }
