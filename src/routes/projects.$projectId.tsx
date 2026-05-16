@@ -956,7 +956,6 @@ function ProjectPage() {
                     path,
                   });
                   setVisualEdit(false);
-                  setMobileView("chat");
                 }}
               >
                 <FitTrackApp />
