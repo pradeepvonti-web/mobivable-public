@@ -339,7 +339,7 @@ function ProjectPage() {
       { id: `${tempId}-a`, role: "assistant", content: "", pending: true },
     ]);
     try {
-      const stream = await chatFn({ data: { projectId, content } });
+      const stream = await chatFn({ data: { projectId, content, agentRole: selectedAgent } });
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
       let acc = "";
       let errored = false;
