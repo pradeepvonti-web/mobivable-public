@@ -1431,15 +1431,130 @@ function ProjectPage() {
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || sending}
-                  aria-label="Add attachment"
-                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
-                >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPlusOpen((o) => !o)}
+                    disabled={uploading || sending}
+                    aria-label="Open chat menu"
+                    aria-expanded={plusOpen}
+                    className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : plusOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  </button>
+                  {plusOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setPlusOpen(false)}
+                        aria-hidden
+                      />
+                      <div
+                        role="menu"
+                        className="absolute bottom-full left-0 mb-2 w-64 rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl p-1.5 z-20"
+                      >
+                        {(() => {
+                          const navigateAction = (path: string) => {
+                            setPlusOpen(false);
+                            void navigate({ to: path });
+                          };
+                          const stub = (label: string) => () => {
+                            setPlusOpen(false);
+                            toast(label, { description: "Coming soon" });
+                          };
+                          const groups: Array<
+                            Array<{
+                              icon: typeof Settings;
+                              label: string;
+                              hint?: string;
+                              chevron?: boolean;
+                              onClick: () => void;
+                            }>
+                          > = [
+                            [
+                              {
+                                icon: Settings,
+                                label: "Settings",
+                                hint: "Ctrl .",
+                                onClick: () => navigateAction("/admin/settings"),
+                              },
+                            ],
+                            [
+                              {
+                                icon: History,
+                                label: "History",
+                                onClick: stub("Project history"),
+                              },
+                              {
+                                icon: BookOpen,
+                                label: "Knowledge",
+                                onClick: stub("Knowledge"),
+                              },
+                              {
+                                icon: Github,
+                                label: "GitHub",
+                                onClick: stub("Connect GitHub"),
+                              },
+                              {
+                                icon: Workflow,
+                                label: "Connectors",
+                                chevron: true,
+                                onClick: stub("Connectors"),
+                              },
+                            ],
+                            [
+                              {
+                                icon: Camera,
+                                label: "Take a screenshot",
+                                onClick: stub("Screenshot capture"),
+                              },
+                              {
+                                icon: AtSign,
+                                label: "Add reference",
+                                onClick: stub("Add reference"),
+                              },
+                              {
+                                icon: ClipboardList,
+                                label: "Add skill",
+                                onClick: stub("Skills"),
+                              },
+                              {
+                                icon: Paperclip,
+                                label: "Attach",
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  fileInputRef.current?.click();
+                                },
+                              },
+                            ],
+                          ];
+                          return groups.map((group, gi) => (
+                            <div key={gi}>
+                              {gi > 0 && <div className="my-1 h-px bg-border/60" />}
+                              {group.map((item) => (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  onClick={item.onClick}
+                                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-accent transition-colors"
+                                >
+                                  <item.icon className="h-4 w-4 text-muted-foreground" />
+                                  <span className="flex-1 text-sm font-medium">{item.label}</span>
+                                  {item.hint && (
+                                    <span className="text-xs text-muted-foreground">{item.hint}</span>
+                                  )}
+                                  {item.chevron && (
+                                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
