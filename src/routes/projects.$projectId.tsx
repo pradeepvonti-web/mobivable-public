@@ -1502,13 +1502,19 @@ function ProjectPage() {
                               {
                                 icon: Github,
                                 label: "GitHub",
-                                onClick: stub("Connect GitHub"),
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  setConnectorsOpen(true);
+                                },
                               },
                               {
                                 icon: Workflow,
                                 label: "Connectors",
                                 chevron: true,
-                                onClick: stub("Connectors"),
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  setConnectorsOpen(true);
+                                },
                               },
                             ],
                             [
