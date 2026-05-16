@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { PageShell } from "@/components/PageShell";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
-import { supabase } from "@/integrations/supabase/client";
+import { checkAdminAccess } from "@/lib/admin.functions";
 import {
   DEFAULT_PREVIEW_CONFIG,
   fetchPreviewConfig,
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/admin/settings")({
 
 function AdminSettingsPage() {
   const { session, status } = useRequiredSession();
+  const checkFn = useServerFn(checkAdminAccess);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [config, setConfig] = useState<PreviewConfig>(DEFAULT_PREVIEW_CONFIG);
   const [loading, setLoading] = useState(true);
@@ -31,18 +33,19 @@ function AdminSettingsPage() {
   useEffect(() => {
     if (status !== "authenticated" || !session?.user) return;
     (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!data);
-      const cfg = await fetchPreviewConfig();
-      setConfig(cfg);
+      try {
+        const r = await checkFn();
+        setIsAdmin(r.isAdmin);
+        if (r.isAdmin) {
+          const cfg = await fetchPreviewConfig();
+          setConfig(cfg);
+        }
+      } catch {
+        setIsAdmin(false);
+      }
       setLoading(false);
     })();
-  }, [status, session?.user?.id]);
+  }, [status, session?.user?.id, checkFn]);
 
   async function handleSave() {
     setSaving(true);

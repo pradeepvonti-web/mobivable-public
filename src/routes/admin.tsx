@@ -3,9 +3,8 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageShell } from "@/components/PageShell";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
-import { supabase } from "@/integrations/supabase/client";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { claimInitialAdmin } from "@/lib/admin.functions";
+import { claimInitialAdmin, checkAdminAccess } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -19,22 +18,22 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
   const { session, status } = useRequiredSession();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const checkFn = useServerFn(checkAdminAccess);
+  const [state, setState] = useState<{ isAdmin: boolean; hasAnyAdmin: boolean } | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated" || !session?.user) return;
-    (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!data);
-    })();
-  }, [status, session?.user?.id]);
+    setCheckError(null);
+    checkFn()
+      .then((r) => setState(r))
+      .catch((e) => {
+        setState({ isAdmin: false, hasAnyAdmin: true });
+        setCheckError(e instanceof Error ? e.message : "Access check failed");
+      });
+  }, [status, session?.user?.id, checkFn]);
 
-  if (status === "loading" || isAdmin === null) {
+  if (status === "loading" || (status === "authenticated" && state === null)) {
     return (
       <PageShell eyebrow="ADMIN" title="Dashboard" intro="Platform management">
         <div className="mx-auto max-w-7xl px-6 py-16 text-sm text-muted-foreground">Loading…</div>
@@ -50,13 +49,16 @@ function AdminPage() {
       </PageShell>
     );
   }
-  if (!isAdmin) {
+  if (!state?.isAdmin) {
     return (
       <PageShell eyebrow="ADMIN" title="Dashboard" intro="Platform management">
         <div className="mx-auto max-w-7xl px-6 py-16 space-y-4">
           <h1 className="font-display text-3xl">Access Denied</h1>
           <p className="text-sm text-muted-foreground">Your account doesn't have the <code>admin</code> role.</p>
-          <PromoteButton onPromoted={() => setIsAdmin(true)} />
+          {checkError && <p className="text-xs text-destructive">{checkError}</p>}
+          {!state?.hasAnyAdmin && (
+            <PromoteButton onPromoted={() => setState({ isAdmin: true, hasAnyAdmin: true })} />
+          )}
         </div>
       </PageShell>
     );
@@ -65,26 +67,12 @@ function AdminPage() {
   return <AdminDashboard />;
 }
 
+
 function PromoteButton({ onPromoted }: { onPromoted: () => void }) {
-  const [checking, setChecking] = useState(true);
-  const [hasAnyAdmin, setHasAnyAdmin] = useState(true);
   const [promoting, setPromoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const claimFn = useServerFn(claimInitialAdmin);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("role", "admin")
-        .limit(1);
-      setHasAnyAdmin((data?.length ?? 0) > 0);
-      setChecking(false);
-    })();
-  }, []);
-
-  if (checking || hasAnyAdmin) return null;
 
   async function handlePromote() {
     setPromoting(true);

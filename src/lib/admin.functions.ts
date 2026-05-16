@@ -38,6 +38,30 @@ export const claimInitialAdmin = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/** Server-side admin gate for /admin routes.
+ *  Returns whether the caller is an admin and whether any admin exists yet
+ *  (used to show the first-time claim button). Throws 401 if not signed in. */
+export const checkAdminAccess = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const svcUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Prefer service-role client so we get a definitive answer regardless of RLS.
+    const client = svcUrl && svcKey
+      ? createClient(svcUrl, svcKey, { auth: { persistSession: false } })
+      : supabase;
+
+    const [{ data: mine }, { data: any }] = await Promise.all([
+      client.from("user_roles").select("id").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+      client.from("user_roles").select("id").eq("role", "admin").limit(1),
+    ]);
+    return {
+      isAdmin: !!mine,
+      hasAnyAdmin: (any?.length ?? 0) > 0,
+    };
+  });
+
 /** Check if user has admin role */
 async function assertAdmin(supabase: any, userId: string) {
   const { data } = await supabase
