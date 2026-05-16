@@ -7,6 +7,7 @@ const sectionLinks = [
   { id: "process", label: "Process" },
   { id: "infrastructure", label: "Infrastructure" },
 ];
+const SECTION_IDS = sectionLinks.map((s) => s.id);
 
 const pageLinks = [
   { to: "/docs", label: "Docs" },
