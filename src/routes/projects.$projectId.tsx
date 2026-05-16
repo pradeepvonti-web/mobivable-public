@@ -504,24 +504,116 @@ function ProjectPage() {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
       if (!uid) throw new Error("Not authenticated");
-      const uploaded: { name: string; url: string; type: string }[] = [];
-      for (const file of Array.from(files)) {
-        if (file.size > 20 * 1024 * 1024) {
-          setError(`${file.name} is over 20MB`);
-          continue;
+  function isExtractable(file: File) {
+    if (file.size > 200 * 1024) return false;
+    if (file.type.startsWith("text/")) return true;
+    if (/\.(txt|md|markdown|json|csv|tsv|log|ya?ml|xml|html?|css|js|jsx|ts|tsx|py|rb|go|rs|java|c|cc|cpp|h|sh|sql|env)$/i.test(file.name)) return true;
+    if (file.type === "application/json") return true;
+    return false;
+  }
+
+  async function uploadOne(file: File, uid: string, token: string) {
+    const id = crypto.randomUUID();
+    const path = `${uid}/${projectId}/${id}-${file.name}`;
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+    const entry: PendingAttachment = {
+      id,
+      name: file.name,
+      url: "",
+      type: file.type || "file",
+      size: file.size,
+      progress: 0,
+      status: "uploading",
+      previewUrl,
+    };
+    setPending((p) => [...p, entry]);
+
+    const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
+    const endpoint = `${supabaseUrl}/storage/v1/object/project-attachments/${path}`;
+
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", endpoint, true);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("x-upsert", "false");
+      if (file.type) xhr.setRequestHeader("Content-Type", file.type);
+      xhr.upload.onprogress = (ev) => {
+        if (!ev.lengthComputable) return;
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        setPending((p) => p.map((x) => (x.id === id ? { ...x, progress: pct } : x)));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+          setPending((p) =>
+            p.map((x) =>
+              x.id === id
+                ? { ...x, url: pub.publicUrl, progress: 100, status: "ready" }
+                : x,
+            ),
+          );
+        } else {
+          let msg = `Upload failed (${xhr.status})`;
+          try {
+            const j = JSON.parse(xhr.responseText);
+            if (j?.message) msg = j.message;
+          } catch {
+            /* ignore */
+          }
+          setPending((p) =>
+            p.map((x) => (x.id === id ? { ...x, status: "error", error: msg } : x)),
+          );
         }
-        const path = `${uid}/${projectId}/${crypto.randomUUID()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("project-attachments")
-          .upload(path, file, { contentType: file.type || undefined });
-        if (upErr) {
-          setError(upErr.message);
-          continue;
-        }
-        const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
-        uploaded.push({ name: file.name, url: pub.publicUrl, type: file.type || "file" });
+        resolve();
+      };
+      xhr.onerror = () => {
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id ? { ...x, status: "error", error: "Network error" } : x,
+          ),
+        );
+        resolve();
+      };
+      xhr.send(file);
+    });
+
+    if (isExtractable(file)) {
+      try {
+        const text = await file.text();
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id ? { ...x, extractedText: text.slice(0, 20000) } : x,
+          ),
+        );
+      } catch (e) {
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id
+              ? { ...x, extractError: e instanceof Error ? e.message : "Extract failed" }
+              : x,
+          ),
+        );
       }
-      setPending((p) => [...p, ...uploaded]);
+    }
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!uid || !token) throw new Error("Not authenticated");
+      const accepted = Array.from(files).filter((f) => {
+        if (f.size > 20 * 1024 * 1024) {
+          setError(`${f.name} is over 20MB`);
+          return false;
+        }
+        return true;
+      });
+      await Promise.all(accepted.map((f) => uploadOne(f, uid, token)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -533,14 +625,19 @@ function ProjectPage() {
   async function handleSend(e?: React.FormEvent | { preventDefault?: () => void }, overrideText?: string) {
     e?.preventDefault?.();
     const raw = (overrideText ?? input).trim();
-    if ((!raw && pending.length === 0) || sending) return;
-    const attachBlock = pending.length
-      ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
+    const readyAttachments = pending.filter((p) => p.status === "ready");
+    if ((!raw && readyAttachments.length === 0) || sending) return;
+    const attachBlock = readyAttachments.length
+      ? `\n\nAttachments:\n${readyAttachments.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
       : "";
+    const extractedBlocks = readyAttachments
+      .filter((p) => p.extractedText)
+      .map((p) => `\n\n--- File: ${p.name} ---\n${p.extractedText}\n--- end ---`)
+      .join("");
     const base = raw || "(see attachments)";
     const content = selectedEl
-      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}`
-      : `${base}${attachBlock}`;
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}${extractedBlocks}`
+      : `${base}${attachBlock}${extractedBlocks}`;
     cancelRef.current = false;
     setSending(true);
     setInput("");
