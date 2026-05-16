@@ -497,9 +497,6 @@ function ProjectPage() {
     streamRef.current?.return?.(undefined);
   }
 
-  function isExtractableHeader() { /* no-op */ }
-  void isExtractableHeader;
-
   function isExtractable(file: File) {
     if (file.size > 200 * 1024) return false;
     if (file.type.startsWith("text/")) return true;
