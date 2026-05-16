@@ -23,6 +23,8 @@ import {
   ArrowUp,
   ChevronDown,
   Check,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -147,6 +149,10 @@ function ProjectPage() {
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
   const dragSrcRef = useRef<HTMLElement | null>(null);
+  const historyPastRef = useRef<VisualEditMap[]>([]);
+  const historyFutureRef = useRef<VisualEditMap[]>([]);
+  const [, setHistoryTick] = useState(0);
+  const [previewKey, setPreviewKey] = useState(0);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -457,8 +463,16 @@ function ProjectPage() {
   async function persistVisualEdits(
     edits: VisualEdit[],
     reorders: Record<string, number[]>,
+    recordHistory = true,
   ) {
     const payload: VisualEditMap = { edits, reorders };
+    if (recordHistory) {
+      const prev: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+      historyPastRef.current.push(prev);
+      if (historyPastRef.current.length > 50) historyPastRef.current.shift();
+      historyFutureRef.current = [];
+      setHistoryTick((t) => t + 1);
+    }
     const { error: upErr } = await supabase
       .from("projects")
       .update({ visual_edits: payload })
@@ -468,6 +482,33 @@ function ProjectPage() {
     } else {
       setProject((p) => (p ? { ...p, visual_edits: payload } : p));
     }
+  }
+
+  async function applyHistorySnapshot(snap: VisualEditMap) {
+    setSelectedEl(null);
+    selectedElRef.current = null;
+    setPreviewKey((k) => k + 1);
+    await persistVisualEdits(snap.edits ?? [], snap.reorders ?? {}, false);
+  }
+
+  async function undoVisualEdit() {
+    const past = historyPastRef.current;
+    if (!past.length) return;
+    const snap = past.pop()!;
+    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+    historyFutureRef.current.push(current);
+    setHistoryTick((t) => t + 1);
+    await applyHistorySnapshot(snap);
+  }
+
+  async function redoVisualEdit() {
+    const future = historyFutureRef.current;
+    if (!future.length) return;
+    const snap = future.pop()!;
+    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+    historyPastRef.current.push(current);
+    setHistoryTick((t) => t + 1);
+    await applyHistorySnapshot(snap);
   }
 
   if (status !== "authenticated") return <AuthHydrating />;
@@ -1067,9 +1108,33 @@ function ProjectPage() {
         </div>
 
         {visualEdit && (
-          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
-            <MousePointerClick className="h-3.5 w-3.5" />
-            Click any element to select
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={undoVisualEdit}
+                disabled={historyPastRef.current.length === 0}
+                aria-label="Undo visual edit"
+                title="Undo last visual edit"
+                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={redoVisualEdit}
+                disabled={historyFutureRef.current.length === 0}
+                aria-label="Redo visual edit"
+                title="Redo visual edit"
+                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
+              <MousePointerClick className="h-3.5 w-3.5" />
+              Click any element to select
+            </div>
           </div>
         )}
 
@@ -1253,7 +1318,7 @@ function ProjectPage() {
                   setVisualEdit(false);
                 }}
               >
-                <FitTrackApp />
+                <FitTrackApp key={previewKey} />
               </div>
             )}
           </div>
