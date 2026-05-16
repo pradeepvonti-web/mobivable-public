@@ -25,6 +25,7 @@ import {
   Check,
   Undo2,
   Redo2,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -32,6 +33,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 
 type Attachment = { path: string; url: string; name: string };
@@ -159,6 +161,7 @@ function ProjectPage() {
   const [generating, setGenerating] = useState(false);
   const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
