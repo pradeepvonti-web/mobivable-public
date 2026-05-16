@@ -26,7 +26,7 @@ export function PageShell({
           <h1 className="font-display text-6xl md:text-8xl uppercase leading-[0.9] tracking-tighter text-balance mb-6">
             {title}
           </h1>
-          <p className="text-lg text-muted max-w-[60ch] text-pretty leading-relaxed">{intro}</p>
+          <p className="text-lg text-muted-foreground max-w-[60ch] text-pretty leading-relaxed">{intro}</p>
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-6 py-20">{children}</main>
