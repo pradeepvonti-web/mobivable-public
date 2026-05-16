@@ -43,7 +43,7 @@ function waitForSession(timeoutMs: number): Promise<Session | null> {
  *    the storage-hydration race on hard reloads.
  * 4. Only then redirect to /login.
  */
-export async function requireAuth(opts?: { redirectTo?: string }): Promise<Session> {
+export async function getRestoredSession(): Promise<Session | null> {
   let session = (await supabase.auth.getSession()).data.session;
 
   if (!session && hasOAuthRedirectArtifacts()) {
@@ -64,6 +64,12 @@ export async function requireAuth(opts?: { redirectTo?: string }): Promise<Sessi
     // Final chance: listen briefly for a late SIGNED_IN event.
     session = await waitForSession(1000);
   }
+
+  return session;
+}
+
+export async function requireAuth(opts?: { redirectTo?: string }): Promise<Session> {
+  const session = await getRestoredSession();
 
   if (!session) {
     throw redirect({
