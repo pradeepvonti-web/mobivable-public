@@ -1,6 +1,16 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Menu, X } from "lucide-react";
+
+// Treat Space like Enter to activate links inside the mobile sheet.
+// Browsers activate anchors on Enter natively, but Space is a no-op
+// on <a> — this bridges the gap for keyboard users.
+const activateOnSpace = (e: KeyboardEvent<HTMLElement>) => {
+  if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    e.currentTarget.click();
+  }
+};
 
 const sectionLinks = [
   { id: "engine", label: "Engine" },
@@ -86,6 +96,8 @@ export function SiteNav() {
   const isHome = pathname === "/";
   const activeSection = useActiveSection(SECTION_IDS, isHome);
   const [open, setOpen] = useState(false);
+  const mobilePanelRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Close the mobile sheet whenever route changes
   useEffect(() => {
@@ -102,6 +114,52 @@ export function SiteNav() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, [open]);
+
+  // Keyboard support for the mobile sheet:
+  //   Esc       — close and return focus to the trigger
+  //   Tab/S-Tab — trap focus inside the panel
+  // Also move initial focus into the panel when it opens.
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const panel = mobilePanelRef.current;
+    if (!panel) return;
+
+    const getFocusable = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+    // Focus the first interactive item on open
+    const first = getFocusable()[0];
+    first?.focus();
+
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && active === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (
@@ -146,6 +204,7 @@ export function SiteNav() {
             Start Building
           </button>
           <button
+            ref={triggerRef}
             type="button"
             className="md:hidden p-2 text-foreground hover:text-primary transition-colors"
             onClick={() => setOpen((o) => !o)}
@@ -162,6 +221,10 @@ export function SiteNav() {
       {open && (
         <div
           id="mobile-nav"
+          ref={mobilePanelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site navigation"
           className="md:hidden border-t border-border bg-background/95 backdrop-blur-md"
         >
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-1 text-sm font-mono uppercase tracking-widest">
@@ -172,7 +235,8 @@ export function SiteNav() {
                   key={l.id}
                   href={`/#${l.id}`}
                   onClick={() => setOpen(false)}
-                  className={`py-3 border-b border-border flex items-center justify-between transition-colors hover:text-primary ${
+                  onKeyDown={activateOnSpace}
+                  className={`py-3 border-b border-border flex items-center justify-between transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                     isActive ? "text-primary" : "text-muted"
                   }`}
                   aria-current={isActive ? "true" : undefined}
@@ -189,13 +253,17 @@ export function SiteNav() {
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="py-3 border-b border-border text-muted hover:text-primary transition-colors"
+                onKeyDown={activateOnSpace}
+                className="py-3 border-b border-border text-muted hover:text-primary transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 activeProps={{ className: "py-3 border-b border-border text-primary" }}
               >
                 {l.label}
               </Link>
             ))}
-            <button className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
+            <button
+              type="button"
+              className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
               Start Building
             </button>
           </div>
