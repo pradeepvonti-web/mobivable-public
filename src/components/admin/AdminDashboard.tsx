@@ -10,6 +10,7 @@ import { AdminAIConfig } from "./AdminAIConfig";
 import { AdminFeatureFlags } from "./AdminFeatureFlags";
 import { AdminPayments } from "./AdminPayments";
 import { AdminActivity } from "./AdminActivity";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
