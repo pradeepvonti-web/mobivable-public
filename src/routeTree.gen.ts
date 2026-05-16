@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RecipesRouteImport } from './routes/recipes'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
@@ -29,6 +30,11 @@ import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/publi
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecipesRoute = RecipesRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/recipes'
+    | '/settings'
     | '/signup'
     | '/admin/settings'
     | '/checkout/success'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/recipes'
+    | '/settings'
     | '/signup'
     | '/admin/settings'
     | '/checkout/success'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/recipes'
+    | '/settings'
     | '/signup'
     | '/admin/settings'
     | '/checkout/success'
@@ -232,6 +244,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   RecipesRoute: typeof RecipesRoute
+  SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recipes': {
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   RecipesRoute: RecipesRoute,
+  SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
