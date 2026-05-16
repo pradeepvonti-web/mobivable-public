@@ -287,6 +287,8 @@ function ProjectPage() {
   }, []);
   const isPro = userPlan === "pro";
   const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets">(null);
+  const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
+  const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
