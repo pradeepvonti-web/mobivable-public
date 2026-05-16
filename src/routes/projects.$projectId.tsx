@@ -160,7 +160,29 @@ function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<AgentRole>("product_manager");
+  const agentStorageKey = `mobivable:selectedAgent:${projectId}`;
+  const [selectedAgent, setSelectedAgent] = useState<AgentRole>(() => {
+    if (typeof window === "undefined") return "product_manager";
+    const saved = window.localStorage.getItem(`mobivable:selectedAgent:${projectId}`);
+    return saved && (ALL_ROLES as string[]).includes(saved)
+      ? (saved as AgentRole)
+      : "product_manager";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(agentStorageKey, selectedAgent);
+  }, [agentStorageKey, selectedAgent]);
+  // Reset when navigating to a different project
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(agentStorageKey);
+    if (saved && (ALL_ROLES as string[]).includes(saved)) {
+      setSelectedAgent(saved as AgentRole);
+    } else {
+      setSelectedAgent("product_manager");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<
