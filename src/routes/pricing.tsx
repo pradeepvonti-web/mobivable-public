@@ -185,6 +185,29 @@ function PricingPage() {
           );
         })}
       </div>
+
+      <section className="mt-32 border-t border-border pt-20">
+        <div className="mb-12 flex items-end justify-between gap-8 flex-wrap">
+          <h2 className="font-display text-4xl md:text-5xl uppercase tracking-tight">
+            Pricing FAQ
+          </h2>
+          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground max-w-sm">
+            Billing, refunds, app limits, and what changes when you switch plans.
+          </p>
+        </div>
+        <Accordion type="single" collapsible className="max-w-3xl">
+          {FAQS.map((f, i) => (
+            <AccordionItem key={i} value={`faq-${i}`} className="border-border">
+              <AccordionTrigger className="text-left font-display text-lg md:text-xl uppercase tracking-tight hover:no-underline">
+                {f.q}
+              </AccordionTrigger>
+              <AccordionContent className="font-mono text-sm leading-relaxed text-muted-foreground">
+                {f.a}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
     </PageShell>
   );
 }
