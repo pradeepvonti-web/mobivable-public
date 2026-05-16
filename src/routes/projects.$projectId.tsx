@@ -25,6 +25,7 @@ import {
   Check,
   Undo2,
   Redo2,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -32,6 +33,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 
 type Attachment = { path: string; url: string; name: string };
@@ -159,6 +161,7 @@ function ProjectPage() {
   const [generating, setGenerating] = useState(false);
   const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
@@ -1043,6 +1046,24 @@ function ProjectPage() {
 
       {/* Preview pane */}
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
+        {/* Pane tab toggle */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setPaneTab("preview")}
+            className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs transition-colors ${paneTab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaneTab("agents")}
+            className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs transition-colors ${paneTab === "agents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Users className="h-3.5 w-3.5" /> Agents
+          </button>
+        </div>
+        {paneTab === "agents" && <AgentWorkspace projectId={projectId} />}
         {(visualEdit || selectedEl) && (
           <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
