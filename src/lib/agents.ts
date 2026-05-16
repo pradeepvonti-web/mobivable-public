@@ -139,6 +139,79 @@ export const AGENTS: Record<AgentRole, AgentDef> = {
 
 export const ALL_ROLES: AgentRole[] = Object.keys(AGENTS) as AgentRole[];
 
+export const AGENT_TEMPLATES: Record<AgentRole, string[]> = {
+  product_manager: [
+    "Draft a 1-sentence pitch and target personas for this app",
+    "Generate an MVP feature list with out-of-scope items",
+    "Propose a 4-step roadmap to v1",
+  ],
+  business_analyst: [
+    "Turn the MVP into 8 user stories with acceptance criteria",
+    "Recommend a monetization model with 3 alternatives",
+    "List 5 business goals and KPIs for launch",
+  ],
+  ux_researcher: [
+    "Map the primary user journey end-to-end",
+    "Identify the top 3 pain points and fixes",
+    "Design an onboarding flow with accessibility notes",
+  ],
+  ui_ux_designer: [
+    "Propose a screen list with 1-line purpose each",
+    "Generate a color palette and typography scale",
+    "List a reusable component library for this app",
+  ],
+  frontend_developer: [
+    "Recommend a React Native tech stack and navigation",
+    "Map screens to components and state",
+    "Write the Home screen component",
+  ],
+  backend_developer: [
+    "Design the server architecture and REST endpoints",
+    "Choose an auth approach and outline flows",
+    "Sketch the core business logic services",
+  ],
+  database_architect: [
+    "Design the Postgres schema with keys and indexes",
+    "Propose migrations for v1",
+    "Add notes on scalability and partitioning",
+  ],
+  ai_ml: [
+    "List AI features that fit this app",
+    "Recommend models and prompt designs",
+    "Add safety guardrails and evaluation plan",
+  ],
+  qa_testing: [
+    "Write a test plan with 10 concrete cases",
+    "List edge cases for the critical flow",
+    "Draft a sample bug report",
+  ],
+  security: [
+    "Review auth and session handling",
+    "Produce an API hardening checklist",
+    "List top vulnerabilities and remediations",
+  ],
+  devops: [
+    "Recommend hosting and CI/CD pipeline",
+    "List required environment variables",
+    "Draft an app-store release checklist",
+  ],
+  performance: [
+    "Propose a bundle and asset strategy",
+    "Suggest network and runtime optimizations",
+    "List 5 perf metrics to track",
+  ],
+  documentation: [
+    "Outline product docs and quickstart",
+    "Outline a technical architecture doc",
+    "Draft example release notes",
+  ],
+  scrum_master: [
+    "Generate a prioritized backlog (10-15 items)",
+    "Plan the first 2 sprints",
+    "Estimate a realistic timeline in weeks",
+  ],
+};
+
 export const COMPLEXITY_PRESETS: Record<string, AgentRole[]> = {
   simple: ["product_manager", "ui_ux_designer", "frontend_developer", "qa_testing"],
   standard: [
