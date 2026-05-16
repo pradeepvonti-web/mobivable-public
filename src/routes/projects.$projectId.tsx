@@ -140,6 +140,7 @@ function ProjectPage() {
   >(null);
   const [editText, setEditText] = useState("");
   const [editClasses, setEditClasses] = useState("");
+  const [editStyles, setEditStyles] = useState<VisualStyles>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
