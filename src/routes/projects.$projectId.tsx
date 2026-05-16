@@ -929,20 +929,29 @@ function ProjectPage() {
           </nav>
         </div>
         <div className="mt-auto border-t border-border p-2">
-          {SIDE_ITEMS.map(({ icon: Icon, label, active }) => (
-            <button
-              key={label}
-              type="button"
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{label}</span>
-            </button>
-          ))}
+          {SIDE_ITEMS.map(({ icon: Icon, label }) => {
+            const isActive =
+              (label === "Chat" && sidePanel === null) ||
+              (label === "Backend" && sidePanel === "backend");
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (label === "Backend") setSidePanel("backend");
+                  else if (label === "Chat") setSidePanel(null);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </aside>
 
