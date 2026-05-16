@@ -18,7 +18,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "AI App Studio"
+const SITE_NAME = "Mobivable"
 const ROOT_DOMAIN = "mobivable.dev"
 
 // Sample data for preview mode ONLY (not used in actual email sending).
