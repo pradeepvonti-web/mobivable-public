@@ -29,6 +29,8 @@ function ForgotPasswordPage() {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
+      // Audit the request (fire-and-forget).
+      void logPasswordResetEvent({ data: { email: email.trim(), event: "request" } }).catch(() => {});
       // Always show success to avoid leaking whether the email exists.
       setSent(true);
     } catch (err) {
