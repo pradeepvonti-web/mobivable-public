@@ -201,6 +201,7 @@ export function SiteNav() {
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle className="hidden sm:inline-flex" />
           <button className="hidden sm:inline-block px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
             Start Building
           </button>
