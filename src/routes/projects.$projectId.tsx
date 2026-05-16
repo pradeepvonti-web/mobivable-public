@@ -1400,7 +1400,7 @@ function ProjectPage() {
         <EnvPanel projectId={projectId} onClose={() => setSidePanel(null)} />
       )}
       {sidePanel === "assets" && (
-        <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+        <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} onChanged={() => setAssetsTick((t) => t + 1)} />
       )}
 
       {upgradeOpen && (
