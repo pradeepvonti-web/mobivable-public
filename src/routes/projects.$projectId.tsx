@@ -122,7 +122,7 @@ function ProjectPage() {
   const isFailed = !!project && project.status === "failed";
 
   return (
-    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col lg:flex-row">
+    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Left rail */}
       <aside className="hidden lg:flex w-60 shrink-0 border-r border-border flex-col">
         <div className="p-4 border-b border-border flex items-center gap-2">
@@ -188,7 +188,7 @@ function ProjectPage() {
       </aside>
 
       {/* Chat thread */}
-      <section className="flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col">
+      <section className={`${mobileView === "chat" ? "flex" : "hidden"} lg:flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
         <header className="p-4 border-b border-border flex items-center gap-3">
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
@@ -312,7 +312,7 @@ function ProjectPage() {
       </section>
 
       {/* Preview pane */}
-      <section className="flex-1 relative grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0">
+      <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
         <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
