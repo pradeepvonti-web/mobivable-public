@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logPasswordResetEvent } from "@/lib/admin.functions";
 import { PageShell } from "@/components/PageShell";
 
 export const Route = createFileRoute("/forgot-password")({
