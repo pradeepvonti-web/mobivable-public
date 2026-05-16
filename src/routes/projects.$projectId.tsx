@@ -196,10 +196,24 @@ function ProjectPage() {
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
   const { config: previewConfig } = usePreviewConfig();
+  // Dynamic table/column names from admin config — bypass generated types.
+  const sb = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (c: string, v: unknown) => {
+          maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+          order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+        order: (c: string, o: { ascending: boolean }) => {
+          limit: (n: number) => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
 
   async function reloadProject() {
     const detailSelect = aliasedSelect(previewConfig.projectDetailFields);
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from(previewConfig.projectsTable)
       .select(`${detailSelect}, attachments, error_text, visual_edits`)
       .eq(previewConfig.projectDetailFields.id, projectId)
@@ -223,12 +237,12 @@ function ProjectPage() {
 
   async function loadRecent() {
     const listSelect = aliasedSelect(previewConfig.projectsListFields);
-    const { data } = await supabase
+    const { data } = await sb
       .from(previewConfig.projectsTable)
       .select(listSelect)
       .order(previewConfig.projectsListFields.createdAt, { ascending: false })
       .limit(8);
-    setRecent((data as { id: string; name: string }[]) ?? []);
+    setRecent((data as { id: string; name: string }[] | null) ?? []);
   }
 
   async function runGeneration() {
@@ -251,13 +265,13 @@ function ProjectPage() {
       role: previewConfig.messagesFields.role,
       content: previewConfig.messagesFields.content,
     });
-    const { data } = await supabase
+    const { data } = await sb
       .from(previewConfig.messagesTable)
       .select(msgSelect)
       .eq(previewConfig.messagesFields.projectFk, projectId)
       .order(previewConfig.messagesFields.createdAt, { ascending: true });
     setMessages(
-      ((data as { id: string; role: "user" | "assistant"; content: string }[]) ?? []).map((m) => ({
+      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
