@@ -246,7 +246,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-6">
+    <section className="rounded-lg border border-border bg-card p-6">
       <h2 className="font-display text-xl">{title}</h2>
       {description && (
         <p className="mt-1 text-xs text-muted-foreground">{description}</p>

@@ -91,7 +91,7 @@ function PromoteButton({ onPromoted }: { onPromoted: () => void }) {
   }
 
   return (
-    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 max-w-md space-y-3">
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-6 max-w-md space-y-3">
       <p className="text-sm font-medium">No admin exists yet</p>
       <p className="text-xs text-muted-foreground">
         Since no admin account has been set up, you can claim admin access for initial platform configuration.
