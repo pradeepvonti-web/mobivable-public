@@ -1538,7 +1538,7 @@ function ProjectPage() {
                   setVisualEdit(false);
                 }}
               >
-                <FitTrackApp key={previewKey} />
+                <ProjectPreview key={previewKey} project={project} messages={messages} />
               </div>
             )}
           </div>
