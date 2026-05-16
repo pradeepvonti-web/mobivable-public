@@ -14,7 +14,7 @@
  */
 
 // ─── Types ──────────────────────────────────────────────────────
-export type AIProvider = "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "custom";
+export type AIProvider = "lovable" | "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "custom";
 
 export type AIMessage = {
   role: "system" | "user" | "assistant";
