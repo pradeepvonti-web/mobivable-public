@@ -1,6 +1,16 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Menu, X } from "lucide-react";
+
+// Treat Space like Enter to activate links inside the mobile sheet.
+// Browsers activate anchors on Enter natively, but Space is a no-op
+// on <a> — this bridges the gap for keyboard users.
+const activateOnSpace = (e: KeyboardEvent<HTMLElement>) => {
+  if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    e.currentTarget.click();
+  }
+};
 
 const sectionLinks = [
   { id: "engine", label: "Engine" },
