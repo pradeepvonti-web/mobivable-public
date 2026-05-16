@@ -147,13 +147,50 @@ function ProjectPage() {
     streamRef.current?.return?.(undefined);
   }
 
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not authenticated");
+      const uploaded: { name: string; url: string; type: string }[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > 20 * 1024 * 1024) {
+          setError(`${file.name} is over 20MB`);
+          continue;
+        }
+        const path = `${uid}/${projectId}/${crypto.randomUUID()}-${file.name}`;
+        const { error: upErr } = await supabase.storage
+          .from("project-attachments")
+          .upload(path, file, { contentType: file.type || undefined });
+        if (upErr) {
+          setError(upErr.message);
+          continue;
+        }
+        const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+        uploaded.push({ name: file.name, url: pub.publicUrl, type: file.type || "file" });
+      }
+      setPending((p) => [...p, ...uploaded]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
     const raw = input.trim();
-    if (!raw || sending) return;
+    if ((!raw && pending.length === 0) || sending) return;
+    const attachBlock = pending.length
+      ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
+      : "";
+    const base = raw || "(see attachments)";
     const content = selectedEl
-      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${raw}`
-      : raw;
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}`
+      : `${base}${attachBlock}`;
     cancelRef.current = false;
     setSending(true);
     setInput("");
