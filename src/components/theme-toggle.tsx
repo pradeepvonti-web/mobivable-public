@@ -18,48 +18,62 @@ function applyTheme(theme: Theme) {
   document.documentElement.style.colorScheme = theme;
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => readInitialTheme());
+// Global theme store — single source of truth shared by every useTheme() caller.
+let currentTheme: Theme = typeof window === "undefined" ? "dark" : readInitialTheme();
+const listeners = new Set<(t: Theme) => void>();
 
-  useEffect(() => {
-    applyTheme(theme);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      // ignore quota errors
+function setThemeGlobal(theme: Theme) {
+  currentTheme = theme;
+  applyTheme(theme);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // ignore quota errors
+  }
+  listeners.forEach((l) => l(theme));
+}
+
+if (typeof window !== "undefined") {
+  // Cross-tab sync.
+  window.addEventListener("storage", (e) => {
+    if (e.key === STORAGE_KEY && (e.newValue === "light" || e.newValue === "dark") && e.newValue !== currentTheme) {
+      currentTheme = e.newValue;
+      applyTheme(currentTheme);
+      listeners.forEach((l) => l(currentTheme));
     }
-  }, [theme]);
+  });
+  // Follow system changes when user has no explicit pref.
+  const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+  mq?.addEventListener?.("change", (e) => {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved !== "light" && saved !== "dark") {
+      const next: Theme = e.matches ? "dark" : "light";
+      currentTheme = next;
+      applyTheme(next);
+      listeners.forEach((l) => l(next));
+    }
+  });
+  // Ensure DOM reflects initial value (covers SSR hydration).
+  applyTheme(currentTheme);
+}
 
-  // React to system changes when the user has no explicit choice persisted.
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved !== "light" && saved !== "dark") {
-        setThemeState(e.matches ? "dark" : "light");
-      }
-    };
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, []);
+export function useTheme() {
+  const [theme, setLocal] = useState<Theme>(currentTheme);
 
-  // Sync across tabs.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && (e.newValue === "light" || e.newValue === "dark")) {
-        setThemeState(e.newValue);
-      }
+    // Resync in case the module-level value changed before mount.
+    if (theme !== currentTheme) setLocal(currentTheme);
+    listeners.add(setLocal);
+    return () => {
+      listeners.delete(setLocal);
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
     theme,
-    setTheme: setThemeState,
-    toggleTheme: () => setThemeState((t) => (t === "dark" ? "light" : "dark")),
+    setTheme: setThemeGlobal,
+    toggleTheme: () => setThemeGlobal(currentTheme === "dark" ? "light" : "dark"),
   };
 }
 
