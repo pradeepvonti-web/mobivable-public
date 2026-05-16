@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image as ImageIcon, Send, ChevronDown, Loader2, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,62 @@ const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Jo
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_ATTACHMENTS = 4;
+const TYPED_PHRASES = [
+  "recipe finder app",
+  "meal planner app",
+  "fitness tracker app",
+  "habit coach app",
+  "mood journal app",
+];
 
 type Attachment = { path: string; url: string; name: string };
+
+function useTypewriter(phrases: string[], active: boolean) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (!active) {
+      setText("");
+      return;
+    }
+    let phraseIdx = 0;
+    let charIdx = 0;
+    let deleting = false;
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      if (cancelled) return;
+      const current = phrases[phraseIdx];
+      if (!deleting) {
+        charIdx++;
+        setText(current.slice(0, charIdx));
+        if (charIdx === current.length) {
+          deleting = true;
+          timeout = setTimeout(tick, 1400);
+          return;
+        }
+        timeout = setTimeout(tick, 55 + Math.random() * 50);
+      } else {
+        charIdx--;
+        setText(current.slice(0, charIdx));
+        if (charIdx === 0) {
+          deleting = false;
+          phraseIdx = (phraseIdx + 1) % phrases.length;
+          timeout = setTimeout(tick, 350);
+          return;
+        }
+        timeout = setTimeout(tick, 28);
+      }
+    };
+    timeout = setTimeout(tick, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [phrases, active]);
+  return text;
+}
+
 
 function deriveName(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ");
