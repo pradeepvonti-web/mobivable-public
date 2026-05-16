@@ -348,7 +348,6 @@ function ProjectPage() {
     visualEditsRef.current = edits;
     const root = previewRootRef.current;
     if (!root || edits.length === 0) return;
-    // Defer to allow children to mount
     const id = requestAnimationFrame(() => {
       for (const edit of edits) {
         const el = resolvePath(root, edit.path);
@@ -357,10 +356,33 @@ function ProjectPage() {
         if (typeof edit.text === "string" && el.children.length === 0) {
           el.textContent = edit.text;
         }
+        if (edit.styles) {
+          for (const k of STYLE_KEYS) {
+            const v = edit.styles[k];
+            if (typeof v === "string") {
+              (el.style as unknown as Record<string, string>)[STYLE_CSS[k]] = v;
+            }
+          }
+        }
       }
     });
     return () => cancelAnimationFrame(id);
   }, [project?.visual_edits, project?.status, project?.result]);
+
+  // Live-preview style edits on the selected element
+  useEffect(() => {
+    const el = selectedElRef.current;
+    if (!el) return;
+    for (const k of STYLE_KEYS) {
+      const v = editStyles[k];
+      const css = STYLE_CSS[k];
+      if (typeof v === "string" && v !== "") {
+        (el.style as unknown as Record<string, string>)[css] = v;
+      } else {
+        el.style.removeProperty(css.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`));
+      }
+    }
+  }, [editStyles]);
 
   async function saveEdit() {
     if (!selectedEl || !selectedElRef.current) return;
