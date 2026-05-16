@@ -89,8 +89,8 @@ export function AdminActivity() {
                 </tr>
               ) : !entries || entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    No admin login attempts recorded yet.
+                  <td colSpan={6} className="px-4 py-8">
+                    <AdminEmptyState title="No admin login attempts recorded yet" />
                   </td>
                 </tr>
               ) : (
