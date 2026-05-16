@@ -77,10 +77,20 @@ export function AppPromptComposer() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             placeholder="recipe finder app"
             rows={6}
-            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
+            disabled={submitting}
+            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none disabled:opacity-60"
           />
+          {error && (
+            <p className="mt-2 text-sm text-destructive font-mono">{error}</p>
+          )}
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-6">
             {/* Suggestion chips */}
