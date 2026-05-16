@@ -22,6 +22,9 @@ export const Route = createFileRoute("/projects/$projectId")({
     await requireAuth();
   },
   component: ProjectPage,
+  pendingComponent: AuthHydrating,
+  pendingMs: 0,
+  pendingMinMs: 0,
   head: () => ({
     meta: [{ title: "Project — Mobivable" }],
   }),
