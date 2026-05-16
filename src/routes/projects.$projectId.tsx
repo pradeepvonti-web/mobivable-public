@@ -1176,8 +1176,8 @@ function ProjectPage() {
             <button
               type="button"
               onClick={() => setPaneTab("preview")}
-              aria-label="Preview"
-              title="Preview"
+              aria-label="Dev Preview"
+              title="Dev Preview"
               className={`inline-flex items-center justify-center h-7 w-9 rounded-full transition-colors ${paneTab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Smartphone className="h-3.5 w-3.5" />
@@ -1228,7 +1228,7 @@ function ProjectPage() {
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-primary/60 bg-primary/10 text-xs text-primary hover:bg-primary/20 shadow-lg backdrop-blur transition-colors"
             >
               <Smartphone className="h-3.5 w-3.5" />
-              Preview on Device
+              Real Device
             </button>
           </div>
         </div>
