@@ -152,10 +152,11 @@ export function AppPromptComposer() {
               <button
                 type="button"
                 aria-label="Send"
-                disabled={!prompt.trim()}
+                onClick={handleSubmit}
+                disabled={!prompt.trim() || submitting}
                 className="h-10 w-10 grid place-items-center rounded-full bg-primary text-primary-foreground hover:invert transition-all disabled:opacity-40"
               >
-                <Send className="h-4 w-4" />
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
           </div>
