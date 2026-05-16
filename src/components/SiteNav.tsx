@@ -7,6 +7,7 @@ const sectionLinks = [
   { id: "process", label: "Process" },
   { id: "infrastructure", label: "Infrastructure" },
 ];
+const SECTION_IDS = sectionLinks.map((s) => s.id);
 
 const pageLinks = [
   { to: "/docs", label: "Docs" },
@@ -24,6 +25,27 @@ function useActiveSection(ids: string[], enabled: boolean) {
       setActive(null);
       return;
     }
+
+    // Compute initial active section synchronously by geometry, so the
+    // pulsing dot reflects the right link on first paint and right after
+    // a route change — without waiting for the IntersectionObserver to
+    // tick (which can take a frame and miss the initial state).
+    const computeNow = () => {
+      const probe = window.innerHeight * 0.3;
+      let current: string | null = null;
+      let bestTop = -Infinity;
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= probe && top > bestTop) {
+          bestTop = top;
+          current = id;
+        }
+      }
+      setActive(current ?? ids[0] ?? null);
+    };
+    computeNow();
 
     const elements = ids
       .map((id) => document.getElementById(id))
@@ -44,7 +66,7 @@ function useActiveSection(ids: string[], enabled: boolean) {
             best = { id, ratio };
           }
         }
-        setActive(best?.id ?? null);
+        if (best) setActive(best.id);
       },
       {
         rootMargin: "-20% 0px -55% 0px",
@@ -62,10 +84,7 @@ function useActiveSection(ids: string[], enabled: boolean) {
 export function SiteNav() {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
-  const activeSection = useActiveSection(
-    sectionLinks.map((s) => s.id),
-    isHome,
-  );
+  const activeSection = useActiveSection(SECTION_IDS, isHome);
   const [open, setOpen] = useState(false);
 
   // Close the mobile sheet whenever route changes
