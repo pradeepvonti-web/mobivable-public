@@ -17,6 +17,12 @@ import {
   Eye,
   Send,
   Square,
+  Plus,
+  MousePointerClick,
+  Mic,
+  ArrowUp,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
