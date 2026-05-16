@@ -123,17 +123,31 @@ function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/signup"
-                search={{ plan: t.plan }}
-                className={`block text-center w-full px-6 py-4 font-display text-sm uppercase tracking-wider transition-all ${
-                  t.highlight
-                    ? "bg-background text-primary hover:scale-105"
-                    : "bg-primary text-background hover:invert"
-                }`}
-              >
-                {t.cta}
-              </Link>
+              {t.plan === "free_beta" ? (
+                <Link
+                  to="/signup"
+                  search={{ plan: t.plan }}
+                  className={`block text-center w-full px-6 py-4 font-display text-sm uppercase tracking-wider transition-all ${
+                    t.highlight
+                      ? "bg-background text-primary hover:scale-105"
+                      : "bg-primary text-background hover:invert"
+                  }`}
+                >
+                  {t.cta}
+                </Link>
+              ) : (
+                <Link
+                  to="/checkout"
+                  search={{ plan: t.plan, cadence: billing }}
+                  className={`block text-center w-full px-6 py-4 font-display text-sm uppercase tracking-wider transition-all ${
+                    t.highlight
+                      ? "bg-background text-primary hover:scale-105"
+                      : "bg-primary text-background hover:invert"
+                  }`}
+                >
+                  {t.cta}
+                </Link>
+              )}
             </div>
           );
         })}
