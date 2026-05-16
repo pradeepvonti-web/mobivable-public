@@ -1,13 +1,56 @@
 import { useState } from "react";
-import { Image as ImageIcon, Send, ChevronDown } from "lucide-react";
+import { Image as ImageIcon, Send, ChevronDown, Loader2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Journal"];
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
 
+function deriveName(prompt: string): string {
+  const trimmed = prompt.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "Untitled app";
+  const firstLine = trimmed.split(/[.\n]/)[0];
+  const words = firstLine.split(" ").slice(0, 6).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function AppPromptComposer() {
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(MODELS[0]);
   const [modelOpen, setModelOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    const text = prompt.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setError("You must be signed in.");
+      setSubmitting(false);
+      return;
+    }
+    const { data, error: insertError } = await supabase
+      .from("projects")
+      .insert({
+        user_id: u.user.id,
+        name: deriveName(text),
+        prompt: text,
+        model,
+        status: "building",
+      })
+      .select("id")
+      .single();
+    if (insertError || !data) {
+      setError(insertError?.message ?? "Failed to create project");
+      setSubmitting(false);
+      return;
+    }
+    navigate({ to: "/projects/$projectId", params: { projectId: data.id } });
+  }
 
   return (
     <section className="relative">
