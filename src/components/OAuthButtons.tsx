@@ -16,7 +16,7 @@ export function OAuthButtons({ onError }: Props) {
     setPending(provider);
     try {
       const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
+        redirect_uri: `${window.location.origin}/dashboard`,
       });
       if (result.error) {
         onError?.(result.error.message || `${provider} sign-in failed.`);
@@ -24,7 +24,7 @@ export function OAuthButtons({ onError }: Props) {
         return;
       }
       if (result.redirected) return; // browser is navigating away
-      navigate({ to: "/" });
+      navigate({ to: "/dashboard" });
     } catch (e) {
       onError?.(e instanceof Error ? e.message : `${provider} sign-in failed.`);
       setPending(null);
