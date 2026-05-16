@@ -25,6 +25,7 @@ const pageLinks = [
   { to: "/gallery", label: "Gallery" },
   { to: "/blog", label: "Blog" },
   { to: "/community", label: "Community" },
+  { to: "/dashboard", label: "Dashboard" },
 ] as const;
 
 function useActiveSection(ids: string[], enabled: boolean) {

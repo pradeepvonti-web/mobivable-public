@@ -1,0 +1,2 @@
+revoke execute on function public.sync_profile_plan_from_subscription() from public, anon, authenticated;
+revoke execute on function public.sweep_expired_subscriptions() from public, anon, authenticated;

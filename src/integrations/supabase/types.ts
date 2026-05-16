@@ -95,6 +95,11 @@ export type Database = {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
       }
+      plan_from_price: {
+        Args: { p_price_id: string }
+        Returns: Database["public"]["Enums"]["plan_tier"]
+      }
+      sweep_expired_subscriptions: { Args: never; Returns: undefined }
     }
     Enums: {
       plan_tier: "free_beta" | "starter" | "pro"

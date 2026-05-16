@@ -14,6 +14,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -44,6 +45,11 @@ const GalleryRoute = GalleryRouteImport.update({
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityRoute = CommunityRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
+  '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
+  '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
+  '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/checkout'
     | '/community'
+    | '/dashboard'
     | '/docs'
     | '/gallery'
     | '/login'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/checkout'
     | '/community'
+    | '/dashboard'
     | '/docs'
     | '/gallery'
     | '/login'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/checkout'
     | '/community'
+    | '/dashboard'
     | '/docs'
     | '/gallery'
     | '/login'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRoute
   CheckoutRoute: typeof CheckoutRouteWithChildren
   CommunityRoute: typeof CommunityRoute
+  DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community': {
@@ -272,6 +292,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRoute,
   CheckoutRoute: CheckoutRouteWithChildren,
   CommunityRoute: CommunityRoute,
+  DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
