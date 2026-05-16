@@ -310,7 +310,7 @@ function ProjectPage() {
       </section>
 
       {/* Preview pane */}
-      <section className="flex-1 relative grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+      <section className="flex-1 relative grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0">
         <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
