@@ -73,6 +73,18 @@ export function SiteNav() {
     setOpen(false);
   }, [pathname]);
 
+  // Close the mobile sheet as soon as the user starts scrolling so the
+  // sticky nav doesn't stay expanded over the page content.
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    const startY = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - startY) > 8) setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [open]);
+
   return (
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
