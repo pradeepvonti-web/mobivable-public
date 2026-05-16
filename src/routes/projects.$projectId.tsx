@@ -149,6 +149,10 @@ function ProjectPage() {
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
   const dragSrcRef = useRef<HTMLElement | null>(null);
+  const historyPastRef = useRef<VisualEditMap[]>([]);
+  const historyFutureRef = useRef<VisualEditMap[]>([]);
+  const [, setHistoryTick] = useState(0);
+  const [previewKey, setPreviewKey] = useState(0);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
