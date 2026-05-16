@@ -129,10 +129,12 @@ export type Database = {
         Row: {
           attachments: Json
           created_at: string
+          error_text: string | null
           id: string
           model: string
           name: string
           prompt: string
+          result: string | null
           status: string
           updated_at: string
           user_id: string
@@ -140,10 +142,12 @@ export type Database = {
         Insert: {
           attachments?: Json
           created_at?: string
+          error_text?: string | null
           id?: string
           model: string
           name: string
           prompt: string
+          result?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -151,10 +155,12 @@ export type Database = {
         Update: {
           attachments?: Json
           created_at?: string
+          error_text?: string | null
           id?: string
           model?: string
           name?: string
           prompt?: string
+          result?: string | null
           status?: string
           updated_at?: string
           user_id?: string
