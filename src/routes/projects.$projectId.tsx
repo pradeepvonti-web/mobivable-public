@@ -1369,6 +1369,9 @@ function ProjectPage() {
       {sidePanel === "env" && (
         <EnvPanel projectId={projectId} onClose={() => setSidePanel(null)} />
       )}
+      {sidePanel === "assets" && (
+        <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
 
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4">
