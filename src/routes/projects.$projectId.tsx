@@ -236,7 +236,7 @@ function ProjectPage() {
     })();
   }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
-  const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
+  const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents">("preview");
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
