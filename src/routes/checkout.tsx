@@ -42,7 +42,7 @@ function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const launched = useRef(false);
 
-  const meta = PLAN_META[plan];
+  const meta = PLAN_META[plan as Plan];
   const priceId = `${plan}_${cadence}`;
 
   useEffect(() => {
