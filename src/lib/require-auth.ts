@@ -55,14 +55,19 @@ export async function getRestoredSession(): Promise<Session | null> {
   }
 
   if (!session) {
-    // One short retry to cover the storage-hydration race.
-    await new Promise((r) => setTimeout(r, 250));
-    session = (await supabase.auth.getSession()).data.session;
+    // Retry with exponential backoff to absorb transient hydration races
+    // (slow storage reads, async token refresh, throttled main thread).
+    const backoffsMs = [150, 300, 600, 1000];
+    for (const delay of backoffsMs) {
+      await new Promise((r) => setTimeout(r, delay));
+      session = (await supabase.auth.getSession()).data.session;
+      if (session) break;
+    }
   }
 
   if (!session) {
     // Final chance: listen briefly for a late SIGNED_IN event.
-    session = await waitForSession(1000);
+    session = await waitForSession(1500);
   }
 
   return session;
