@@ -2269,6 +2269,6 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
