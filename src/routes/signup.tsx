@@ -3,6 +3,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 const PLAN_VALUES = ["free_beta", "starter", "pro"] as const;
 type PlanValue = (typeof PLAN_VALUES)[number];
@@ -126,6 +127,13 @@ function SignupPage() {
               </Link>
             </div>
           ) : (
+            <>
+            <OAuthButtons onError={setError} />
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-border" />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted">or</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="display_name" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
@@ -192,6 +200,7 @@ function SignupPage() {
                 </Link>
               </p>
             </form>
+            </>
           )}
         </div>
       </div>
