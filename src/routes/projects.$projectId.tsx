@@ -22,7 +22,7 @@ export const Route = createFileRoute("/projects/$projectId")({
     await requireAuth();
   },
   component: ProjectPage,
-  pendingComponent: AuthHydrating,
+  pendingComponent: () => <AuthHydrating />,
   pendingMs: 0,
   pendingMinMs: 0,
   head: () => ({
