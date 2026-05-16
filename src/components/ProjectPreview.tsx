@@ -146,6 +146,7 @@ export function ProjectPreview({
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto bg-gradient-to-br from-background via-background to-muted/30 p-6">
       {/* App-shell header */}
+      {vis.header && (
       <header className="rounded-2xl border border-border bg-card/80 backdrop-blur p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -168,9 +169,10 @@ export function ProjectPreview({
           </div>
         </div>
       </header>
+      )}
 
       {/* Pitch */}
-      {pitch && (
+      {vis.pitch && pitch && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={SECTION_ICONS.pitch} label="Pitch" />
           <p className="mt-2 text-sm leading-relaxed text-foreground/90">
@@ -180,7 +182,7 @@ export function ProjectPreview({
       )}
 
       {/* Features */}
-      {featureItems.length > 0 && (
+      {vis.features && featureItems.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={SECTION_ICONS.features} label="Core features" />
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -198,7 +200,7 @@ export function ProjectPreview({
       )}
 
       {/* Screens */}
-      {flatScreens.length > 0 && (
+      {vis.screens && flatScreens.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={SECTION_ICONS.screens} label="Screens" />
           <div className="mt-3 flex flex-wrap gap-2">
@@ -215,7 +217,7 @@ export function ProjectPreview({
       )}
 
       {/* Palette */}
-      {swatches.length > 0 && (
+      {vis.palette && swatches.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={SECTION_ICONS.palette} label="Palette" />
           <div className="mt-3 flex gap-3">
@@ -235,7 +237,7 @@ export function ProjectPreview({
       )}
 
       {/* Data model */}
-      {dataItems.length > 0 && (
+      {vis.dataModel && dataItems.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={SECTION_ICONS.data} label="Data model" />
           <pre className="mt-3 overflow-x-auto rounded-lg bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
@@ -245,7 +247,7 @@ export function ProjectPreview({
       )}
 
       {/* Recent design conversation */}
-      {recentChat.length > 0 && (
+      {vis.chat && recentChat.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5">
           <SectionHeader icon={MessageSquare} label="Recent design notes" />
           <ul className="mt-3 space-y-3">
