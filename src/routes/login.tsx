@@ -79,7 +79,11 @@ function LoginPage() {
     setSubmitting(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        audit(email, false, error.message);
+        throw error;
+      }
+      audit(email, true);
       navigate({ to: "/dashboard" });
     } catch (err) {
       showAuthError(err instanceof Error ? err.message : "Login failed.", "user");
