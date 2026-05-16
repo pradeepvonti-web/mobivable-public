@@ -2451,17 +2451,20 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
 
   async function addVar() {
     setError(null);
-    const name = newName.trim();
-    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) {
-      setError("Name must be UPPER_SNAKE_CASE (A-Z, 0-9, _)");
-      return;
+    let name = newName.trim().toUpperCase();
+    if (newPublic && !name.startsWith("EXPO_PUBLIC_")) {
+      name = `EXPO_PUBLIC_${name}`;
     }
-    if (name.length > 100) {
-      setError("Name too long");
+    const validationError = validateEnvName(name, {
+      requirePublic: newPublic,
+      existing: vars.map((v) => v.name),
+    });
+    if (validationError) {
+      setError(validationError);
       return;
     }
     if (newValue.length > 4000) {
-      setError("Value too long");
+      setError("Value too long (max 4000 chars)");
       return;
     }
     setSaving(true);
@@ -2486,6 +2489,7 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
       setNewName("");
       setNewValue("");
       setNewVisible(true);
+      setNewPublic(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
