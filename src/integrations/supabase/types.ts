@@ -283,6 +283,39 @@ export type Database = {
         }
         Relationships: []
       }
+      project_env_vars: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          updated_at: string
+          user_id: string
+          value: string
+          visible: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+          value?: string
+          visible?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+          visible?: boolean
+        }
+        Relationships: []
+      }
       project_integrations: {
         Row: {
           connected_at: string | null

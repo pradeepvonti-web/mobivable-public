@@ -33,6 +33,9 @@ import {
   Download,
   Sun,
   Moon,
+  KeyRound,
+  EyeOff,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -279,7 +282,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro";
-  const [sidePanel, setSidePanel] = useState<null | "backend">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env">(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
@@ -951,7 +954,8 @@ function ProjectPage() {
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
-              (label === "Backend" && sidePanel === "backend");
+              (label === "Backend" && sidePanel === "backend") ||
+              (label === "Env Variables" && sidePanel === "env");
             const locked = label === "Backend" && !isPro;
             return (
               <button
@@ -961,6 +965,8 @@ function ProjectPage() {
                   if (label === "Backend") {
                     if (!isPro) setUpgradeOpen(true);
                     else setSidePanel("backend");
+                  } else if (label === "Env Variables") {
+                    setSidePanel("env");
                   } else if (label === "Chat") setSidePanel(null);
                 }}
                 title={locked ? "Backend is a Pro feature" : undefined}
@@ -984,7 +990,7 @@ function ProjectPage() {
       </aside>
 
       {/* Chat thread */}
-      <section className={`${sidePanel === "backend" ? "hidden" : mobileView === "chat" ? "flex" : "hidden"} ${sidePanel === "backend" ? "lg:hidden" : "lg:flex"} flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
+      <section className={`${sidePanel !== null ? "hidden" : mobileView === "chat" ? "flex" : "hidden"} ${sidePanel !== null ? "lg:hidden" : "lg:flex"} flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
         <header className="p-4 border-b border-border flex items-center gap-3">
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
@@ -1353,6 +1359,10 @@ function ProjectPage() {
 
       {sidePanel === "backend" && isPro && (
         <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
+
+      {sidePanel === "env" && (
+        <EnvPanel projectId={projectId} onClose={() => setSidePanel(null)} />
       )}
 
       {upgradeOpen && (
@@ -2328,6 +2338,257 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
               </div>
             </>
           )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type EnvVar = {
+  id: string;
+  name: string;
+  value: string;
+  visible: boolean;
+};
+
+function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [vars, setVars] = useState<EnvVar[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newValue, setNewValue] = useState("");
+  const [newVisible, setNewVisible] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<Record<string, boolean>>({});
+
+  const systemVars = [
+    { name: "EXPO_PUBLIC_PROJECT_ID", value: projectId },
+    { name: "EXPO_PUBLIC_API_URL", value: import.meta.env.VITE_SUPABASE_URL ?? "" },
+  ];
+
+  async function load() {
+    setLoading(true);
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
+    const { data } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              order: (c: string, o: { ascending: boolean }) => Promise<{ data: EnvVar[] | null }>;
+            };
+          };
+        };
+      };
+    })
+      .from("project_env_vars")
+      .select("id,name,value,visible")
+      .eq("project_id", projectId)
+      .eq("user_id", uid)
+      .order("name", { ascending: true });
+    setVars(data ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  async function addVar() {
+    setError(null);
+    const name = newName.trim();
+    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) {
+      setError("Name must be UPPER_SNAKE_CASE (A-Z, 0-9, _)");
+      return;
+    }
+    if (name.length > 100) {
+      setError("Name too long");
+      return;
+    }
+    if (newValue.length > 4000) {
+      setError("Value too long");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const { error: err } = await (supabase as unknown as {
+        from: (t: string) => {
+          insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+        };
+      })
+        .from("project_env_vars")
+        .insert({
+          project_id: projectId,
+          user_id: uid,
+          name,
+          value: newValue,
+          visible: newVisible,
+        });
+      if (err) throw new Error(err.message);
+      setNewName("");
+      setNewValue("");
+      setNewVisible(true);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeVar(id: string) {
+    await (supabase as unknown as {
+      from: (t: string) => {
+        delete: () => {
+          eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    })
+      .from("project_env_vars")
+      .delete()
+      .eq("id", id);
+    setVars((prev) => prev.filter((v) => v.id !== id));
+  }
+
+  return (
+    <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+      <header className="p-5 border-b border-border flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+            <KeyRound className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-display text-lg truncate">Environment Variables</h2>
+            <p className="text-xs text-muted-foreground truncate">
+              Available in your Expo app via process.env
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+        >
+          Close
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="space-y-2">
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <KeyRound className="h-3 w-3" /> System variables (read-only)
+          </p>
+          {systemVars.map((sv) => (
+            <div key={sv.name} className="rounded-lg border border-border bg-muted/20 p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono">{sv.name}</span>
+                <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  System
+                </span>
+              </div>
+              <input
+                readOnly
+                value={sv.value}
+                className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs font-mono text-muted-foreground"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+            User variables
+          </p>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : vars.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center space-y-1">
+              <p className="text-sm text-muted-foreground">No user variables defined</p>
+              <p className="text-xs text-muted-foreground/70">Add variables using the form below</p>
+            </div>
+          ) : (
+            vars.map((v) => (
+              <div key={v.id} className="rounded-lg border border-border bg-card p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono flex-1 truncate">{v.name}</span>
+                  {!v.visible && (
+                    <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                      Hidden
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setReveal((r) => ({ ...r, [v.id]: !r[v.id] }))}
+                    className="text-muted-foreground hover:text-foreground"
+                    title={reveal[v.id] ? "Hide value" : "Reveal value"}
+                  >
+                    {reveal[v.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeVar(v.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <input
+                  readOnly
+                  type={reveal[v.id] || v.visible ? "text" : "password"}
+                  value={v.value}
+                  className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs font-mono"
+                />
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-border space-y-2">
+          <p className="text-sm font-medium">Add new variable</p>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value.toUpperCase())}
+            placeholder="EXPO_PUBLIC_MY_VAR"
+            maxLength={100}
+            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <input
+              value={newValue}
+              onChange={(e) => setNewValue(e.target.value)}
+              placeholder="Value…"
+              maxLength={4000}
+              className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => setNewVisible((v) => !v)}
+              className="px-3 py-2 rounded-md border border-border text-xs flex items-center gap-1.5 hover:bg-muted/50"
+              title="Toggle whether value is shown in plain text"
+            >
+              {newVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {newVisible ? "Visible" : "Hidden"}
+            </button>
+            <button
+              type="button"
+              onClick={addVar}
+              disabled={saving || !newName.trim()}
+              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       </div>
     </section>
