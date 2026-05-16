@@ -290,6 +290,31 @@ function ProjectPage() {
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
+  const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(`mobivable:recentTemplates:${projectId}`);
+      return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const recordTemplateUse = (role: AgentRole, tpl: string) => {
+    setRecentTemplates((prev) => {
+      const existing = prev[role] ?? [];
+      const next = [tpl, ...existing.filter((t) => t !== tpl)].slice(0, 5);
+      const updated = { ...prev, [role]: next };
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(recentTemplatesKey, JSON.stringify(updated));
+        } catch {
+          // ignore quota errors
+        }
+      }
+      return updated;
+    });
+  };
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
