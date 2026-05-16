@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { Image as ImageIcon, Send, ChevronDown, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Image as ImageIcon, Send, ChevronDown, Loader2, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Journal"];
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_ATTACHMENTS = 4;
+
+type Attachment = { path: string; url: string; name: string };
 
 function deriveName(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ");
@@ -16,15 +20,61 @@ function deriveName(prompt: string): string {
 
 export function AppPromptComposer() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(MODELS[0]);
   const [modelOpen, setModelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setError(null);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setError("You must be signed in to attach images.");
+      return;
+    }
+    const remaining = MAX_ATTACHMENTS - attachments.length;
+    const picked = Array.from(files).slice(0, remaining);
+    setUploading(true);
+    const uploaded: Attachment[] = [];
+    for (const file of picked) {
+      if (!file.type.startsWith("image/")) {
+        setError(`${file.name} is not an image.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        setError(`${file.name} is larger than 10 MB.`);
+        continue;
+      }
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("project-attachments")
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (upErr) {
+        setError(upErr.message);
+        continue;
+      }
+      const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+      uploaded.push({ path, url: pub.publicUrl, name: file.name });
+    }
+    if (uploaded.length) setAttachments((prev) => [...prev, ...uploaded]);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function removeAttachment(att: Attachment) {
+    setAttachments((prev) => prev.filter((a) => a.path !== att.path));
+    await supabase.storage.from("project-attachments").remove([att.path]);
+  }
 
   async function handleSubmit() {
     const text = prompt.trim();
-    if (!text || submitting) return;
+    if (!text || submitting || uploading) return;
     setSubmitting(true);
     setError(null);
     const { data: u } = await supabase.auth.getUser();
@@ -41,6 +91,7 @@ export function AppPromptComposer() {
         prompt: text,
         model,
         status: "building",
+        attachments: attachments.map((a) => ({ path: a.path, url: a.url, name: a.name })),
       })
       .select("id")
       .single();
