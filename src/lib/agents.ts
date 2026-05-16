@@ -12,7 +12,9 @@ export type AgentRole =
   | "devops"
   | "performance"
   | "documentation"
-  | "scrum_master";
+  | "scrum_master"
+  | "error_detector"
+  | "summary_agent";
 
 export type AgentDef = {
   role: AgentRole;
@@ -135,6 +137,22 @@ export const AGENTS: Record<AgentRole, AgentDef> = {
     system:
       "You are a senior Scrum Master. Output: a prioritized backlog (10-15 items), a 2-sprint plan, a realistic timeline in weeks, and a status report template. Markdown, under 400 words.",
   },
+  error_detector: {
+    role: "error_detector",
+    name: "Error Detector",
+    short: "Scans generated code for runtime errors and auto-fixes them.",
+    tasks: ["Runtime scan", "Fix errors", "Validate DOM", "Type check"],
+    system:
+      "You are a React/React Native error detection specialist. Given generated component code or app description, scan for: invalid DOM properties, missing imports, undefined variables, and React anti-patterns. Report each error with a clear fix. Output concise markdown with error summaries and fixes. Under 300 words.",
+  },
+  summary_agent: {
+    role: "summary_agent",
+    name: "Summary Agent",
+    short: "Produces a build completion summary with status and next steps.",
+    tasks: ["Build summary", "Status report", "Next steps", "Changelog"],
+    system:
+      "You are a build summary specialist. After agents complete their work, produce a concise summary: what was built, any errors found and fixed, the current build status (success/failed), and recommended next steps. Output concise markdown. Under 250 words.",
+  },
 };
 
 export const ALL_ROLES: AgentRole[] = Object.keys(AGENTS) as AgentRole[];
@@ -210,6 +228,16 @@ export const AGENT_TEMPLATES: Record<AgentRole, string[]> = {
     "Plan the first 2 sprints",
     "Estimate a realistic timeline in weeks",
   ],
+  error_detector: [
+    "Scan the generated app for runtime errors",
+    "Check for invalid React DOM properties",
+    "Validate all component props and types",
+  ],
+  summary_agent: [
+    "Generate a build completion summary",
+    "List what was built and any issues found",
+    "Recommend next steps for the app",
+  ],
 };
 
 export const COMPLEXITY_PRESETS: Record<string, AgentRole[]> = {
@@ -237,6 +265,8 @@ export const COMPLEXITY_PRESETS: Record<string, AgentRole[]> = {
     "security",
     "devops",
     "documentation",
+    "error_detector",
+    "summary_agent",
   ],
   enterprise: ALL_ROLES,
 };

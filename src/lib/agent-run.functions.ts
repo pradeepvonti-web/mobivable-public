@@ -2,54 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "./agents";
-
-const MODEL = "google/gemini-3-flash-preview";
-
-async function callLovableAI(
-  system: string,
-  user: string,
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) return { ok: false, error: "AI gateway not configured" };
-  try {
-    const res = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-        }),
-      },
-    );
-    if (!res.ok) {
-      const body = await res.text();
-      const msg =
-        res.status === 429
-          ? "Rate limit reached. Try again shortly."
-          : res.status === 402
-            ? "AI credits exhausted. Add credits in workspace settings."
-            : `AI error (${res.status}): ${body.slice(0, 200)}`;
-      return { ok: false, error: msg };
-    }
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    return { ok: true, text: json.choices?.[0]?.message?.content?.trim() ?? "" };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "AI call failed",
-    };
-  }
-}
+import { callAI } from "./ai-provider";
 
 /** Recommend a set of agent roles based on the project's prompt. */
 export const recommendAgents = createServerFn({ method: "POST" })
@@ -72,7 +25,7 @@ export const recommendAgents = createServerFn({ method: "POST" })
       'You are a senior software studio lead. Given a mobile app idea, choose which specialist agents are required. Reply with ONLY a JSON object: {"complexity":"simple|standard|ai_powered|enterprise","roles":["product_manager", ...]}. Allowed roles: ' +
       ALL_ROLES.join(", ") +
       '. No prose, no code fences.';
-    const r = await callLovableAI(sys, project.prompt);
+    const r = await callAI(sys, project.prompt);
 
     let complexity: keyof typeof COMPLEXITY_PRESETS = "standard";
     let roles: AgentRole[] = COMPLEXITY_PRESETS.standard;
@@ -202,13 +155,95 @@ export const runAgentTask = createServerFn({ method: "POST" })
         )
         .join("\n\n") || "(no prior agent output)";
 
+    // ─── SPECIAL: error_detector — validate schema locally ───
+    if (role === "error_detector") {
+      const { validateAndFixSchema, formatIssuesSummary } = await import("./schema-validator");
+      const { parseAppSchema } = await import("./code-gen");
+      const { data: proj } = await supabase
+        .from("projects")
+        .select("result")
+        .eq("id", task.project_id)
+        .single();
+
+      let output = "";
+      if (!proj?.result) {
+        output = "⚠️ No app schema found in project result. Nothing to validate.\n\nWaiting for code generation to complete before error detection can run.";
+      } else {
+        const parsed = parseAppSchema(proj.result);
+        if (!parsed) {
+          output = "❌ **Critical**: Failed to parse app schema from project result.\n\nThe generated JSON is malformed or empty. A full regeneration is recommended.";
+        } else {
+          const { schema: fixed, issues } = validateAndFixSchema(parsed);
+          const summary = formatIssuesSummary(issues);
+          const errors = issues.filter(i => i.severity === "error");
+          const warnings = issues.filter(i => i.severity === "warning");
+          const autoFixed = issues.filter(i => i.autoFixed);
+
+          output = `## Schema Validation Report\n\n${summary}\n\n`;
+          if (issues.length === 0) {
+            output += "✅ All elements are valid. No issues detected.\n";
+          } else {
+            if (errors.length > 0) {
+              output += `### ❌ Errors (${errors.length})\n${errors.map(e => `- \`${e.path}\`: ${e.message}`).join("\n")}\n\n`;
+            }
+            if (warnings.length > 0) {
+              output += `### ⚠️ Warnings (${warnings.length})\n${warnings.map(w => `- \`${w.path}\`: ${w.message}${w.autoFixed ? " *(auto-fixed)*" : ""}`).join("\n")}\n\n`;
+            }
+            if (autoFixed.length > 0) {
+              output += `### 🔧 Auto-Fixed (${autoFixed.length})\nThe following issues were automatically repaired and the schema was updated:\n${autoFixed.map(f => `- \`${f.path}\`: ${f.message}`).join("\n")}\n`;
+
+              // Persist the fixed schema back
+              if (fixed) {
+                await supabase.from("projects").update({ result: JSON.stringify(fixed) }).eq("id", task.project_id);
+                output += "\n\n✅ Fixed schema has been saved to the project.";
+              }
+            }
+          }
+        }
+      }
+
+      await supabase
+        .from("agent_tasks")
+        .update({ status: "completed", output, error_text: null })
+        .eq("id", task.id);
+      await supabase.from("agent_messages").insert({
+        run_id: task.run_id, project_id: task.project_id, user_id: userId,
+        role, content: `${def.name} completed schema validation.`,
+      });
+      return { ok: true as const, output };
+    }
+
+    // ─── SPECIAL: summary_agent — summarize prior outputs locally ───
+    if (role === "summary_agent") {
+      const completedTasks = (prior ?? []).filter(p => p.output);
+      let output = `## Build Summary\n\n`;
+      output += `**${completedTasks.length} agents** completed their tasks.\n\n`;
+      for (const p of completedTasks) {
+        const name = AGENTS[p.role as AgentRole]?.name ?? p.role;
+        const preview = (p.output ?? "").slice(0, 150).replace(/\n/g, " ");
+        output += `- **${name}**: ${preview}${(p.output?.length ?? 0) > 150 ? "…" : ""}\n`;
+      }
+      output += `\n---\n\n✅ All agent outputs have been compiled. The app is ready for preview.`;
+
+      await supabase
+        .from("agent_tasks")
+        .update({ status: "completed", output, error_text: null })
+        .eq("id", task.id);
+      await supabase.from("agent_messages").insert({
+        run_id: task.run_id, project_id: task.project_id, user_id: userId,
+        role, content: `${def.name} compiled the build summary.`,
+      });
+      return { ok: true as const, output };
+    }
+
+    // ─── DEFAULT: Call AI gateway ───
     const userPrompt =
       `App idea: ${project?.prompt ?? ""}\n\n` +
       `Project name: ${project?.name ?? ""}\n\n` +
       `Previous agents' outputs:\n${priorBlock}\n\n` +
       `Now produce your output for this app.`;
 
-    const r = await callLovableAI(def.system, userPrompt);
+    const r = await callAI(def.system, userPrompt);
 
     if (!r.ok) {
       await supabase

@@ -95,6 +95,14 @@
   animation: slideUp 600ms var(--ease-studio) both;
 }
 
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

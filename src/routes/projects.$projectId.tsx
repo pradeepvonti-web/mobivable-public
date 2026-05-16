@@ -57,9 +57,15 @@ import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
+import { MobileAppRenderer } from "@/components/MobileAppRenderer";
+import { parseAppSchema } from "@/lib/code-gen";
+import { SAMPLE_FITTRACK, SAMPLE_APPS } from "@/lib/sample-apps";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, type AgentRole } from "@/lib/agents";
 import { useTheme } from "@/components/theme-toggle";
+import { ExportPanel } from "@/components/ExportPanel";
+import { ScreenshotGallery } from "@/components/ScreenshotGallery";
+import { AIProviderSettings } from "@/components/AIProviderSettings";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -171,7 +177,7 @@ export const Route = createFileRoute("/projects/$projectId")({
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
   { icon: Database, label: "Backend" },
-  { icon: Code2, label: "Env Variables" },
+  { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
   { icon: History, label: "Ver. History" },
   { icon: LifeBuoy, label: "Get Support" },
@@ -260,7 +266,7 @@ function ProjectPage() {
     })();
   }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
-  const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents">("preview");
+  const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents" | "export" | "screenshots">("preview");
   const { theme, setTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
@@ -366,6 +372,7 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  const [demoApp, setDemoApp] = useState<string>("fittrack");
   const [newClassInput, setNewClassInput] = useState("");
   type PendingAttachment = {
     id: string;
@@ -1123,7 +1130,7 @@ function ProjectPage() {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
               (label === "Backend" && sidePanel === "backend") ||
-              (label === "Env Variables" && sidePanel === "env") ||
+              (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets");
             const locked = label === "Backend" && !isPro;
             return (
@@ -1134,7 +1141,7 @@ function ProjectPage() {
                   if (label === "Backend") {
                     if (!isPro) setUpgradeOpen(true);
                     else setSidePanel("backend");
-                  } else if (label === "Env Variables") {
+                  } else if (label === "AI & Env Keys") {
                     setSidePanel("env");
                   } else if (label === "Assets") {
                     setSidePanel("assets");
@@ -1884,6 +1891,24 @@ function ProjectPage() {
             >
               <Users className="h-3.5 w-3.5" />
             </button>
+            <button
+              type="button"
+              onClick={() => setPaneTab("export")}
+              aria-label="Export"
+              title="Export as Expo project"
+              className={`inline-flex items-center justify-center h-7 w-9 rounded-full transition-colors ${paneTab === "export" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaneTab("screenshots")}
+              aria-label="Screenshots"
+              title="App screenshots & assets"
+              className={`inline-flex items-center justify-center h-7 w-9 rounded-full transition-colors ${paneTab === "screenshots" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </button>
           </div>
           {/* Right: live status + restart + preview on device */}
           <div className="pointer-events-auto flex items-center gap-2">
@@ -1920,6 +1945,28 @@ function ProjectPage() {
         {paneTab === "agents" && (
           <div className="absolute inset-0 top-20 lg:right-[220px] z-10">
             <AgentWorkspace projectId={projectId} />
+          </div>
+        )}
+        {paneTab === "export" && (
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10">
+            <ExportPanel
+              schema={(() => {
+                const s = project?.result ? parseAppSchema(project.result) : null;
+                return s ?? SAMPLE_APPS[demoApp] ?? null;
+              })()}
+              projectName={project?.name}
+            />
+          </div>
+        )}
+        {paneTab === "screenshots" && (
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10">
+            <ScreenshotGallery
+              schema={(() => {
+                const s = project?.result ? parseAppSchema(project.result) : null;
+                return s ?? SAMPLE_APPS[demoApp] ?? null;
+              })()}
+              previewRef={previewRootRef}
+            />
           </div>
         )}
         {paneTab === "code" && (
@@ -2292,6 +2339,27 @@ function ProjectPage() {
           </div>
         )}
 
+        {/* Demo app selector (when no AI result) */}
+        {!project?.result && paneTab === "preview" && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mr-1">Demo:</span>
+            {Object.entries(SAMPLE_APPS).map(([key, app]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { setDemoApp(key); setPreviewKey(k => k + 1); }}
+                className={`rounded-full px-3 py-1 text-[10px] font-medium transition-all ${
+                  demoApp === key
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                {app.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Phone frame */}
         <div
           className={`relative transition-all duration-300 ${
@@ -2317,7 +2385,7 @@ function ProjectPage() {
                   <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
                 </div>
               </div>
-            ) : isFailed ? (
+            ) : isFailed && project?.result && parseAppSchema(project.result) === null && !SAMPLE_APPS[demoApp] ? (
               <div className="h-full w-full grid place-items-center p-6">
                 <div className="text-center">
                   <Smartphone className="h-10 w-10 mx-auto text-destructive mb-3" />
@@ -2489,7 +2557,10 @@ function ProjectPage() {
                   setVisualEdit(false);
                 }}
               >
-                <ProjectPreview key={previewKey} project={project} messages={messages} visibility={previewConfig.visibility} />
+                {(() => {
+                  const schema = project?.result ? parseAppSchema(project.result) : null;
+                  return <MobileAppRenderer key={previewKey} schema={schema ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK} />;
+                })()}
               </div>
             )}
           </div>
@@ -3261,6 +3332,14 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
       </header>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {/* AI Provider Configuration */}
+        <div className="space-y-2">
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3" /> AI Providers
+          </p>
+          <AIProviderSettings />
+        </div>
+
         <div className="space-y-2">
           <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <KeyRound className="h-3 w-3" /> System variables (read-only)

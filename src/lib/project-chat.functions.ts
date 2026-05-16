@@ -2,18 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
-
-const MODEL_MAP: Record<string, string> = {
-  "Opus 4.7": "google/gemini-2.5-pro",
-  "Sonnet 4.7": "google/gemini-2.5-flash",
-  "Haiku 4.7": "google/gemini-2.5-flash-lite",
-  "Gemini 2.5 Pro": "google/gemini-2.5-pro",
-  "Gemini 2.5 Flash": "google/gemini-2.5-flash",
-  "Gemini 3 Flash": "google/gemini-3-flash-preview",
-  "GPT-5": "openai/gpt-5",
-  "GPT-5 Mini": "openai/gpt-5-mini",
-  "GPT-5.2": "openai/gpt-5.2",
-};
+import { callAI, callAIStreaming, type AIMessage } from "./ai-provider";
 
 const DEFAULT_SYSTEM =
   "You are a senior mobile product designer + engineer collaborating with the user " +
@@ -94,51 +83,32 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       return;
     }
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) {
-      yield { type: "error" as const, error: "AI gateway not configured" };
-      return;
-    }
-
-    const modelId = MODEL_MAP[project.model] ?? "google/gemini-3-flash-preview";
     const agent = data.agentRole ? AGENTS[data.agentRole] : null;
     const systemPrompt = agent
       ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project. Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful.`
       : DEFAULT_SYSTEM;
-    const messages = [
+    const messages: AIMessage[] = [
       { role: "system", content: systemPrompt },
       {
         role: "system",
         content: `App idea: ${project.prompt}${project.result ? `\n\nInitial plan:\n${project.result}` : ""}`,
       },
-      ...(history ?? []).map((m) => ({ role: m.role, content: m.content })),
+      ...(history ?? []).map((m) => ({ role: m.role as AIMessage["role"], content: m.content })),
       { role: "user", content: data.content },
     ];
 
     let buffer = "";
     let upstream: Response | null = null;
     try {
-      upstream = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model: modelId, messages, stream: true }),
-        },
-      );
+      const streamResult = await callAIStreaming(messages, project.model);
+      if (!streamResult.ok) {
+        yield { type: "error" as const, error: streamResult.error };
+        return;
+      }
+      upstream = streamResult.response;
 
-      if (!upstream.ok || !upstream.body) {
-        const body = await upstream.text();
-        const msg =
-          upstream.status === 429
-            ? "AI rate limit reached. Try again in a moment."
-            : upstream.status === 402
-              ? "AI credits exhausted."
-              : `AI error (${upstream.status}): ${body.slice(0, 200)}`;
-        yield { type: "error" as const, error: msg };
+      if (!upstream.body) {
+        yield { type: "error" as const, error: "No response body from AI provider" };
         return;
       }
 
@@ -172,59 +142,26 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     // so the preview actually updates after each chat turn.
     if (buffer.trim().length > 0) {
       try {
-        const rewriteMessages = [
-          {
-            role: "system",
-            content:
-              "You are updating a mobile app's full design/plan document in markdown. " +
-              "Return the COMPLETE updated plan, not a diff and not commentary. " +
-              "Keep the structure clear with markdown sections such as Pitch, Core features, Screens, Data model, and Palette when relevant. " +
-              "Make the latest user request fully reflected in the final plan. " +
-              "Respond with markdown only.",
-          },
-          {
-            role: "user",
-            content:
-              `App idea: ${project.prompt}\n\n` +
-              `Current plan:\n${project.result ?? "(none yet)"}\n\n` +
-              `Conversation so far:\n${(history ?? [])
-                .map((m) => `${m.role}: ${m.content}`)
-                .join("\n\n")}\n\n` +
-              `Latest user request:\n${data.content}\n\n` +
-              `Assistant reply:\n${buffer}\n\n` +
-              `Now write the full updated plan in markdown.`,
-          },
-        ];
+        const codeGenPrompt = await import("@/lib/code-gen").then(m => m.CODE_GEN_SYSTEM_PROMPT);
+        const rewritePrompt =
+          `App idea: ${project.prompt}\n\n` +
+          `Current app JSON:\n${project.result ?? "(none yet)"}\n\n` +
+          `Conversation so far:\n${(history ?? [])
+            .map((m) => `${m.role}: ${m.content}`)
+            .join("\n\n")}\n\n` +
+          `Latest user request:\n${data.content}\n\n` +
+          `Assistant reply:\n${buffer}\n\n` +
+          `Now generate the COMPLETE updated mobile app as a JSON object. Include ALL screens and elements, reflecting the latest changes.`;
 
-        const rewriteRes = await fetch(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${key}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: modelId,
-              messages: rewriteMessages,
-              stream: false,
-            }),
-          },
-        );
+        const rewriteResult = await callAI(codeGenPrompt, rewritePrompt, project.model);
 
-        if (!rewriteRes.ok) {
-          const body = await rewriteRes.text();
+        if (!rewriteResult.ok) {
           console.error("[project-chat] plan rewrite failed", {
             projectId: project.id,
-            status: rewriteRes.status,
-            body: body.slice(0, 400),
+            error: rewriteResult.error,
           });
         } else {
-          const json = (await rewriteRes.json()) as {
-            choices?: { message?: { content?: string } }[];
-          };
-          const rewritten = json.choices?.[0]?.message?.content?.trim() ?? "";
-          const nextResult = rewritten.length >= 50 ? rewritten : buffer.trim();
+          const nextResult = rewriteResult.text.length >= 50 ? rewriteResult.text : buffer.trim();
 
           const { error: updateErr } = await supabase
             .from("projects")
