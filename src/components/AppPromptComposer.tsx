@@ -1,13 +1,56 @@
 import { useState } from "react";
-import { Image as ImageIcon, Send, ChevronDown } from "lucide-react";
+import { Image as ImageIcon, Send, ChevronDown, Loader2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Journal"];
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
 
+function deriveName(prompt: string): string {
+  const trimmed = prompt.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "Untitled app";
+  const firstLine = trimmed.split(/[.\n]/)[0];
+  const words = firstLine.split(" ").slice(0, 6).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function AppPromptComposer() {
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(MODELS[0]);
   const [modelOpen, setModelOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    const text = prompt.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setError("You must be signed in.");
+      setSubmitting(false);
+      return;
+    }
+    const { data, error: insertError } = await supabase
+      .from("projects")
+      .insert({
+        user_id: u.user.id,
+        name: deriveName(text),
+        prompt: text,
+        model,
+        status: "building",
+      })
+      .select("id")
+      .single();
+    if (insertError || !data) {
+      setError(insertError?.message ?? "Failed to create project");
+      setSubmitting(false);
+      return;
+    }
+    navigate({ to: "/projects/$projectId", params: { projectId: data.id } });
+  }
 
   return (
     <section className="relative">
@@ -34,10 +77,20 @@ export function AppPromptComposer() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             placeholder="recipe finder app"
             rows={6}
-            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
+            disabled={submitting}
+            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none disabled:opacity-60"
           />
+          {error && (
+            <p className="mt-2 text-sm text-destructive font-mono">{error}</p>
+          )}
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-6">
             {/* Suggestion chips */}
@@ -99,10 +152,11 @@ export function AppPromptComposer() {
               <button
                 type="button"
                 aria-label="Send"
-                disabled={!prompt.trim()}
+                onClick={handleSubmit}
+                disabled={!prompt.trim() || submitting}
                 className="h-10 w-10 grid place-items-center rounded-full bg-primary text-primary-foreground hover:invert transition-all disabled:opacity-40"
               >
-                <Send className="h-4 w-4" />
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
           </div>
