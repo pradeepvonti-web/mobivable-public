@@ -1965,9 +1965,6 @@ function ProjectPage() {
         </button>
       </nav>
       </div>
-      {sidePanel === "backend" && (
-        <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
-      )}
     </div>
   );
 }
