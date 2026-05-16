@@ -96,6 +96,21 @@ function ProjectPage() {
           <p className="text-lg text-foreground leading-relaxed whitespace-pre-wrap">
             {project.prompt}
           </p>
+          {project.attachments && project.attachments.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {project.attachments.map((a) => (
+                <a
+                  key={a.path}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="h-24 w-24 rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
+                >
+                  <img src={a.url} alt={a.name} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
           <div className="mt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground border-t border-border pt-4">
             Model · {project.model}
           </div>
