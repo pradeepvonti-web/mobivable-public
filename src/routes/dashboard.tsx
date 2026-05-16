@@ -27,6 +27,9 @@ export const Route = createFileRoute("/dashboard")({
     await requireAuth();
   },
   component: DashboardPage,
+  pendingComponent: AuthHydrating,
+  pendingMs: 0,
+  pendingMinMs: 0,
   head: () => ({
     meta: [
       { title: "Dashboard — Mobivable" },
