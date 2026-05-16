@@ -195,6 +195,8 @@ function ProjectPage() {
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    selectedElRef.current?.classList.remove("visual-edit-selected");
+    selectedElRef.current = null;
     setSelectedEl(null);
     setPending([]);
     const tempId = `tmp-${Date.now()}`;
