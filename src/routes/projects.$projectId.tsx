@@ -1234,8 +1234,15 @@ function ProjectPage() {
           </div>
         </div>
         {paneTab === "agents" && (
-          <div className="absolute inset-0 lg:right-[220px] z-10">
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10">
             <AgentWorkspace projectId={projectId} />
+          </div>
+        )}
+        {paneTab === "code" && (
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10 overflow-auto bg-background/95 backdrop-blur p-6">
+            <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words">
+              {project?.result || "// No generated code yet."}
+            </pre>
           </div>
         )}
         {(visualEdit || selectedEl) && (
