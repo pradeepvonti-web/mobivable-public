@@ -250,17 +250,7 @@ function ProjectPage() {
   }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents">("preview");
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "dark";
-    const saved = window.localStorage.getItem("mobivable:theme");
-    if (saved === "light" || saved === "dark") return saved;
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    window.localStorage.setItem("mobivable:theme", theme);
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
   const [userPlan, setUserPlan] = useState<string | null>(null);
