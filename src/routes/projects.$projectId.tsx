@@ -463,8 +463,16 @@ function ProjectPage() {
   async function persistVisualEdits(
     edits: VisualEdit[],
     reorders: Record<string, number[]>,
+    recordHistory = true,
   ) {
     const payload: VisualEditMap = { edits, reorders };
+    if (recordHistory) {
+      const prev: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+      historyPastRef.current.push(prev);
+      if (historyPastRef.current.length > 50) historyPastRef.current.shift();
+      historyFutureRef.current = [];
+      setHistoryTick((t) => t + 1);
+    }
     const { error: upErr } = await supabase
       .from("projects")
       .update({ visual_edits: payload })
@@ -474,6 +482,33 @@ function ProjectPage() {
     } else {
       setProject((p) => (p ? { ...p, visual_edits: payload } : p));
     }
+  }
+
+  async function applyHistorySnapshot(snap: VisualEditMap) {
+    setSelectedEl(null);
+    selectedElRef.current = null;
+    setPreviewKey((k) => k + 1);
+    await persistVisualEdits(snap.edits ?? [], snap.reorders ?? {}, false);
+  }
+
+  async function undoVisualEdit() {
+    const past = historyPastRef.current;
+    if (!past.length) return;
+    const snap = past.pop()!;
+    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+    historyFutureRef.current.push(current);
+    setHistoryTick((t) => t + 1);
+    await applyHistorySnapshot(snap);
+  }
+
+  async function redoVisualEdit() {
+    const future = historyFutureRef.current;
+    if (!future.length) return;
+    const snap = future.pop()!;
+    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
+    historyPastRef.current.push(current);
+    setHistoryTick((t) => t + 1);
+    await applyHistorySnapshot(snap);
   }
 
   if (status !== "authenticated") return <AuthHydrating />;
