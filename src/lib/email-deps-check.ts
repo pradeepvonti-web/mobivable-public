@@ -1,52 +1,66 @@
 /**
- * Startup check: verify that email runtime dependencies are installed.
+ * Startup probe for email queue runtime dependencies.
  *
- * The email queue route (src/routes/lovable/email/queue/process.ts) imports
- * `@lovable.dev/email-js`. If that package is missing from node_modules
- * (e.g. after a fresh clone where `bun install` hasn't run, or if the
- * dependency was accidentally removed from package.json), Vite throws a
- * cryptic "Cannot find module" error deep in a request handler.
+ * The email queue route (src/routes/lovable/email/queue/process.ts) and the
+ * transactional/auth email server routes import several npm packages. If any
+ * are missing, Vite throws a cryptic "Cannot find module" deep inside a
+ * request handler and the preview goes blank.
  *
- * This module probes those packages at server startup and throws a single,
- * actionable error that tells the developer exactly what to run.
+ * This module imports each required package at server startup and logs the
+ * result — so a quick glance at the server logs tells you exactly which
+ * dependency is missing.
  */
 
 const REQUIRED_EMAIL_PACKAGES = [
   "@lovable.dev/email-js",
   "@lovable.dev/webhooks-js",
   "@react-email/components",
+  "@supabase/supabase-js",
 ] as const;
 
-let checked = false;
+type ProbeResult = { pkg: string; ok: boolean; error?: string };
 
-export async function assertEmailDepsInstalled(): Promise<void> {
-  if (checked) return;
-  checked = true;
+let checkPromise: Promise<ProbeResult[]> | null = null;
 
-  const missing: string[] = [];
-  for (const pkg of REQUIRED_EMAIL_PACKAGES) {
-    try {
-      await import(/* @vite-ignore */ pkg);
-    } catch {
-      missing.push(pkg);
+export function assertEmailDepsInstalled(): Promise<ProbeResult[]> {
+  if (checkPromise) return checkPromise;
+
+  checkPromise = (async () => {
+    const results: ProbeResult[] = [];
+    console.log("[email-deps] Probing email queue module imports...");
+
+    for (const pkg of REQUIRED_EMAIL_PACKAGES) {
+      try {
+        await import(/* @vite-ignore */ pkg);
+        console.log(`[email-deps] ✓ ${pkg}`);
+        results.push({ pkg, ok: true });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[email-deps] ✗ ${pkg} — ${message}`);
+        results.push({ pkg, ok: false, error: message });
+      }
     }
-  }
 
-  if (missing.length > 0) {
-    const list = missing.map((p) => `  - ${p}`).join("\n");
-    throw new Error(
-      `[email] Missing required email packages:\n${list}\n\n` +
-        `Install them with:\n` +
-        `  bun add ${missing.join(" ")}\n\n` +
-        `These are required by src/routes/lovable/email/queue/process.ts ` +
-        `and other email server routes.`,
-    );
-  }
+    const missing = results.filter((r) => !r.ok);
+    if (missing.length > 0) {
+      const list = missing.map((r) => `  - ${r.pkg}: ${r.error}`).join("\n");
+      const installCmd = `bun add ${missing.map((r) => r.pkg).join(" ")}`;
+      console.error(
+        `\n[email-deps] ${missing.length} email package(s) failed to import:\n${list}\n\n` +
+          `Fix:\n  ${installCmd}\n\n` +
+          `Then restart the dev server (it should auto-restart when package.json changes).\n`,
+      );
+    } else {
+      console.log(`[email-deps] All ${results.length} email packages loaded successfully.`);
+    }
+
+    return results;
+  })();
+
+  return checkPromise;
 }
 
-// Fire-and-forget at module load so the check runs once at server startup.
-// Errors are surfaced via unhandledRejection / next request rather than
-// silently swallowed.
+// Fire at module load so the probe runs once at server startup.
 void assertEmailDepsInstalled().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
+  console.error("[email-deps] Probe crashed:", err);
 });
