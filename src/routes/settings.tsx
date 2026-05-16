@@ -211,7 +211,7 @@ function SettingsPage() {
               Theme
             </span>
             <div className="inline-flex rounded-lg border border-border p-1 bg-background">
-              {(["light", "dark", "system"] as ThemePref[]).map((t) => (
+              {(["light", "dark"] as ThemePref[]).map((t) => (
                 <button
                   key={t}
                   type="button"
