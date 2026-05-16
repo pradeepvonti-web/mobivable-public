@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { getAdminLoginAudit } from "@/lib/admin.functions";
+import { CheckCircle2, XCircle, RefreshCw, KeyRound, MailCheck } from "lucide-react";
+import { getAdminLoginAudit, getPasswordResetAudit } from "@/lib/admin.functions";
 
 type Entry = {
   id: string;
