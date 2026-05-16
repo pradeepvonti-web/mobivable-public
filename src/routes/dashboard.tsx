@@ -151,6 +151,52 @@ function DashboardPage() {
       <div className="space-y-12 max-w-4xl mx-auto">
         <AppPromptComposer />
 
+        <section className="border border-border p-8">
+          <div className="flex items-baseline justify-between mb-6">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Your apps
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {projects.length} total
+            </p>
+          </div>
+          {loading ? (
+            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
+              [···] Loading
+            </p>
+          ) : projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              No apps yet. Describe one above to get started.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {projects.map((p) => (
+                <Link
+                  key={p.id}
+                  to="/projects/$projectId"
+                  params={{ projectId: p.id }}
+                  className="block border border-border p-5 hover:border-primary transition-colors group"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h3 className="font-display text-lg uppercase tracking-tight group-hover:text-primary truncate">
+                      {p.name || "Untitled"}
+                    </h3>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
+                      {p.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                    {p.prompt}
+                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {new Date(p.updated_at).toLocaleDateString()} · {p.model}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
         {isPastDue && (
           <div className="border border-destructive/50 bg-destructive/10 p-5">
             <p className="font-display text-sm uppercase tracking-wider text-destructive mb-2">
