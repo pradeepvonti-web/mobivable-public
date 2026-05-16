@@ -76,7 +76,7 @@ function DashboardPage() {
   async function load() {
     if (!session?.user) return;
     const env = getPaddleEnvironment();
-    const [{ data: prof }, { data: subRow }] = await Promise.all([
+    const [{ data: prof }, { data: subRow }, { data: projRows }] = await Promise.all([
       supabase.from("profiles").select("display_name, plan").eq("id", session.user.id).maybeSingle(),
       supabase
         .from("subscriptions")
@@ -86,9 +86,15 @@ function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("projects")
+        .select("id, name, prompt, status, model, updated_at")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false }),
     ]);
     setProfile(prof as Profile | null);
     setSub(subRow as Sub | null);
+    setProjects((projRows as ProjectRow[] | null) ?? []);
     setLoading(false);
   }
 
