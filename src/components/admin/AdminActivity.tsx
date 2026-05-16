@@ -132,6 +132,124 @@ export function AdminActivity() {
           </table>
         </div>
       </div>
+
+      <PasswordResetSection />
+    </div>
+  );
+}
+
+type ResetEntry = {
+  id: string;
+  user_id: string | null;
+  email: string;
+  event: "request" | "complete";
+  ip: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+function PasswordResetSection() {
+  const fetchFn = useServerFn(getPasswordResetAudit);
+  const [entries, setEntries] = useState<ResetEntry[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchFn();
+      setEntries(res.entries);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load password resets");
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const requests = entries?.filter((e) => e.event === "request").length ?? 0;
+  const completes = entries?.filter((e) => e.event === "complete").length ?? 0;
+
+  return (
+    <div className="space-y-4 pt-4 border-t border-border">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Password Resets</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Reset link requests and successful completions (latest 100).
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs hover:bg-muted/40 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Kpi label="Total" value={entries?.length ?? 0} />
+        <Kpi label="Requested" value={requests} />
+        <Kpi label="Completed" value={completes} tone="ok" />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              <tr>
+                <th className="text-left px-4 py-3">When</th>
+                <th className="text-left px-4 py-3">Event</th>
+                <th className="text-left px-4 py-3">Email</th>
+                <th className="text-left px-4 py-3">User ID</th>
+                <th className="text-left px-4 py-3">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && !entries ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-destructive">{error}</td></tr>
+              ) : !entries || entries.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No password reset events recorded yet.</td></tr>
+              ) : (
+                entries.map((e) => (
+                  <tr key={e.id} className="border-t border-border/60 align-top">
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                      {new Date(e.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {e.event === "complete" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5 text-[11px] font-medium">
+                          <MailCheck className="h-3 w-3" /> Completed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-500 px-2 py-0.5 text-[11px] font-medium">
+                          <KeyRound className="h-3 w-3" /> Requested
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{e.email}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                      {e.user_id ? e.user_id.slice(0, 8) + "…" : "—"}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                      {e.ip ?? "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
