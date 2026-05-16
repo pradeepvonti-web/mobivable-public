@@ -1102,6 +1102,97 @@ function ProjectPage() {
               <div
                 ref={previewRootRef}
                 className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
+                onDragStartCapture={(e) => {
+                  const t = e.target as HTMLElement;
+                  if (t !== selectedElRef.current) {
+                    e.preventDefault();
+                    return;
+                  }
+                  dragSrcRef.current = t;
+                  e.dataTransfer.effectAllowed = "move";
+                  try {
+                    e.dataTransfer.setData("text/plain", "visual-edit");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                onDragOverCapture={(e) => {
+                  const src = dragSrcRef.current;
+                  if (!src) return;
+                  const t = e.target as HTMLElement;
+                  if (t === src || !src.parentElement) return;
+                  const overSibling = t.parentElement === src.parentElement;
+                  const overParent = t === src.parentElement;
+                  if (!overSibling && !overParent) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  document
+                    .querySelectorAll(".visual-edit-drop")
+                    .forEach((n) => n.classList.remove("visual-edit-drop"));
+                  if (overSibling) t.classList.add("visual-edit-drop");
+                }}
+                onDragLeaveCapture={(e) => {
+                  (e.target as HTMLElement).classList?.remove("visual-edit-drop");
+                }}
+                onDropCapture={(e) => {
+                  const src = dragSrcRef.current;
+                  if (!src || !src.parentElement) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const root = previewRootRef.current;
+                  if (!root) return;
+                  document
+                    .querySelectorAll(".visual-edit-drop")
+                    .forEach((n) => n.classList.remove("visual-edit-drop"));
+                  const t = e.target as HTMLElement;
+                  const parent = src.parentElement;
+                  const oldChildren = Array.from(parent.children) as HTMLElement[];
+                  if (t === parent) {
+                    parent.appendChild(src);
+                  } else if (t.parentElement === parent && t !== src) {
+                    const rect = t.getBoundingClientRect();
+                    const vertical = rect.height >= rect.width;
+                    const before = vertical
+                      ? e.clientY < rect.top + rect.height / 2
+                      : e.clientX < rect.left + rect.width / 2;
+                    parent.insertBefore(src, before ? t : t.nextSibling);
+                  } else {
+                    dragSrcRef.current = null;
+                    return;
+                  }
+                  const newChildren = Array.from(parent.children) as HTMLElement[];
+                  const newIndex = newChildren.indexOf(src);
+                  // Remap edits paths under this parent
+                  const parentPath = getPath(parent, root);
+                  if (parentPath) {
+                    const idxMap = new Map<number, number>();
+                    newChildren.forEach((c, i) => {
+                      idxMap.set(oldChildren.indexOf(c), i);
+                    });
+                    const remapped = visualEditsRef.current.map((ed) => {
+                      if (ed.path.length <= parentPath.length) return ed;
+                      for (let i = 0; i < parentPath.length; i++) {
+                        if (ed.path[i] !== parentPath[i]) return ed;
+                      }
+                      const np = [...ed.path];
+                      const m = idxMap.get(ed.path[parentPath.length]);
+                      if (m !== undefined) np[parentPath.length] = m;
+                      return { ...ed, path: np };
+                    });
+                    visualEditsRef.current = remapped;
+                    // Record permutation of original indices for this parent
+                    const order = newChildren.map((c) => Number(c.dataset.origIdx ?? 0));
+                    reordersRef.current = {
+                      ...reordersRef.current,
+                      [pathKey(parentPath)]: order,
+                    };
+                    setSelectedEl((s) =>
+                      s ? { ...s, path: [...parentPath, newIndex] } : s,
+                    );
+                    void persistVisualEdits(visualEditsRef.current, reordersRef.current);
+                  }
+                  dragSrcRef.current = null;
+                }}
                 onClickCapture={(e) => {
                   if (!visualEdit) return;
                   e.preventDefault();
@@ -1111,8 +1202,12 @@ function ProjectPage() {
                   if (!root) return;
                   const path = getPath(t, root);
                   if (!path) return;
-                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  if (selectedElRef.current) {
+                    selectedElRef.current.classList.remove("visual-edit-selected");
+                    selectedElRef.current.removeAttribute("draggable");
+                  }
                   t.classList.add("visual-edit-selected");
+                  t.setAttribute("draggable", "true");
                   selectedElRef.current = t;
                   const cls = (t.className?.toString() || "")
                     .split(/\s+/)
