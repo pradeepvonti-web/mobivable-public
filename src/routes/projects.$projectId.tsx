@@ -442,6 +442,7 @@ function ProjectPage() {
     if (!cls.includes("visual-edit-selected")) cls.push("visual-edit-selected");
     const next = cls.join(" ");
     if (el.className !== next) el.className = next;
+  }, [editClasses, selectedEl]);
 
   async function saveEdit() {
     if (!selectedEl || !selectedElRef.current) return;
