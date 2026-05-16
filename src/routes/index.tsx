@@ -1,26 +1,202 @@
 import { createFileRoute } from "@tanstack/react-router";
+import appPreview from "@/assets/app-preview.jpg";
+import featureBackend from "@/assets/feature-backend.jpg";
+import featureNative from "@/assets/feature-native.jpg";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "Mobivable — Chat your mobile app into the App Stores" },
+      {
+        name: "description",
+        content:
+          "Mobivable democratizes mobile app creation with AI. Go from idea to App Store and Google Play in minutes — just by chatting.",
+      },
+      { property: "og:title", content: "Mobivable — AI no-code mobile app builder" },
+      {
+        property: "og:description",
+        content:
+          "Describe your app. Mobivable's AI ships it to the App Store and Google Play in minutes.",
+      },
+    ],
+  }),
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
+      {/* Header */}
+      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-6 bg-primary rounded-sm" />
+            <span className="font-display text-2xl tracking-tighter uppercase">Mobivable</span>
+          </div>
+          <div className="hidden md:flex gap-8 text-xs font-mono uppercase tracking-widest text-muted">
+            <a href="#engine" className="hover:text-primary transition-colors">Engine</a>
+            <a href="#process" className="hover:text-primary transition-colors">Process</a>
+            <a href="#infrastructure" className="hover:text-primary transition-colors">Infrastructure</a>
+          </div>
+          <button className="px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
+            Deploy Now
+          </button>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <header id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-primary" />
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-px bg-primary" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7 z-10 animate-reveal">
+            <div className="inline-block px-2 py-1 border border-primary text-primary text-[10px] font-mono uppercase tracking-[0.2em] mb-6">
+              AI Development Protocol v4.0
+            </div>
+            <h1 className="font-display text-7xl md:text-9xl uppercase leading-[0.85] tracking-tighter text-balance mb-8">
+              Chat. <span className="text-primary">Ship.</span>
+              <br />
+              Dominate.
+            </h1>
+            <p className="text-xl text-muted max-w-[45ch] text-pretty leading-relaxed mb-10">
+              Democratize mobile app creation with AI. Transform raw ideas into native iOS and
+              Android binaries through a single conversational thread.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col gap-1">
+                <button className="px-8 py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all">
+                  Start Generating
+                </button>
+                <span className="text-[10px] font-mono text-muted uppercase text-center mt-2">
+                  Free during beta
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-5 relative animate-reveal [animation-delay:200ms]">
+            <div className="relative bg-card/40 border border-border p-4 rounded-xl backdrop-blur-sm">
+              <div className="space-y-4 font-mono text-xs">
+                <div className="p-3 bg-foreground/5 border border-foreground/10 rounded-lg text-primary">
+                  <span className="opacity-50">USR:</span> Build a luxury real estate app with high-res
+                  galleries and dark mode.
+                </div>
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <span className="text-primary">SYS:</span> Compiling UI components... Injecting
+                  gallery modules... App Store metadata generated.
+                </div>
+              </div>
+              <div className="mt-6 relative group">
+                <img
+                  src={appPreview}
+                  alt="Live preview of a luxury real estate app generated by Mobivable"
+                  width={1080}
+                  height={1920}
+                  className="w-full aspect-[9/16] object-cover rounded-lg outline outline-1 -outline-offset-1 outline-foreground/10 group-hover:outline-primary/50 transition-all"
+                />
+                <span className="absolute bottom-3 left-3 text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/70 bg-background/60 px-2 py-1 rounded">
+                  Live Preview: RealState_App_v1
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Process */}
+      <section id="process" className="py-24 border-b border-border">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
+            {[
+              { n: "01", t: "Describe", d: "Converse with our LLM-backed architect. Define features, styling, and logic in plain English." },
+              { n: "02", t: "Refine", d: "Mobivable generates high-fidelity screens instantly. Tweak layouts and branding in the real-time preview." },
+              { n: "03", t: "Launch", d: "One-click submission to App Store and Google Play. We handle the binaries, screenshots, and certification." },
+            ].map((s, i) => (
+              <div
+                key={s.n}
+                className={`p-8 ${i < 2 ? "md:border-r border-border" : ""} animate-reveal`}
+                style={{ animationDelay: `${300 + i * 100}ms` }}
+              >
+                <span className="font-display text-4xl text-primary mb-4 block">{s.n}</span>
+                <h3 className="font-display text-2xl uppercase mb-3">{s.t}</h3>
+                <p className="text-sm text-muted leading-relaxed">{s.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Infrastructure */}
+      <section id="infrastructure" className="py-24">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+            <h2 className="font-display text-5xl uppercase tracking-tighter">Core Infrastructure</h2>
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              Status: <span className="text-primary">Operational</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="group">
+              <img
+                src={featureBackend}
+                alt="Automated backend generation visualized as code nodes"
+                width={1200}
+                height={800}
+                loading="lazy"
+                className="w-full aspect-video object-cover border border-border rounded-sm mb-6 group-hover:border-primary/40 transition-colors"
+              />
+              <h4 className="font-display text-xl uppercase mb-2">Self-Healing Logic</h4>
+              <p className="text-sm text-muted max-w-[50ch]">
+                AI doesn't just build the UI; it scaffolds your database, authentication, and API
+                endpoints automatically.
+              </p>
+            </div>
+            <div className="group">
+              <img
+                src={featureNative}
+                alt="App Store published badge close up"
+                width={1200}
+                height={800}
+                loading="lazy"
+                className="w-full aspect-video object-cover border border-border rounded-sm mb-6 group-hover:border-primary/40 transition-colors"
+              />
+              <h4 className="font-display text-xl uppercase mb-2">Native Performance</h4>
+              <p className="text-sm text-muted max-w-[50ch]">
+                No wrappers. No lag. Mobivable compiles to Swift and Kotlin for true native 120fps
+                fluid performance.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <footer className="bg-primary text-background py-24 px-6 overflow-hidden relative">
+        <div className="absolute top-0 right-0 font-display text-[20vw] leading-none opacity-10 pointer-events-none translate-x-1/4 -translate-y-1/4">
+          SHIP
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <h2 className="font-display text-6xl md:text-8xl uppercase tracking-tighter leading-none mb-12">
+            From idea to <br />
+            App Store{" "}
+            <span className="underline decoration-4 underline-offset-8">today</span>.
+          </h2>
+          <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
+            <button className="px-12 py-6 bg-background text-primary font-display text-2xl uppercase hover:scale-105 transition-transform">
+              Initialize Build
+            </button>
+            <div className="font-mono text-xs uppercase tracking-widest text-background/80">
+              [0] No Credit Card Required <br />
+              [1] Unlimited AI Iterations <br />
+              [2] Global CDN Deployment
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
-}
-
-function Index() {
-  return <PlaceholderIndex />;
 }
