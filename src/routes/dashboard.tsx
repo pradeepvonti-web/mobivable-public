@@ -8,6 +8,7 @@ import {
   openCustomerPortal,
   changeSubscriptionPlan,
 } from "@/utils/payments.functions";
+import { AppPromptComposer } from "@/components/AppPromptComposer";
 
 type Sub = {
   status: string;
@@ -128,7 +129,9 @@ function DashboardPage() {
       title={profile?.display_name ? `Hello, ${profile.display_name}` : "Your Dashboard"}
       intro="Manage your subscription, change plans, and update billing."
     >
-      <div className="space-y-8 max-w-3xl">
+      <div className="space-y-12 max-w-4xl mx-auto">
+        <AppPromptComposer />
+
         {isPastDue && (
           <div className="border border-destructive/50 bg-destructive/10 p-5">
             <p className="font-display text-sm uppercase tracking-wider text-destructive mb-2">
