@@ -1,0 +1,75 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`BrandMark > matches snapshot across every size/active combination (dark) 1`] = `
+[
+  {
+    "html": "<span aria-hidden="true" class="size-2.5 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "xs-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-2.5 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "xs-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-3 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "sm-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-3 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "sm-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-6 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "md-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-6 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "md-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-10 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "lg-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-10 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "lg-inactive",
+  },
+]
+`;
+
+exports[`BrandMark > matches snapshot across every size/active combination (light) 1`] = `
+[
+  {
+    "html": "<span aria-hidden="true" class="size-2.5 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "xs-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-2.5 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "xs-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-3 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "sm-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-3 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "sm-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-6 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "md-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-6 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "md-inactive",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-10 rounded-sm shrink-0 bg-primary "></span>",
+    "key": "lg-active",
+  },
+  {
+    "html": "<span aria-hidden="true" class="size-10 rounded-sm shrink-0 bg-muted-foreground/40 "></span>",
+    "key": "lg-inactive",
+  },
+]
+`;
