@@ -101,8 +101,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     }
 
     const modelId = MODEL_MAP[project.model] ?? "google/gemini-3-flash-preview";
+    const agent = data.agentRole ? AGENTS[data.agentRole] : null;
+    const systemPrompt = agent
+      ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project. Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful.`
+      : DEFAULT_SYSTEM;
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       {
         role: "system",
         content: `App idea: ${project.prompt}${project.result ? `\n\nInitial plan:\n${project.result}` : ""}`,
