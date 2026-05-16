@@ -106,3 +106,28 @@
   outline-offset: -2px !important;
   background-color: color-mix(in oklab, var(--color-primary) 10%, transparent) !important;
 }
+
+.visual-edit-selected {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: -2px !important;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 25%, transparent),
+              0 0 24px color-mix(in oklab, var(--color-primary) 40%, transparent) !important;
+  position: relative;
+}
+.visual-edit-selected::after {
+  content: "Selected";
+  position: absolute;
+  top: -22px;
+  left: -2px;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+}

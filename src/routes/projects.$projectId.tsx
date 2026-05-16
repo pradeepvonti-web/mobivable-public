@@ -80,6 +80,7 @@ function ProjectPage() {
   const [modeOpen, setModeOpen] = useState(false);
   const [visualEdit, setVisualEdit] = useState(false);
   const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
+  const selectedElRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -194,6 +195,8 @@ function ProjectPage() {
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    selectedElRef.current?.classList.remove("visual-edit-selected");
+    selectedElRef.current = null;
     setSelectedEl(null);
     setPending([]);
     const tempId = `tmp-${Date.now()}`;
@@ -511,7 +514,11 @@ function ProjectPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedEl(null)}
+                onClick={() => {
+                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  selectedElRef.current = null;
+                  setSelectedEl(null);
+                }}
                 className="text-muted-foreground hover:text-foreground shrink-0"
                 aria-label="Clear selection"
               >
@@ -722,6 +729,9 @@ function ProjectPage() {
                   e.preventDefault();
                   e.stopPropagation();
                   const t = e.target as HTMLElement;
+                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  t.classList.add("visual-edit-selected");
+                  selectedElRef.current = t;
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: (t.innerText || "").trim().slice(0, 80),
