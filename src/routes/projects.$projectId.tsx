@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
 
+type Attachment = { path: string; url: string; name: string };
+
 type Project = {
   id: string;
   name: string;
@@ -10,6 +12,7 @@ type Project = {
   model: string;
   status: string;
   created_at: string;
+  attachments: Attachment[] | null;
 };
 
 export const Route = createFileRoute("/projects/$projectId")({
