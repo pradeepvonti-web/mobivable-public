@@ -668,6 +668,8 @@ function ProjectPage() {
                 : m,
             ),
           );
+        } else if (event.type === "project_updated") {
+          await reloadProject();
         }
       }
       if (cancelRef.current) {
