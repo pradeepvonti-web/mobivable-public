@@ -108,8 +108,15 @@ function ProjectPage() {
   const [mode, setMode] = useState<"build" | "plan">("build");
   const [modeOpen, setModeOpen] = useState(false);
   const [visualEdit, setVisualEdit] = useState(false);
-  const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
+  const [selectedEl, setSelectedEl] = useState<
+    { tag: string; text: string; classes: string; path: number[] } | null
+  >(null);
+  const [editText, setEditText] = useState("");
+  const [editClasses, setEditClasses] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
+  const previewRootRef = useRef<HTMLDivElement | null>(null);
+  const visualEditsRef = useRef<VisualEdit[]>([]);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
