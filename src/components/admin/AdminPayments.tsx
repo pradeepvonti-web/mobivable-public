@@ -39,10 +39,10 @@ export function AdminPayments() {
   if (!data) return <p className="text-destructive text-sm">Failed to load payments.</p>;
 
   const kpis = [
-    { label: "Active Subscriptions", value: data.activeCount, icon: CheckCircle2, color: "from-primary to-primary/70" },
-    { label: "Live Subscriptions", value: data.liveCount, icon: Radio, color: "from-primary to-primary/70" },
-    { label: "Test Subscriptions", value: data.sandboxCount, icon: FlaskConical, color: "from-primary to-primary/70" },
-    { label: "Canceled", value: data.canceledCount, icon: XCircle, color: "from-primary to-primary/70" },
+    { label: "Active Subscriptions", value: data.activeCount, icon: CheckCircle2 },
+    { label: "Live Subscriptions", value: data.liveCount, icon: Radio },
+    { label: "Test Subscriptions", value: data.sandboxCount, icon: FlaskConical },
+    { label: "Canceled", value: data.canceledCount, icon: XCircle },
   ];
 
   return (
@@ -60,8 +60,8 @@ export function AdminPayments() {
           <div key={c.label} className="rounded-lg border border-border bg-card p-5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{c.label}</span>
-              <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${c.color} grid place-items-center`}>
-                <c.icon className="h-4 w-4 text-primary-foreground" />
+              <div className="size-7 bg-primary rounded-sm grid place-items-center">
+                <c.icon className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
             </div>
             <p className="font-display uppercase text-2xl tracking-tight">{c.value}</p>
