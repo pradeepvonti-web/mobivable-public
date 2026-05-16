@@ -1508,10 +1508,46 @@ function ProjectPage() {
           </div>
         )}
         {paneTab === "code" && (
-          <div className="absolute inset-0 top-20 lg:right-[220px] z-10 overflow-auto bg-background/95 backdrop-blur p-6">
-            <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words">
-              {project?.result || "// No generated code yet."}
-            </pre>
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10 overflow-auto bg-background/95 backdrop-blur p-6 space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs uppercase tracking-widest text-muted-foreground">app.json (auto-generated)</h3>
+                <span className="text-[10px] text-muted-foreground">
+                  {appAssets.icon || appAssets.splash ? "linked to your selected assets" : "using defaults — upload assets to override"}
+                </span>
+              </div>
+              <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words rounded-md border border-border bg-card/50 p-4">
+{JSON.stringify(
+  {
+    expo: {
+      name: project?.name ?? "My App",
+      slug: ((project?.name ?? "my-app").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "")) || "my-app",
+      icon: appAssets.icon ?? "./assets/icon.png",
+      splash: {
+        image: appAssets.splash ?? "./assets/splash.png",
+        resizeMode: "contain",
+        backgroundColor: "#ffffff",
+      },
+      android: {
+        adaptiveIcon: {
+          foregroundImage: appAssets.icon ?? "./assets/adaptive-icon.png",
+          backgroundColor: "#ffffff",
+        },
+      },
+      ios: { icon: appAssets.icon ?? "./assets/icon.png" },
+    },
+  },
+  null,
+  2,
+)}
+              </pre>
+            </div>
+            <div>
+              <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Generated source</h3>
+              <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words">
+                {project?.result || "// No generated code yet."}
+              </pre>
+            </div>
           </div>
         )}
         {(visualEdit || selectedEl) && (
