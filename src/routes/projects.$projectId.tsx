@@ -726,7 +726,135 @@ function ProjectPage() {
   const isFailed = !!project && project.status === "failed";
 
   return (
-    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col lg:flex-row pb-16 lg:pb-0">
+    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col">
+      {/* Top header bar */}
+      <header className="shrink-0 h-14 border-b border-border bg-background flex items-center gap-3 px-3 lg:px-4">
+        <Link
+          to="/dashboard"
+          className="h-9 w-9 grid place-items-center rounded-md hover:bg-muted/50 transition-colors"
+          aria-label="Back to dashboard"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <button
+          type="button"
+          className="h-9 w-9 grid place-items-center rounded-md hover:bg-muted/50 transition-colors"
+          aria-label="Menu"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-7 w-7 rounded-full bg-primary/20 grid place-items-center shrink-0">
+            <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+          </div>
+          <h1 className="font-display text-base lg:text-lg tracking-tight truncate">
+            {project?.name ?? "Loading…"}
+          </h1>
+        </div>
+
+        <div className="ml-auto flex items-center gap-1.5 lg:gap-2">
+          <button
+            type="button"
+            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full bg-primary text-primary-foreground text-xs lg:text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            Upgrade
+          </button>
+          <button
+            type="button"
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </button>
+          <button
+            type="button"
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Publish
+          </button>
+          <button
+            type="button"
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </button>
+
+          {/* Theme toggle */}
+          <div className="ml-1 flex items-center rounded-full border border-border p-0.5">
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              aria-label="Light theme"
+              aria-pressed={theme === "light"}
+              className={`h-7 w-7 grid place-items-center rounded-full transition-colors ${
+                theme === "light" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sun className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              aria-label="Dark theme"
+              aria-pressed={theme === "dark"}
+              className={`h-7 w-7 grid place-items-center rounded-full transition-colors ${
+                theme === "dark" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Moon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* User menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((v) => !v)}
+              className="flex items-center gap-2 h-9 pl-1 pr-2 rounded-full border border-border hover:bg-muted/50 transition-colors"
+            >
+              <span className="h-6 w-6 rounded-full bg-primary/20 text-primary grid place-items-center text-[11px] font-semibold uppercase">
+                {(userEmail[0] ?? "U")}
+              </span>
+              <span className="hidden sm:inline text-xs font-medium truncate max-w-[100px]">
+                {userEmail ? userEmail.split("@")[0] : "Account"}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            {userMenuOpen && (
+              <div
+                className="absolute right-0 top-11 z-50 w-56 rounded-lg border border-border bg-card shadow-lg p-1"
+                onMouseLeave={() => setUserMenuOpen(false)}
+              >
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-xs text-muted-foreground">Signed in as</p>
+                  <p className="text-sm font-medium truncate">{userEmail || "—"}</p>
+                </div>
+                <Link
+                  to="/dashboard"
+                  className="block px-3 py-2 text-sm rounded-md hover:bg-muted/50"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = "/login";
+                  }}
+                  className="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-muted/50"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 w-full lg:overflow-hidden flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Left rail */}
       <aside className="hidden lg:flex w-60 shrink-0 border-r border-border flex-col">
         <div className="p-4 border-b border-border flex items-center gap-2">
