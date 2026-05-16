@@ -168,6 +168,7 @@ function ProjectPage() {
   const [editStyles, setEditStyles] = useState<VisualStyles>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
+  const selectedOrigRef = useRef<{ text: string; classes: string; styles: VisualStyles } | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
@@ -993,25 +994,64 @@ function ProjectPage() {
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
         {(visualEdit || selectedEl) && (
           <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MousePointerClick className="h-4 w-4 text-primary" />
+            <div className="p-4 border-b border-border flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <MousePointerClick className="h-4 w-4 text-primary shrink-0" />
                 <h2 className="font-display text-xs uppercase tracking-wider">Inspector</h2>
               </div>
-              {selectedEl && (
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    selectedElRef.current?.classList.remove("visual-edit-selected");
-                    selectedElRef.current?.removeAttribute("draggable");
-                    selectedElRef.current = null;
-                    setSelectedEl(null);
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={undoVisualEdit}
+                  disabled={historyPastRef.current.length === 0}
+                  title="Undo"
+                  aria-label="Undo"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                 >
-                  Clear
+                  <Undo2 className="h-3.5 w-3.5" />
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={redoVisualEdit}
+                  disabled={historyFutureRef.current.length === 0}
+                  title="Redo"
+                  aria-label="Redo"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </button>
+                {selectedEl && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const orig = selectedOrigRef.current;
+                        if (!orig) return;
+                        setEditText(orig.text);
+                        setEditClasses(orig.classes);
+                        setEditStyles({ ...orig.styles });
+                      }}
+                      title="Revert to last saved"
+                      className="ml-1 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    >
+                      Revert
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectedElRef.current?.classList.remove("visual-edit-selected");
+                        selectedElRef.current?.removeAttribute("draggable");
+                        selectedElRef.current = null;
+                        selectedOrigRef.current = null;
+                        setSelectedEl(null);
+                      }}
+                      className="ml-1 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {!selectedEl ? (
@@ -1450,6 +1490,17 @@ function ProjectPage() {
                     fontSize:
                       persisted?.styles?.fontSize ?? `${pxNum(cs.fontSize)}px`,
                   });
+                  selectedOrigRef.current = {
+                    text: persisted?.text ?? txt,
+                    classes: persisted?.classes ?? cls,
+                    styles: {
+                      background: persisted?.styles?.background ?? "",
+                      borderColor: persisted?.styles?.borderColor ?? "",
+                      borderWidth: persisted?.styles?.borderWidth ?? "",
+                      padding: persisted?.styles?.padding ?? "",
+                      fontSize: persisted?.styles?.fontSize ?? "",
+                    },
+                  };
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: txt.trim().slice(0, 80),
