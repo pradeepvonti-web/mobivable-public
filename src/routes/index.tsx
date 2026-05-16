@@ -293,17 +293,31 @@ function Index() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/signup"
-                  search={{ plan: p.plan }}
-                  className={`block text-center w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
-                    p.featured
-                      ? "bg-primary text-background hover:invert"
-                      : "border border-border hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  {p.cta}
-                </Link>
+                {p.plan === "free_beta" ? (
+                  <Link
+                    to="/signup"
+                    search={{ plan: p.plan }}
+                    className={`block text-center w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
+                      p.featured
+                        ? "bg-primary text-background hover:invert"
+                        : "border border-border hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {p.cta}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/checkout"
+                    search={{ plan: p.plan, cadence: billing }}
+                    className={`block text-center w-full py-4 font-display text-base uppercase tracking-wider transition-all ${
+                      p.featured
+                        ? "bg-primary text-background hover:invert"
+                        : "border border-border hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {p.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
