@@ -2843,6 +2843,57 @@ function AssetCard({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const runGenerate = useServerFn(generateAsset);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  async function uploadBlob(blob: Blob, ext: "png" | "jpg") {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) throw new Error("Not signed in");
+    const path = `${uid}/${projectId}/${kind}.${ext}`;
+    await supabase.storage
+      .from("project-attachments")
+      .remove([`${uid}/${projectId}/${kind}.png`, `${uid}/${projectId}/${kind}.jpg`]);
+    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    const { error: upErr } = await supabase.storage
+      .from("project-attachments")
+      .upload(path, blob, { upsert: true, contentType });
+    if (upErr) throw new Error(upErr.message);
+    const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+    onUploaded(`${pub.publicUrl}?t=${Date.now()}`);
+  }
+
+  async function handleGenerate() {
+    setErr(null);
+    const prompt = aiPrompt.trim();
+    if (prompt.length < 3) {
+      setErr("Describe what to generate (at least 3 characters)");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await runGenerate({ data: { kind, prompt } });
+      if (!res.ok) throw new Error(res.error);
+      const dataUrl = res.dataUrl;
+      const match = /^data:(image\/(png|jpe?g));base64,(.+)$/.exec(dataUrl);
+      if (!match) throw new Error("Unsupported image format");
+      const mime = match[1];
+      const ext: "png" | "jpg" = mime === "image/png" ? "png" : "jpg";
+      const bin = atob(match[3]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      await uploadBlob(new Blob([bytes], { type: mime }), ext);
+      setAiOpen(false);
+      setAiPrompt("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
 
   async function handleFile(file: File) {
     setErr(null);
