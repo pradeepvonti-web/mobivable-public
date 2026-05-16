@@ -519,6 +519,41 @@ function ProjectPage() {
               </button>
             </div>
           )}
+          {pending.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {pending.map((a, i) => (
+                <div
+                  key={a.url}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-2 py-1.5 text-xs"
+                >
+                  {a.type.startsWith("image/") ? (
+                    <img src={a.url} alt={a.name} className="h-8 w-8 rounded object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 grid place-items-center rounded bg-muted text-muted-foreground">
+                      <Plus className="h-3 w-3 rotate-45" />
+                    </div>
+                  )}
+                  <span className="max-w-[140px] truncate">{a.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${a.name}`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.txt,.md,.json,.csv"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
           <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
             <textarea
               value={input}
@@ -538,10 +573,12 @@ function ProjectPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || sending}
                   aria-label="Add attachment"
-                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
                 >
-                  <Plus className="h-4 w-4" />
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </button>
                 <button
                   type="button"
