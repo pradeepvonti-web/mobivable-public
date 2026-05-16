@@ -1,6 +1,39 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageShell } from "@/components/PageShell";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+const FAQS = [
+  {
+    q: "How does billing work?",
+    a: "Subscriptions are billed via Paddle on the cadence you select at checkout — monthly or yearly. Yearly plans are charged upfront and save roughly 20% versus paying month-to-month. Your card is charged automatically at the start of each billing period, and every payment generates a tax-compliant invoice emailed to you.",
+  },
+  {
+    q: "What's your refund policy?",
+    a: "We offer a 14-day money-back guarantee on first-time purchases of any paid plan — email support and we'll process a full refund through Paddle, no questions asked. Renewals after the first period are non-refundable, but you can cancel at any time to stop future charges.",
+  },
+  {
+    q: "How many apps can I publish on each plan?",
+    a: "Free includes 1 published app with a Lovable subdomain. Starter raises the limit to 5 published apps with custom domains. Pro is unlimited published apps, white-label deploys, and priority build infrastructure. Draft and unpublished projects don't count toward the limit on any plan.",
+  },
+  {
+    q: "What happens when I upgrade my plan?",
+    a: "Upgrades take effect immediately. You'll be charged a prorated amount for the remainder of the current billing period at the new rate, and all higher-tier features unlock right away — no redeploy required.",
+  },
+  {
+    q: "What happens when I downgrade or cancel?",
+    a: "Downgrades and cancellations take effect at the end of your current billing period, so you keep access to paid features until then. If you exceed the new plan's app limit, existing published apps stay live but you won't be able to publish new ones until you're back within the quota.",
+  },
+  {
+    q: "Can I switch between monthly and yearly?",
+    a: "Yes. Switching from monthly to yearly applies immediately with proration. Switching from yearly to monthly takes effect at the next renewal so you get the full value of the year you already paid for.",
+  },
+];
 
 type PlanValue = "free_beta" | "starter" | "pro";
 
