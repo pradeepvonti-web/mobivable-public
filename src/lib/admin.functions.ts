@@ -73,7 +73,96 @@ async function assertAdmin(supabase: any, userId: string) {
   if (!data) throw new Error("Forbidden: admin role required");
 }
 
-// ─── Dashboard Stats ────────────────────────────────────────────
+// ─── Admin Login Audit ──────────────────────────────────────────
+function svcClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+/** Log an admin authentication attempt. Public (called from the login form).
+ *  Only persists a row when the email belongs to an admin user, so the audit
+ *  table can't be flooded with random failed logins from non-admin emails. */
+export const logAdminLoginAttempt = createServerFn({ method: "POST" })
+  .inputValidator((input: { email: string; success: boolean; reason?: string }) => {
+    const email = String(input?.email ?? "").trim().toLowerCase();
+    if (!email || email.length > 320) throw new Error("Invalid email");
+    const reason = input?.reason ? String(input.reason).slice(0, 200) : null;
+    return { email, success: !!input?.success, reason };
+  })
+  .handler(async ({ data }) => {
+    const svc = svcClient();
+    if (!svc) return { ok: false as const, reason: "service_role_unavailable" };
+
+    // Resolve user_id by email (may be null if no such account).
+    let userId: string | null = null;
+    try {
+      const { data: u } = await svc.rpc("get_user_id_by_email", { p_email: data.email });
+      if (typeof u === "string") userId = u;
+    } catch { /* ignore */ }
+
+    // Only audit attempts targeting an admin account.
+    if (!userId) return { ok: true as const, logged: false };
+    const { data: roleRow } = await svc
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) return { ok: true as const, logged: false };
+
+    // Best-effort request metadata.
+    let ip: string | null = null;
+    let userAgent: string | null = null;
+    try {
+      const { getRequestHeader } = await import("@tanstack/react-start/server");
+      userAgent = (getRequestHeader("user-agent") || "").slice(0, 500) || null;
+      ip =
+        (getRequestHeader("x-forwarded-for") || getRequestHeader("cf-connecting-ip") || "")
+          .split(",")[0]
+          .trim()
+          .slice(0, 64) || null;
+    } catch { /* not available */ }
+
+    await svc.from("admin_login_audit").insert({
+      user_id: userId,
+      email: data.email,
+      success: data.success,
+      reason: data.reason,
+      ip,
+      user_agent: userAgent,
+    });
+    return { ok: true as const, logged: true };
+  });
+
+/** Fetch recent admin login attempts (admin-only). */
+export const getAdminLoginAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const svc = svcClient() ?? supabase;
+    const { data, error } = await svc
+      .from("admin_login_audit")
+      .select("id, user_id, email, success, reason, ip, user_agent, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return {
+      entries: (data ?? []) as Array<{
+        id: string;
+        user_id: string | null;
+        email: string;
+        success: boolean;
+        reason: string | null;
+        ip: string | null;
+        user_agent: string | null;
+        created_at: string;
+      }>,
+    };
+  });
+
 export const getAdminStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
