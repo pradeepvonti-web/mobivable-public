@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
 
 const MODEL_MAP: Record<string, string> = {
   "Opus 4.7": "google/gemini-2.5-pro",
@@ -14,7 +15,7 @@ const MODEL_MAP: Record<string, string> = {
   "GPT-5.2": "openai/gpt-5.2",
 };
 
-const SYSTEM_PROMPT =
+const DEFAULT_SYSTEM =
   "You are a senior mobile product designer + engineer collaborating with the user " +
   "to iteratively design and build a mobile application. Respond in concise, " +
   "actionable markdown. When the user asks for changes, describe the next screens, " +
