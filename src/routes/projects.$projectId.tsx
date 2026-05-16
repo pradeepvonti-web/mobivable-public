@@ -129,10 +129,16 @@ function ProjectPage() {
     );
   }
 
+  function handleCancel() {
+    cancelRef.current = true;
+    streamRef.current?.return?.(undefined);
+  }
+
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
     const content = input.trim();
     if (!content || sending) return;
+    cancelRef.current = false;
     setSending(true);
     setInput("");
     const tempId = `tmp-${Date.now()}`;
@@ -143,9 +149,11 @@ function ProjectPage() {
     ]);
     try {
       const stream = await chatFn({ data: { projectId, content } });
+      streamRef.current = stream as unknown as AsyncIterator<unknown>;
       let acc = "";
       let errored = false;
       for await (const event of stream) {
+        if (cancelRef.current) break;
         if (event.type === "delta") {
           acc += event.delta;
           setMessages((prev) =>
@@ -164,7 +172,17 @@ function ProjectPage() {
           );
         }
       }
-      if (!errored) await loadMessages();
+      if (cancelRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `${tempId}-a`
+              ? { ...m, content: `${acc}${acc ? "\n\n" : ""}_Stopped._`, pending: false }
+              : m,
+          ),
+        );
+      } else if (!errored) {
+        await loadMessages();
+      }
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -178,6 +196,8 @@ function ProjectPage() {
         ),
       );
     } finally {
+      streamRef.current = null;
+      cancelRef.current = false;
       setSending(false);
     }
   }
