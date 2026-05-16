@@ -33,6 +33,9 @@ import {
   Download,
   Sun,
   Moon,
+  KeyRound,
+  EyeOff,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
