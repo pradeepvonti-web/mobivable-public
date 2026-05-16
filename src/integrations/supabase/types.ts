@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_login_audit: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip: string | null
+          reason: string | null
+          success: boolean
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       agent_messages: {
         Row: {
           content: string
@@ -661,6 +694,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
