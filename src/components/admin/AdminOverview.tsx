@@ -31,10 +31,10 @@ export function AdminOverview() {
   if (!stats) return <p className="text-destructive text-sm">Failed to load stats.</p>;
 
   const cards = [
-    { label: "Total Users", value: stats.userCount, icon: Users, color: "from-primary to-primary/70", trend: `+${stats.recentUsers} this week` },
-    { label: "Total Projects", value: stats.projectCount, icon: FolderKanban, color: "from-primary to-primary/70", trend: `+${stats.recentProjects} this week` },
-    { label: "Total Messages", value: stats.messageCount, icon: MessageSquare, color: "from-primary to-primary/70", trend: null },
-    { label: "AI Provider", value: stats.activeProvider, icon: Sparkles, color: "from-primary to-primary/70", trend: `${stats.providers.filter((p) => p.configured).length}/5 configured` },
+    { label: "Total Users", value: stats.userCount, icon: Users, trend: `+${stats.recentUsers} this week` },
+    { label: "Total Projects", value: stats.projectCount, icon: FolderKanban, trend: `+${stats.recentProjects} this week` },
+    { label: "Total Messages", value: stats.messageCount, icon: MessageSquare, trend: null },
+    { label: "AI Provider", value: stats.activeProvider, icon: Sparkles, trend: `${stats.providers.filter((p) => p.configured).length}/5 configured` },
   ];
 
   return (
@@ -50,8 +50,8 @@ export function AdminOverview() {
           <div key={c.label} className="rounded-lg border border-border bg-card p-5 space-y-3 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{c.label}</span>
-              <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${c.color} grid place-items-center`}>
-                <c.icon className="h-4 w-4 text-primary-foreground" />
+              <div className="size-7 bg-primary rounded-sm grid place-items-center">
+                <c.icon className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
             </div>
             <p className="font-display uppercase text-2xl tracking-tight">
