@@ -267,12 +267,12 @@ export function AppPromptComposer() {
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.slice(0, 2).map((s) => (
                 <button
-                  key={s}
+                  key={s.label}
                   type="button"
-                  onClick={() => setPrompt(s.toLowerCase() + " app")}
+                  onClick={() => setPrompt(s.prompt)}
                   className="px-4 py-2 rounded-full border border-primary/40 font-display text-xs uppercase tracking-wider text-primary hover:border-primary hover:bg-primary/10 transition-colors"
                 >
-                  {s}
+                  {s.label}
                 </button>
               ))}
             </div>
