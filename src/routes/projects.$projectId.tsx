@@ -23,6 +23,8 @@ import {
   ArrowUp,
   ChevronDown,
   Check,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
