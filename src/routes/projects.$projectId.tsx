@@ -287,6 +287,8 @@ function ProjectPage() {
   }, []);
   const isPro = userPlan === "pro";
   const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets">(null);
+  const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
+  const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
@@ -343,6 +345,32 @@ function ProjectPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
+
+  // Load latest icon/splash URLs so the generated app config can reference them.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const { data: files } = await supabase.storage
+        .from("project-attachments")
+        .list(`${uid}/${projectId}`, { limit: 100 });
+      if (cancelled) return;
+      const find = (k: "icon" | "splash") =>
+        files?.find((f) => f.name === `${k}.png` || f.name === `${k}.jpg`);
+      const toUrl = (f?: { name: string }) =>
+        f
+          ? supabase.storage
+              .from("project-attachments")
+              .getPublicUrl(`${uid}/${projectId}/${f.name}`).data.publicUrl
+          : null;
+      setAppAssets({ icon: toUrl(find("icon")), splash: toUrl(find("splash")) });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, assetsTick]);
 
   const { config: previewConfig } = usePreviewConfig();
   // Dynamic table/column names from admin config — bypass generated types.
@@ -1372,7 +1400,7 @@ function ProjectPage() {
         <EnvPanel projectId={projectId} onClose={() => setSidePanel(null)} />
       )}
       {sidePanel === "assets" && (
-        <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+        <AssetsPanel projectId={projectId} onClose={() => setSidePanel(null)} onChanged={() => setAssetsTick((t) => t + 1)} />
       )}
 
       {upgradeOpen && (
@@ -1480,10 +1508,46 @@ function ProjectPage() {
           </div>
         )}
         {paneTab === "code" && (
-          <div className="absolute inset-0 top-20 lg:right-[220px] z-10 overflow-auto bg-background/95 backdrop-blur p-6">
-            <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words">
-              {project?.result || "// No generated code yet."}
-            </pre>
+          <div className="absolute inset-0 top-20 lg:right-[220px] z-10 overflow-auto bg-background/95 backdrop-blur p-6 space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs uppercase tracking-widest text-muted-foreground">app.json (auto-generated)</h3>
+                <span className="text-[10px] text-muted-foreground">
+                  {appAssets.icon || appAssets.splash ? "linked to your selected assets" : "using defaults — upload assets to override"}
+                </span>
+              </div>
+              <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words rounded-md border border-border bg-card/50 p-4">
+{JSON.stringify(
+  {
+    expo: {
+      name: project?.name ?? "My App",
+      slug: ((project?.name ?? "my-app").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "")) || "my-app",
+      icon: appAssets.icon ?? "./assets/icon.png",
+      splash: {
+        image: appAssets.splash ?? "./assets/splash.png",
+        resizeMode: "contain",
+        backgroundColor: "#ffffff",
+      },
+      android: {
+        adaptiveIcon: {
+          foregroundImage: appAssets.icon ?? "./assets/adaptive-icon.png",
+          backgroundColor: "#ffffff",
+        },
+      },
+      ios: { icon: appAssets.icon ?? "./assets/icon.png" },
+    },
+  },
+  null,
+  2,
+)}
+              </pre>
+            </div>
+            <div>
+              <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Generated source</h3>
+              <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-words">
+                {project?.result || "// No generated code yet."}
+              </pre>
+            </div>
           </div>
         )}
         {(visualEdit || selectedEl) && (
@@ -3063,7 +3127,7 @@ function AssetCard({
   );
 }
 
-function AssetsPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AssetsPanel({ projectId, onClose, onChanged }: { projectId: string; onClose: () => void; onChanged?: () => void }) {
   const [iconUrl, setIconUrl] = useState<string | null>(null);
   const [splashUrl, setSplashUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -3142,7 +3206,7 @@ function AssetsPanel({ projectId, onClose }: { projectId: string; onClose: () =>
               description="Upload a custom icon · 1024x1024 PNG recommended"
               projectId={projectId}
               url={iconUrl}
-              onUploaded={setIconUrl}
+              onUploaded={(u) => { setIconUrl(u); onChanged?.(); }}
             />
             <AssetCard
               kind="splash"
@@ -3150,7 +3214,7 @@ function AssetsPanel({ projectId, onClose }: { projectId: string; onClose: () =>
               description="Upload a custom splash screen · 1024x1024 PNG recommended"
               projectId={projectId}
               url={splashUrl}
-              onUploaded={setSplashUrl}
+              onUploaded={(u) => { setSplashUrl(u); onChanged?.(); }}
             />
           </>
         )}
