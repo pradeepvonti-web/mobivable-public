@@ -95,6 +95,7 @@ export function AdminDashboard() {
           {tab === "payments" && <AdminPayments />}
           {tab === "ai" && <AdminAIConfig />}
           {tab === "features" && <AdminFeatureFlags />}
+          {tab === "activity" && <AdminActivity />}
         </main>
       </div>
     </div>
