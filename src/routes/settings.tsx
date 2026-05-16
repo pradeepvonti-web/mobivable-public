@@ -52,7 +52,7 @@ function SettingsPage() {
   const { setTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
-  const [themePref, setThemePref] = useState<ThemePref>("system");
+  const [themePref, setThemePref] = useState<ThemePref>("light");
   const [plan, setPlan] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [keys, setKeys] = useState<ApiKey[]>([]);
