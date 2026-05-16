@@ -2554,9 +2554,21 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            User variables
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+              User variables
+            </p>
+            <button
+              type="button"
+              onClick={exportEnv}
+              disabled={vars.filter((v) => v.visible).length === 0}
+              className="text-[11px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40 flex items-center gap-1"
+              title="Download visible variables as .env"
+            >
+              <Download className="h-3 w-3" />
+              Export .env
+            </button>
+          </div>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : vars.length === 0 ? (
