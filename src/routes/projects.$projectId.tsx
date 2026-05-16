@@ -111,9 +111,67 @@ function ProjectPage() {
     }
   }
 
+  async function loadMessages() {
+    const { data } = await supabase
+      .from("project_messages")
+      .select("id, role, content")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+    setMessages(
+      ((data as { id: string; role: "user" | "assistant"; content: string }[]) ?? []).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+      })),
+    );
+  }
+
+  async function handleSend(e?: React.FormEvent) {
+    e?.preventDefault();
+    const content = input.trim();
+    if (!content || sending) return;
+    setSending(true);
+    setInput("");
+    const tempId = `tmp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: tempId, role: "user", content },
+      { id: `${tempId}-a`, role: "assistant", content: "", pending: true },
+    ]);
+    try {
+      const res = await chatFn({ data: { projectId, content } });
+      if (!res.ok) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `${tempId}-a`
+              ? { ...m, content: `⚠️ ${res.error}`, pending: false }
+              : m,
+          ),
+        );
+      } else {
+        await loadMessages();
+      }
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === `${tempId}-a`
+            ? {
+                ...m,
+                content: `⚠️ ${err instanceof Error ? err.message : "Failed to send"}`,
+                pending: false,
+              }
+            : m,
+        ),
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
   useEffect(() => {
     if (status !== "authenticated") return;
     loadRecent();
+    loadMessages();
     (async () => {
       const p = await reloadProject();
       if (p && p.status === "building" && !p.result && !triggeredRef.current) {
@@ -123,6 +181,10 @@ function ProjectPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, status]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages.length, project?.result]);
 
   if (status !== "authenticated") return <AuthHydrating />;
 
