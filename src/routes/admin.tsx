@@ -69,25 +69,10 @@ function AdminPage() {
 
 
 function PromoteButton({ onPromoted }: { onPromoted: () => void }) {
-  const [checking, setChecking] = useState(true);
-  const [hasAnyAdmin, setHasAnyAdmin] = useState(true);
   const [promoting, setPromoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const claimFn = useServerFn(claimInitialAdmin);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("role", "admin")
-        .limit(1);
-      setHasAnyAdmin((data?.length ?? 0) > 0);
-      setChecking(false);
-    })();
-  }, []);
-
-  if (checking || hasAnyAdmin) return null;
 
   async function handlePromote() {
     setPromoting(true);
