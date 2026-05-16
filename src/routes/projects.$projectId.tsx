@@ -512,7 +512,11 @@ function ProjectPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedEl(null)}
+                onClick={() => {
+                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  selectedElRef.current = null;
+                  setSelectedEl(null);
+                }}
                 className="text-muted-foreground hover:text-foreground shrink-0"
                 aria-label="Clear selection"
               >
