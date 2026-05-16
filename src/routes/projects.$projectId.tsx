@@ -80,6 +80,9 @@ function ProjectPage() {
   const [modeOpen, setModeOpen] = useState(false);
   const [visualEdit, setVisualEdit] = useState(false);
   const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
+  const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
@@ -144,17 +147,55 @@ function ProjectPage() {
     streamRef.current?.return?.(undefined);
   }
 
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not authenticated");
+      const uploaded: { name: string; url: string; type: string }[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > 20 * 1024 * 1024) {
+          setError(`${file.name} is over 20MB`);
+          continue;
+        }
+        const path = `${uid}/${projectId}/${crypto.randomUUID()}-${file.name}`;
+        const { error: upErr } = await supabase.storage
+          .from("project-attachments")
+          .upload(path, file, { contentType: file.type || undefined });
+        if (upErr) {
+          setError(upErr.message);
+          continue;
+        }
+        const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+        uploaded.push({ name: file.name, url: pub.publicUrl, type: file.type || "file" });
+      }
+      setPending((p) => [...p, ...uploaded]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
     const raw = input.trim();
-    if (!raw || sending) return;
+    if ((!raw && pending.length === 0) || sending) return;
+    const attachBlock = pending.length
+      ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
+      : "";
+    const base = raw || "(see attachments)";
     const content = selectedEl
-      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${raw}`
-      : raw;
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}`
+      : `${base}${attachBlock}`;
     cancelRef.current = false;
     setSending(true);
     setInput("");
     setSelectedEl(null);
+    setPending([]);
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
@@ -478,6 +519,41 @@ function ProjectPage() {
               </button>
             </div>
           )}
+          {pending.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {pending.map((a, i) => (
+                <div
+                  key={a.url}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-2 py-1.5 text-xs"
+                >
+                  {a.type.startsWith("image/") ? (
+                    <img src={a.url} alt={a.name} className="h-8 w-8 rounded object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 grid place-items-center rounded bg-muted text-muted-foreground">
+                      <Plus className="h-3 w-3 rotate-45" />
+                    </div>
+                  )}
+                  <span className="max-w-[140px] truncate">{a.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${a.name}`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.txt,.md,.json,.csv"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
           <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
             <textarea
               value={input}
@@ -497,10 +573,12 @@ function ProjectPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || sending}
                   aria-label="Add attachment"
-                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
                 >
-                  <Plus className="h-4 w-4" />
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </button>
                 <button
                   type="button"
@@ -577,7 +655,7 @@ function ProjectPage() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!input.trim() || !project}
+                    disabled={(!input.trim() && pending.length === 0) || !project}
                     aria-label="Send message"
                     className="h-8 w-8 grid place-items-center rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
