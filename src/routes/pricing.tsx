@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
+
+type PlanValue = "free_beta" | "starter" | "pro";
 
 export const Route = createFileRoute("/pricing")({
   component: PricingPage,
