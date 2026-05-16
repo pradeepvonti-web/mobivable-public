@@ -66,7 +66,7 @@ function AdminSettingsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <PageShell>
+      <PageShell eyebrow="ADMIN" title="Settings" intro="Configure preview and list data sources.">
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-muted-foreground">
           Loading…
         </div>
@@ -75,7 +75,7 @@ function AdminSettingsPage() {
   }
   if (status === "unauthenticated") {
     return (
-      <PageShell>
+      <PageShell eyebrow="ADMIN" title="Settings" intro="Configure preview and list data sources.">
         <div className="mx-auto max-w-3xl px-6 py-16">
           <p className="text-sm">
             Please <Link to="/login" className="underline">sign in</Link>.
@@ -86,7 +86,7 @@ function AdminSettingsPage() {
   }
   if (!isAdmin) {
     return (
-      <PageShell>
+      <PageShell eyebrow="ADMIN" title="Settings" intro="Configure preview and list data sources.">
         <div className="mx-auto max-w-3xl px-6 py-16">
           <h1 className="font-display text-3xl">Admin only</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -98,7 +98,7 @@ function AdminSettingsPage() {
   }
 
   return (
-    <PageShell>
+    <PageShell eyebrow="ADMIN" title="Settings" intro="Configure preview and list data sources.">
       <div className="mx-auto max-w-3xl px-6 py-12 space-y-8">
         <header>
           <h1 className="font-display text-4xl tracking-tight">Admin Settings</h1>
