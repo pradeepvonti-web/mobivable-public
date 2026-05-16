@@ -35,6 +35,7 @@ import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
+import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
 
 type Attachment = { path: string; url: string; name: string };
 
