@@ -14,6 +14,7 @@ import {
   Loader2,
   RefreshCw,
   Smartphone,
+  Eye,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -60,6 +61,7 @@ function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
+  const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const generateFn = useServerFn(generateProject);
   const triggeredRef = useRef(false);
 
