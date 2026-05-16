@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test": "vitest run",
     "format": "prettier --write .",
     "postinstall": "node -e \"console.log('\\n\\x1b[36m[lovable]\\x1b[0m Dependencies installed. If the dev server was already running, restart it (Ctrl+C then `bun dev`) so Vite picks up new packages.\\n')\""
   },
