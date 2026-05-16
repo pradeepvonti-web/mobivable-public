@@ -36,7 +36,7 @@ function ProjectPage() {
     (async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, name, prompt, model, status, created_at")
+        .select("id, name, prompt, model, status, created_at, attachments")
         .eq("id", projectId)
         .maybeSingle();
       if (error) setError(error.message);
