@@ -84,10 +84,7 @@ function useActiveSection(ids: string[], enabled: boolean) {
 export function SiteNav() {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
-  const activeSection = useActiveSection(
-    sectionLinks.map((s) => s.id),
-    isHome,
-  );
+  const activeSection = useActiveSection(SECTION_IDS, isHome);
   const [open, setOpen] = useState(false);
 
   // Close the mobile sheet whenever route changes
