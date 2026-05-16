@@ -102,7 +102,7 @@ export function AdminUsers() {
                 <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 grid place-items-center text-xs font-bold text-primary">
+                      <div className="size-7 rounded-sm bg-primary grid place-items-center text-xs font-bold text-primary-foreground">
                         {(u.display_name ?? "?")[0].toUpperCase()}
                       </div>
                       <div>
