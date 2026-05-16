@@ -321,6 +321,12 @@ function Index() {
               </thead>
               <tbody className="font-mono text-xs">
                 {[
+                  [
+                    billing === "yearly" ? "Price (billed yearly)" : "Price (monthly)",
+                    "$0",
+                    billing === "yearly" ? "$23 / mo" : "$29 / mo",
+                    billing === "yearly" ? "$79 / mo" : "$99 / mo",
+                  ],
                   ["Published apps", "1", "5", "Unlimited"],
                   ["AI iterations", "Unlimited", "Unlimited", "Unlimited"],
                   ["Native iOS + Android compile", "•", "•", "•"],
