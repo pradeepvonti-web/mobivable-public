@@ -21,6 +21,29 @@ const SYSTEM_PROMPT =
   "components, data, and UI tweaks you would make. Keep replies tight (under ~250 words) " +
   "and use bullet lists, short headers, and code only when truly helpful.";
 
+function parseSSE(chunk: string, leftover: { buf: string }): string[] {
+  const deltas: string[] = [];
+  leftover.buf += chunk;
+  const lines = leftover.buf.split("\n");
+  leftover.buf = lines.pop() ?? "";
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const data = trimmed.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    try {
+      const json = JSON.parse(data) as {
+        choices?: { delta?: { content?: string } }[];
+      };
+      const piece = json.choices?.[0]?.delta?.content;
+      if (piece) deltas.push(piece);
+    } catch {
+      /* ignore malformed line */
+    }
+  }
+  return deltas;
+}
+
 export const sendProjectMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -31,7 +54,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async function* ({ data, context }) {
     const { supabase, userId } = context;
 
     const { data: project, error: pErr } = await supabase
@@ -39,10 +62,18 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       .select("id, prompt, model, user_id, result")
       .eq("id", data.projectId)
       .maybeSingle();
-    if (pErr) return { ok: false as const, error: pErr.message };
-    if (!project) return { ok: false as const, error: "Project not found" };
-    if (project.user_id !== userId)
-      return { ok: false as const, error: "Forbidden" };
+    if (pErr) {
+      yield { type: "error" as const, error: pErr.message };
+      return;
+    }
+    if (!project) {
+      yield { type: "error" as const, error: "Project not found" };
+      return;
+    }
+    if (project.user_id !== userId) {
+      yield { type: "error" as const, error: "Forbidden" };
+      return;
+    }
 
     const { data: history } = await supabase
       .from("project_messages")
@@ -50,21 +81,25 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       .eq("project_id", project.id)
       .order("created_at", { ascending: true });
 
-    // Save user message
     const { error: insErr } = await supabase.from("project_messages").insert({
       project_id: project.id,
       user_id: userId,
       role: "user",
       content: data.content,
     });
-    if (insErr) return { ok: false as const, error: insErr.message };
+    if (insErr) {
+      yield { type: "error" as const, error: insErr.message };
+      return;
+    }
 
     const key = process.env.LOVABLE_API_KEY;
-    if (!key) return { ok: false as const, error: "AI gateway not configured" };
+    if (!key) {
+      yield { type: "error" as const, error: "AI gateway not configured" };
+      return;
+    }
 
     const modelId = MODEL_MAP[project.model] ?? "google/gemini-3-flash-preview";
-
-    const messages: { role: string; content: string }[] = [
+    const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "system",
@@ -74,8 +109,10 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       { role: "user", content: data.content },
     ];
 
+    let buffer = "";
+    let upstream: Response | null = null;
     try {
-      const res = await fetch(
+      upstream = await fetch(
         "https://ai.gateway.lovable.dev/v1/chat/completions",
         {
           method: "POST",
@@ -83,38 +120,47 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ model: modelId, messages }),
+          body: JSON.stringify({ model: modelId, messages, stream: true }),
         },
       );
 
-      if (!res.ok) {
-        const body = await res.text();
+      if (!upstream.ok || !upstream.body) {
+        const body = await upstream.text();
         const msg =
-          res.status === 429
+          upstream.status === 429
             ? "AI rate limit reached. Try again in a moment."
-            : res.status === 402
+            : upstream.status === 402
               ? "AI credits exhausted."
-              : `AI error (${res.status}): ${body.slice(0, 200)}`;
-        return { ok: false as const, error: msg };
+              : `AI error (${upstream.status}): ${body.slice(0, 200)}`;
+        yield { type: "error" as const, error: msg };
+        return;
       }
 
-      const json = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const reply = json.choices?.[0]?.message?.content?.trim() ?? "(no reply)";
-
-      await supabase.from("project_messages").insert({
-        project_id: project.id,
-        user_id: userId,
-        role: "assistant",
-        content: reply,
-      });
-
-      return { ok: true as const, reply };
+      const leftover = { buf: "" };
+      for await (const chunk of upstream.body.pipeThrough(
+        new TextDecoderStream(),
+      )) {
+        for (const delta of parseSSE(chunk, leftover)) {
+          buffer += delta;
+          yield { type: "delta" as const, delta };
+        }
+      }
     } catch (e) {
-      return {
-        ok: false as const,
-        error: e instanceof Error ? e.message : "Unknown error",
+      yield {
+        type: "error" as const,
+        error: e instanceof Error ? e.message : "Stream failed",
       };
+      return;
+    } finally {
+      if (buffer.trim().length > 0) {
+        await supabase.from("project_messages").insert({
+          project_id: project.id,
+          user_id: userId,
+          role: "assistant",
+          content: buffer,
+        });
+      }
     }
+
+    yield { type: "done" as const, content: buffer };
   });
