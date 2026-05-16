@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CommunityRouteImport } from './routes/community'
@@ -25,6 +26,11 @@ const SignupRoute = SignupRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/community': typeof CommunityRoute
   '/docs': typeof DocsRoute
   '/gallery': typeof GalleryRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/docs'
     | '/gallery'
+    | '/login'
     | '/pricing'
     | '/signup'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/docs'
     | '/gallery'
+    | '/login'
     | '/pricing'
     | '/signup'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/docs'
     | '/gallery'
+    | '/login'
     | '/pricing'
     | '/signup'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   CommunityRoute: typeof CommunityRoute
   DocsRoute: typeof DocsRoute
   GalleryRoute: typeof GalleryRoute
+  LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   SignupRoute: typeof SignupRoute
 }
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -181,9 +201,20 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityRoute: CommunityRoute,
   DocsRoute: DocsRoute,
   GalleryRoute: GalleryRoute,
+  LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
