@@ -23,6 +23,15 @@ type Sub = {
 
 type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "pro" };
 
+type ProjectRow = {
+  id: string;
+  name: string;
+  prompt: string;
+  status: string;
+  model: string;
+  updated_at: string;
+};
+
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
   head: () => ({
@@ -51,6 +60,7 @@ function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sub, setSub] = useState<Sub | null>(null);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +76,7 @@ function DashboardPage() {
   async function load() {
     if (!session?.user) return;
     const env = getPaddleEnvironment();
-    const [{ data: prof }, { data: subRow }] = await Promise.all([
+    const [{ data: prof }, { data: subRow }, { data: projRows }] = await Promise.all([
       supabase.from("profiles").select("display_name, plan").eq("id", session.user.id).maybeSingle(),
       supabase
         .from("subscriptions")
@@ -76,9 +86,15 @@ function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("projects")
+        .select("id, name, prompt, status, model, updated_at")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false }),
     ]);
     setProfile(prof as Profile | null);
     setSub(subRow as Sub | null);
+    setProjects((projRows as ProjectRow[] | null) ?? []);
     setLoading(false);
   }
 
@@ -134,6 +150,52 @@ function DashboardPage() {
     >
       <div className="space-y-12 max-w-4xl mx-auto">
         <AppPromptComposer />
+
+        <section className="border border-border p-8">
+          <div className="flex items-baseline justify-between mb-6">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Your apps
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {projects.length} total
+            </p>
+          </div>
+          {loading ? (
+            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
+              [···] Loading
+            </p>
+          ) : projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              No apps yet. Describe one above to get started.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {projects.map((p) => (
+                <Link
+                  key={p.id}
+                  to="/projects/$projectId"
+                  params={{ projectId: p.id }}
+                  className="block border border-border p-5 hover:border-primary transition-colors group"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h3 className="font-display text-lg uppercase tracking-tight group-hover:text-primary truncate">
+                      {p.name || "Untitled"}
+                    </h3>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
+                      {p.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                    {p.prompt}
+                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {new Date(p.updated_at).toLocaleDateString()} · {p.model}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
 
         {isPastDue && (
           <div className="border border-destructive/50 bg-destructive/10 p-5">
