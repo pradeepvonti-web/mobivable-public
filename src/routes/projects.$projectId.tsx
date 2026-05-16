@@ -1186,7 +1186,11 @@ function ProjectPage() {
             <Users className="h-3.5 w-3.5" /> Agents
           </button>
         </div>
-        {paneTab === "agents" && <AgentWorkspace projectId={projectId} />}
+        {paneTab === "agents" && (
+          <div className="absolute inset-0 lg:right-[220px] z-10">
+            <AgentWorkspace projectId={projectId} />
+          </div>
+        )}
         {(visualEdit || selectedEl) && (
           <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
@@ -1515,7 +1519,13 @@ function ProjectPage() {
         )}
 
         {/* Phone frame */}
-        <div className="relative">
+        <div
+          className={`relative transition-all duration-300 ${
+            paneTab === "agents"
+              ? "lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:scale-[0.32] lg:origin-right z-20 hidden lg:block"
+              : ""
+          }`}
+        >
           <div
             aria-hidden
             className="absolute -inset-6 rounded-[3rem] blur-2xl opacity-50"
