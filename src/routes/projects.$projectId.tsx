@@ -262,6 +262,7 @@ function ProjectPage() {
     setSending(true);
     setInput("");
     selectedElRef.current?.classList.remove("visual-edit-selected");
+    selectedElRef.current?.removeAttribute("draggable");
     selectedElRef.current = null;
     setSelectedEl(null);
     setPending([]);
@@ -710,6 +711,7 @@ function ProjectPage() {
                   type="button"
                   onClick={() => {
                     selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current?.removeAttribute("draggable");
                     selectedElRef.current = null;
                     setSelectedEl(null);
                   }}
@@ -917,6 +919,7 @@ function ProjectPage() {
                   type="button"
                   onClick={() => {
                     selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current?.removeAttribute("draggable");
                     selectedElRef.current = null;
                     setSelectedEl(null);
                   }}
