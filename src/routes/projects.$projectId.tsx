@@ -2389,6 +2389,9 @@ function ProjectPage() {
       {knowledgeOpen && (
         <KnowledgeDialog onClose={() => setKnowledgeOpen(false)} />
       )}
+      {connectorsOpen && (
+        <ConnectorsDialog onClose={() => setConnectorsOpen(false)} />
+      )}
     </div>
   );
 }
