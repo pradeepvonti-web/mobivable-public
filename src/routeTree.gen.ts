@@ -22,6 +22,7 @@ import { Route as BlogRouteImport } from './routes/blog'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 
@@ -90,6 +91,11 @@ const CheckoutSuccessRoute = CheckoutSuccessRouteImport.update({
   path: '/success',
   getParentRoute: () => CheckoutRoute,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
   '/signup': typeof SignupRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
   '/signup': typeof SignupRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/recipes': typeof RecipesRoute
   '/signup': typeof SignupRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/recipes'
     | '/signup'
+    | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
     | '/api/public/payments/webhook'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/recipes'
     | '/signup'
+    | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
     | '/api/public/payments/webhook'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/recipes'
     | '/signup'
+    | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
     | '/api/public/payments/webhook'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   RecipesRoute: typeof RecipesRoute
   SignupRoute: typeof SignupRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutSuccessRouteImport
       parentRoute: typeof CheckoutRoute
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -360,6 +380,7 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   RecipesRoute: RecipesRoute,
   SignupRoute: SignupRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,

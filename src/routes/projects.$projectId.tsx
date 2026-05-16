@@ -32,6 +32,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -194,17 +195,33 @@ function ProjectPage() {
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
+  const { config: previewConfig } = usePreviewConfig();
+  // Dynamic table/column names from admin config — bypass generated types.
+  const sb = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (c: string, v: unknown) => {
+          maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+          order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+        order: (c: string, o: { ascending: boolean }) => {
+          limit: (n: number) => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+
   async function reloadProject() {
-    const { data, error } = await supabase
-      .from("projects")
-      .select(
-        "id, name, prompt, model, status, created_at, attachments, result, error_text, visual_edits",
-      )
-      .eq("id", projectId)
+    const detailSelect = aliasedSelect(previewConfig.projectDetailFields);
+    const { data, error } = await sb
+      .from(previewConfig.projectsTable)
+      .select(`${detailSelect}, attachments, error_text, visual_edits`)
+      .eq(previewConfig.projectDetailFields.id, projectId)
       .maybeSingle();
     if (error) setError(error.message);
-    setProject(data as Project | null);
-    const ve = (data as Project | null)?.visual_edits;
+    const row = data as (Project & { created_at: string }) | null;
+    setProject(row);
+    const ve = row?.visual_edits;
     historyPastRef.current = (ve?.past ?? []).map((s) => ({
       edits: s.edits ?? [],
       reorders: s.reorders ?? {},
@@ -215,16 +232,17 @@ function ProjectPage() {
     }));
     setHistoryTick((t) => t + 1);
     setLoading(false);
-    return data as Project | null;
+    return row;
   }
 
   async function loadRecent() {
-    const { data } = await supabase
-      .from("projects")
-      .select("id, name")
-      .order("created_at", { ascending: false })
+    const listSelect = aliasedSelect(previewConfig.projectsListFields);
+    const { data } = await sb
+      .from(previewConfig.projectsTable)
+      .select(listSelect)
+      .order(previewConfig.projectsListFields.createdAt, { ascending: false })
       .limit(8);
-    setRecent((data as { id: string; name: string }[]) ?? []);
+    setRecent((data as { id: string; name: string }[] | null) ?? []);
   }
 
   async function runGeneration() {
@@ -242,13 +260,18 @@ function ProjectPage() {
   }
 
   async function loadMessages() {
-    const { data } = await supabase
-      .from("project_messages")
-      .select("id, role, content")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: true });
+    const msgSelect = aliasedSelect({
+      id: previewConfig.messagesFields.id,
+      role: previewConfig.messagesFields.role,
+      content: previewConfig.messagesFields.content,
+    });
+    const { data } = await sb
+      .from(previewConfig.messagesTable)
+      .select(msgSelect)
+      .eq(previewConfig.messagesFields.projectFk, projectId)
+      .order(previewConfig.messagesFields.createdAt, { ascending: true });
     setMessages(
-      ((data as { id: string; role: "user" | "assistant"; content: string }[]) ?? []).map((m) => ({
+      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
@@ -1538,7 +1561,7 @@ function ProjectPage() {
                   setVisualEdit(false);
                 }}
               >
-                <ProjectPreview key={previewKey} project={project} messages={messages} />
+                <ProjectPreview key={previewKey} project={project} messages={messages} visibility={previewConfig.visibility} />
               </div>
             )}
           </div>
