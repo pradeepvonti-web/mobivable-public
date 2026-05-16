@@ -860,13 +860,6 @@ function ProjectPage() {
         <div className="p-4 border-b border-border flex items-center gap-2">
           <Link
             to="/dashboard"
-            className="h-9 w-9 grid place-items-center rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/dashboard"
             className="font-display text-sm uppercase tracking-wider hover:text-primary transition-colors"
           >
             Mobivable
