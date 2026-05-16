@@ -2353,12 +2353,50 @@ type EnvVar = {
   visible: boolean;
 };
 
+const RESERVED_ENV_NAMES = new Set([
+  "NODE_ENV",
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "PWD",
+  "LANG",
+  "TERM",
+  "HOSTNAME",
+  "EXPO_PUBLIC_PROJECT_ID",
+  "EXPO_PUBLIC_API_URL",
+]);
+
+function validateEnvName(
+  name: string,
+  opts: { requirePublic?: boolean; existing?: string[] } = {},
+): string | null {
+  if (!name) return "Name is required";
+  if (name.length < 2) return "Name must be at least 2 characters";
+  if (name.length > 64) return "Name must be 64 characters or fewer";
+  if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) {
+    return "Use UPPER_SNAKE_CASE: A–Z, 0–9, _ (cannot start with a digit)";
+  }
+  if (/__/.test(name)) return "Name cannot contain consecutive underscores";
+  if (name.endsWith("_")) return "Name cannot end with an underscore";
+  if (RESERVED_ENV_NAMES.has(name)) return `"${name}" is reserved`;
+  if (opts.requirePublic && !name.startsWith("EXPO_PUBLIC_")) {
+    return "Public variables must start with EXPO_PUBLIC_";
+  }
+  if (name.startsWith("EXPO_PUBLIC_") && name.length <= "EXPO_PUBLIC_".length) {
+    return "Add a name after the EXPO_PUBLIC_ prefix";
+  }
+  if (opts.existing?.includes(name)) return `"${name}" already exists`;
+  return null;
+}
+
 function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [vars, setVars] = useState<EnvVar[]>([]);
   const [newName, setNewName] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newVisible, setNewVisible] = useState(true);
+  const [newPublic, setNewPublic] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
@@ -2451,17 +2489,20 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
 
   async function addVar() {
     setError(null);
-    const name = newName.trim();
-    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) {
-      setError("Name must be UPPER_SNAKE_CASE (A-Z, 0-9, _)");
-      return;
+    let name = newName.trim().toUpperCase();
+    if (newPublic && !name.startsWith("EXPO_PUBLIC_")) {
+      name = `EXPO_PUBLIC_${name}`;
     }
-    if (name.length > 100) {
-      setError("Name too long");
+    const validationError = validateEnvName(name, {
+      requirePublic: newPublic,
+      existing: vars.map((v) => v.name),
+    });
+    if (validationError) {
+      setError(validationError);
       return;
     }
     if (newValue.length > 4000) {
-      setError("Value too long");
+      setError("Value too long (max 4000 chars)");
       return;
     }
     setSaving(true);
@@ -2486,6 +2527,7 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
       setNewName("");
       setNewValue("");
       setNewVisible(true);
+      setNewPublic(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -2695,11 +2737,50 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
           <p className="text-sm font-medium">Add new variable</p>
           <input
             value={newName}
-            onChange={(e) => setNewName(e.target.value.toUpperCase())}
-            placeholder="EXPO_PUBLIC_MY_VAR"
-            maxLength={100}
+            onChange={(e) => setNewName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
+            placeholder={newPublic ? "MY_VAR (EXPO_PUBLIC_ added)" : "MY_SECRET"}
+            maxLength={64}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
           />
+          {(() => {
+            const previewName =
+              newPublic && newName && !newName.startsWith("EXPO_PUBLIC_")
+                ? `EXPO_PUBLIC_${newName}`
+                : newName;
+            const liveError =
+              previewName
+                ? validateEnvName(previewName, {
+                    requirePublic: newPublic,
+                    existing: vars.map((v) => v.name),
+                  })
+                : null;
+            return (
+              <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                <span className="text-muted-foreground truncate">
+                  {previewName ? `→ ${previewName}` : "UPPER_SNAKE_CASE, A–Z 0–9 _"}
+                </span>
+                {liveError && newName && (
+                  <span className="text-destructive truncate">{liveError}</span>
+                )}
+              </div>
+            );
+          })()}
+          <button
+            type="button"
+            onClick={() => setNewPublic((p) => !p)}
+            className={`w-full px-3 py-2 rounded-md border text-xs flex items-center justify-between gap-1.5 transition-colors ${
+              newPublic
+                ? "border-primary/50 bg-primary/10 text-foreground"
+                : "border-border hover:bg-muted/50 text-muted-foreground"
+            }`}
+            title="Expose this variable to the client app (Expo requires the EXPO_PUBLIC_ prefix)"
+          >
+            <span className="flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5" />
+              Public (EXPO_PUBLIC_ prefix)
+            </span>
+            <span className="text-[10px] uppercase tracking-widest">{newPublic ? "On" : "Off"}</span>
+          </button>
           <div className="flex gap-2">
             <input
               value={newValue}
