@@ -204,6 +204,7 @@ export function SiteNav() {
             Start Building
           </button>
           <button
+            ref={triggerRef}
             type="button"
             className="md:hidden p-2 text-foreground hover:text-primary transition-colors"
             onClick={() => setOpen((o) => !o)}
