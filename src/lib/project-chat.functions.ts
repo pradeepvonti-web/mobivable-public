@@ -168,5 +168,63 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       }
     }
 
+    // Second pass: rewrite the project plan/result to reflect the user's request,
+    // so the preview actually updates after each chat turn.
+    if (buffer.trim().length > 0) {
+      try {
+        const rewriteMessages = [
+          {
+            role: "system",
+            content:
+              "You are updating a mobile app's full design/plan document in markdown. " +
+              "Given the current plan and the latest conversation (including the user's newest request and the assistant's reply), " +
+              "output the COMPLETE updated plan in markdown — not a diff, not commentary. " +
+              "Preserve existing structure and sections (e.g. Overview, Screens, Components, Data, Flows). " +
+              "Apply the user's requested UI/feature changes concretely (new screens, components, copy, states). " +
+              "Respond with ONLY the markdown document, no preamble.",
+          },
+          {
+            role: "user",
+            content:
+              `App idea: ${project.prompt}\n\n` +
+              `Current plan:\n${project.result ?? "(none yet)"}\n\n` +
+              `Latest user request:\n${data.content}\n\n` +
+              `Assistant reply:\n${buffer}\n\n` +
+              `Now output the full updated plan in markdown.`,
+          },
+        ];
+        const rewriteRes = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages: rewriteMessages,
+              stream: false,
+            }),
+          },
+        );
+        if (rewriteRes.ok) {
+          const json = (await rewriteRes.json()) as {
+            choices?: { message?: { content?: string } }[];
+          };
+          const newResult = json.choices?.[0]?.message?.content?.trim();
+          if (newResult && newResult.length > 50) {
+            await supabase
+              .from("projects")
+              .update({ result: newResult, status: "ready" })
+              .eq("id", project.id);
+            yield { type: "project_updated" as const };
+          }
+        }
+      } catch {
+        /* non-fatal — chat reply already saved */
+      }
+    }
+
     yield { type: "done" as const, content: buffer };
   });
