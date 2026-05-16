@@ -1981,6 +1981,40 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
   const [connected, setConnected] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<
+    { ok: boolean; message: string } | null
+  >(null);
+
+  async function testConnection() {
+    setTestResult(null);
+    setTesting(true);
+    try {
+      const url = supabaseUrl.trim().replace(/\/+$/, "");
+      const key = anonKey.trim();
+      if (!url || !key) throw new Error("Enter both Project URL and anon key");
+      if (!/^https:\/\/.+\.supabase\.co$/i.test(url)) {
+        throw new Error("URL must look like https://xxxxx.supabase.co");
+      }
+      const started = performance.now();
+      const res = await fetch(`${url}/auth/v1/settings`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+      const ms = Math.round(performance.now() - started);
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Invalid anon key (HTTP ${res.status})`);
+      }
+      if (!res.ok) throw new Error(`Unexpected response: HTTP ${res.status}`);
+      setTestResult({ ok: true, message: `Connection OK · ${ms}ms` });
+    } catch (e) {
+      setTestResult({
+        ok: false,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
