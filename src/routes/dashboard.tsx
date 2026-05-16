@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/require-auth";
+import { AuthHydrating } from "@/components/AuthHydrating";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,9 @@ export const Route = createFileRoute("/dashboard")({
     await requireAuth();
   },
   component: DashboardPage,
+  pendingComponent: AuthHydrating,
+  pendingMs: 0,
+  pendingMinMs: 0,
   head: () => ({
     meta: [
       { title: "Dashboard — Mobivable" },

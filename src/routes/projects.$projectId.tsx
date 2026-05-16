@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
 import { requireAuth } from "@/lib/require-auth";
+import { AuthHydrating } from "@/components/AuthHydrating";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -21,6 +22,9 @@ export const Route = createFileRoute("/projects/$projectId")({
     await requireAuth();
   },
   component: ProjectPage,
+  pendingComponent: AuthHydrating,
+  pendingMs: 0,
+  pendingMinMs: 0,
   head: () => ({
     meta: [{ title: "Project — Mobivable" }],
   }),
