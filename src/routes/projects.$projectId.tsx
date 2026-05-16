@@ -447,18 +447,25 @@ function ProjectPage() {
         { path: selectedEl.path, text: newText, classes: cleaned, styles: stylesClean },
       ];
       visualEditsRef.current = next;
-
-      const { error: upErr } = await supabase
-        .from("projects")
-        .update({ visual_edits: { edits: next } })
-        .eq("id", projectId);
-      if (upErr) {
-        setError(upErr.message);
-      } else {
-        setProject((p) => (p ? { ...p, visual_edits: { edits: next } } : p));
-      }
+      await persistVisualEdits(next, reordersRef.current);
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function persistVisualEdits(
+    edits: VisualEdit[],
+    reorders: Record<string, number[]>,
+  ) {
+    const payload: VisualEditMap = { edits, reorders };
+    const { error: upErr } = await supabase
+      .from("projects")
+      .update({ visual_edits: payload })
+      .eq("id", projectId);
+    if (upErr) {
+      setError(upErr.message);
+    } else {
+      setProject((p) => (p ? { ...p, visual_edits: payload } : p));
     }
   }
 
