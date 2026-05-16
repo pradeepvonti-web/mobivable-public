@@ -567,6 +567,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_connectors: {
+        Row: {
+          account: string | null
+          created_at: string
+          id: string
+          label: string
+          metadata: Json
+          provider: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account?: string | null
+          created_at?: string
+          id?: string
+          label: string
+          metadata?: Json
+          provider: string
+          token?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          metadata?: Json
+          provider?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_project_prefs: {
         Row: {
           id: string
