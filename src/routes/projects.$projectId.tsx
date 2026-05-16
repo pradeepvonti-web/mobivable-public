@@ -2379,6 +2379,9 @@ function ProjectPage() {
           onClose={() => setHistoryOpen(false)}
         />
       )}
+      {knowledgeOpen && (
+        <KnowledgeDialog onClose={() => setKnowledgeOpen(false)} />
+      )}
     </div>
   );
 }
