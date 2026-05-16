@@ -3,7 +3,16 @@ import { Image as ImageIcon, Send, ChevronDown, Loader2, X } from "lucide-react"
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Journal"];
+const SUGGESTIONS: { label: string; prompt: string }[] = [
+  {
+    label: "Fitness Tracker",
+    prompt:
+      "Build a fitness tracker app to help me track my progress. I can log my activities every day and it will count my calories and show weekly summaries. Use athletic blue theme.",
+  },
+  { label: "Recipe Finder", prompt: "recipe finder app" },
+  { label: "Habit Coach", prompt: "habit coach app" },
+  { label: "Mood Journal", prompt: "mood journal app" },
+];
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_ATTACHMENTS = 4;
