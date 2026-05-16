@@ -1,11 +1,12 @@
 import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-// Standalone Vitest config — does NOT use the TanStack Start vite config
-// because the Cloudflare worker plugin doesn't play well with the jsdom env.
+// Standalone Vitest config — independent of the app's TanStack/Cloudflare
+// vite config. Vitest's built-in esbuild handles JSX via the automatic runtime.
 export default defineConfig({
-  plugins: [react()],
+  esbuild: {
+    jsx: "automatic",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
