@@ -26,6 +26,13 @@ import {
   Undo2,
   Redo2,
   Users,
+  Menu,
+  Crown,
+  Share2,
+  Upload,
+  Download,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
