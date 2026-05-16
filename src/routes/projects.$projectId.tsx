@@ -1961,6 +1961,7 @@ function ProjectPage() {
           {generating ? "Building" : "Retry"}
         </button>
       </nav>
+      </div>
     </div>
   );
 }
