@@ -625,7 +625,7 @@ function ProjectPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <Link
-            to="/"
+            to="/dashboard"
             className="font-display text-sm uppercase tracking-wider hover:text-primary transition-colors"
           >
             Mobivable
