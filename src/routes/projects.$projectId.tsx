@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
+import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -329,42 +330,29 @@ function ProjectPage() {
                 "linear-gradient(135deg, color-mix(in oklab, var(--primary) 60%, transparent), transparent 70%)",
             }}
           />
-          <div className="relative h-[600px] w-[300px] rounded-[2.5rem] border-[10px] border-foreground/80 bg-card shadow-2xl overflow-hidden">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-foreground/80 z-10" />
-            <div className="h-full w-full grid place-items-center p-6">
-              {isBuilding && (
+          <div className="relative h-[640px] w-[320px] rounded-[2.5rem] border-[10px] border-foreground/80 bg-card shadow-2xl overflow-hidden">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-foreground/80 z-20" />
+            {isBuilding ? (
+              <div className="h-full w-full grid place-items-center p-6">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="font-display text-sm uppercase tracking-wider">
-                    Loading app…
-                  </p>
+                  <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
                 </div>
-              )}
-              {isFailed && (
+              </div>
+            ) : isFailed ? (
+              <div className="h-full w-full grid place-items-center p-6">
                 <div className="text-center">
                   <Smartphone className="h-10 w-10 mx-auto text-destructive mb-3" />
                   <p className="font-display text-sm uppercase tracking-wider text-destructive">
                     Build failed
                   </p>
                 </div>
-              )}
-              {isReady && project && (
-                <div className="text-center space-y-3">
-                  <div className="h-14 w-14 mx-auto rounded-2xl bg-primary/20 grid place-items-center">
-                    <Smartphone className="h-7 w-7 text-primary" />
-                  </div>
-                  <p className="font-display text-base uppercase tracking-tight">
-                    {project.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Your app blueprint is ready. Preview rendering coming soon.
-                  </p>
-                </div>
-              )}
-              {!project && !loading && (
-                <p className="text-xs text-muted-foreground">No preview</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="h-full w-full relative">
+                <FitTrackApp />
+              </div>
+            )}
           </div>
         </div>
       </section>
