@@ -139,18 +139,29 @@ function ProjectPage() {
       { id: `${tempId}-a`, role: "assistant", content: "", pending: true },
     ]);
     try {
-      const res = await chatFn({ data: { projectId, content } });
-      if (!res.ok) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === `${tempId}-a`
-              ? { ...m, content: `⚠️ ${res.error}`, pending: false }
-              : m,
-          ),
-        );
-      } else {
-        await loadMessages();
+      const stream = await chatFn({ data: { projectId, content } });
+      let acc = "";
+      let errored = false;
+      for await (const event of stream) {
+        if (event.type === "delta") {
+          acc += event.delta;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === `${tempId}-a` ? { ...m, content: acc, pending: false } : m,
+            ),
+          );
+        } else if (event.type === "error") {
+          errored = true;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === `${tempId}-a`
+                ? { ...m, content: `⚠️ ${event.error}`, pending: false }
+                : m,
+            ),
+          );
+        }
       }
+      if (!errored) await loadMessages();
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
