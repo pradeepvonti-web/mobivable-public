@@ -23,6 +23,15 @@ type Sub = {
 
 type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "pro" };
 
+type ProjectRow = {
+  id: string;
+  name: string;
+  prompt: string;
+  status: string;
+  model: string;
+  updated_at: string;
+};
+
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
   head: () => ({
