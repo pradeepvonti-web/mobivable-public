@@ -48,7 +48,13 @@ type VisualEdit = {
   classes?: string;
   styles?: VisualStyles;
 };
-type VisualEditMap = { edits: VisualEdit[]; reorders?: Record<string, number[]> };
+type VisualSnapshot = { edits: VisualEdit[]; reorders: Record<string, number[]> };
+type VisualEditMap = {
+  edits: VisualEdit[];
+  reorders?: Record<string, number[]>;
+  past?: VisualSnapshot[];
+  future?: VisualSnapshot[];
+};
 
 const STYLE_KEYS: (keyof VisualStyles)[] = [
   "background",
@@ -173,8 +179,8 @@ function ProjectPage() {
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
   const dragSrcRef = useRef<HTMLElement | null>(null);
-  const historyPastRef = useRef<VisualEditMap[]>([]);
-  const historyFutureRef = useRef<VisualEditMap[]>([]);
+  const historyPastRef = useRef<VisualSnapshot[]>([]);
+  const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
   const [newClassInput, setNewClassInput] = useState("");
@@ -198,6 +204,16 @@ function ProjectPage() {
       .maybeSingle();
     if (error) setError(error.message);
     setProject(data as Project | null);
+    const ve = (data as Project | null)?.visual_edits;
+    historyPastRef.current = (ve?.past ?? []).map((s) => ({
+      edits: s.edits ?? [],
+      reorders: s.reorders ?? {},
+    }));
+    historyFutureRef.current = (ve?.future ?? []).map((s) => ({
+      edits: s.edits ?? [],
+      reorders: s.reorders ?? {},
+    }));
+    setHistoryTick((t) => t + 1);
     setLoading(false);
     return data as Project | null;
   }
@@ -509,14 +525,23 @@ function ProjectPage() {
     reorders: Record<string, number[]>,
     recordHistory = true,
   ) {
-    const payload: VisualEditMap = { edits, reorders };
     if (recordHistory) {
-      const prev: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-      historyPastRef.current.push(prev);
+      const prev = project?.visual_edits;
+      const prevSnap: VisualSnapshot = {
+        edits: prev?.edits ?? [],
+        reorders: prev?.reorders ?? {},
+      };
+      historyPastRef.current.push(prevSnap);
       if (historyPastRef.current.length > 50) historyPastRef.current.shift();
       historyFutureRef.current = [];
       setHistoryTick((t) => t + 1);
     }
+    const payload: VisualEditMap = {
+      edits,
+      reorders,
+      past: historyPastRef.current.slice(-50),
+      future: historyFutureRef.current.slice(-50),
+    };
     const { error: upErr } = await supabase
       .from("projects")
       .update({ visual_edits: payload })
@@ -528,19 +553,23 @@ function ProjectPage() {
     }
   }
 
-  async function applyHistorySnapshot(snap: VisualEditMap) {
+  async function applyHistorySnapshot(snap: VisualSnapshot) {
     setSelectedEl(null);
     selectedElRef.current = null;
     setPreviewKey((k) => k + 1);
-    await persistVisualEdits(snap.edits ?? [], snap.reorders ?? {}, false);
+    await persistVisualEdits(snap.edits, snap.reorders, false);
+  }
+
+  function currentSnapshot(): VisualSnapshot {
+    const ve = project?.visual_edits;
+    return { edits: ve?.edits ?? [], reorders: ve?.reorders ?? {} };
   }
 
   async function undoVisualEdit() {
     const past = historyPastRef.current;
     if (!past.length) return;
     const snap = past.pop()!;
-    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-    historyFutureRef.current.push(current);
+    historyFutureRef.current.push(currentSnapshot());
     setHistoryTick((t) => t + 1);
     await applyHistorySnapshot(snap);
   }
@@ -549,8 +578,7 @@ function ProjectPage() {
     const future = historyFutureRef.current;
     if (!future.length) return;
     const snap = future.pop()!;
-    const current: VisualEditMap = project?.visual_edits ?? { edits: [], reorders: {} };
-    historyPastRef.current.push(current);
+    historyPastRef.current.push(currentSnapshot());
     setHistoryTick((t) => t + 1);
     await applyHistorySnapshot(snap);
   }
