@@ -131,7 +131,7 @@ function ProjectPage() {
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, name, prompt, model, status, created_at, attachments, result, error_text",
+        "id, name, prompt, model, status, created_at, attachments, result, error_text, visual_edits",
       )
       .eq("id", projectId)
       .maybeSingle();
