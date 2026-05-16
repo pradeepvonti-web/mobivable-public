@@ -1477,7 +1477,7 @@ function ProjectPage() {
                                 icon: Settings,
                                 label: "Settings",
                                 hint: "Ctrl .",
-                                onClick: () => goTo("/admin/settings"),
+                                onClick: () => goTo("/settings"),
                               },
                             ],
                             [

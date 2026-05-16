@@ -265,6 +265,7 @@ export type Database = {
           display_name: string | null
           id: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          theme_preference: string
           updated_at: string
         }
         Insert: {
@@ -272,6 +273,7 @@ export type Database = {
           display_name?: string | null
           id: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          theme_preference?: string
           updated_at?: string
         }
         Update: {
@@ -279,6 +281,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          theme_preference?: string
           updated_at?: string
         }
         Relationships: []
@@ -501,6 +504,33 @@ export type Database = {
           id?: string
           metadata?: Json | null
           reason?: string
+        }
+        Relationships: []
+      }
+      user_api_keys: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          value?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
         }
         Relationships: []
       }
