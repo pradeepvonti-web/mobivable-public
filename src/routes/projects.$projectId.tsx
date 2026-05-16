@@ -367,7 +367,20 @@ function ProjectPage() {
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
   const [newClassInput, setNewClassInput] = useState("");
-  const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
+  type PendingAttachment = {
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    progress: number;
+    status: "uploading" | "ready" | "error";
+    error?: string;
+    previewUrl?: string;
+    extractedText?: string;
+    extractError?: string;
+  };
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generateFn = useServerFn(generateProject);
