@@ -139,6 +139,42 @@ export function AppPromptComposer() {
             disabled={submitting}
             className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none disabled:opacity-60"
           />
+
+          {attachments.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {attachments.map((a) => (
+                <div
+                  key={a.path}
+                  className="relative h-20 w-20 rounded-lg overflow-hidden border border-primary/40 bg-background"
+                >
+                  <img src={a.url} alt={a.name} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${a.name}`}
+                    onClick={() => removeAttachment(a)}
+                    className="absolute top-1 right-1 h-5 w-5 grid place-items-center rounded-full bg-background/80 hover:bg-background text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {uploading && (
+                <div className="h-20 w-20 grid place-items-center rounded-lg border border-primary/40 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+
           {error && (
             <p className="mt-2 text-sm text-destructive font-mono">{error}</p>
           )}
