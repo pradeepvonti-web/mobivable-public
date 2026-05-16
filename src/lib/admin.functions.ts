@@ -163,6 +163,73 @@ export const getAdminLoginAudit = createServerFn({ method: "GET" })
     };
   });
 
+// ─── Password Reset Audit ──────────────────────────────────────
+/** Log a password reset request or completion. Public (called from auth pages). */
+export const logPasswordResetEvent = createServerFn({ method: "POST" })
+  .inputValidator((input: { email: string; event: "request" | "complete" }) => {
+    const email = String(input?.email ?? "").trim().toLowerCase();
+    if (!email || email.length > 320) throw new Error("Invalid email");
+    const event = input?.event === "complete" ? "complete" : "request";
+    return { email, event };
+  })
+  .handler(async ({ data }) => {
+    const svc = svcClient();
+    if (!svc) return { ok: false as const, reason: "service_role_unavailable" };
+
+    let userId: string | null = null;
+    try {
+      const { data: u } = await svc.rpc("get_user_id_by_email", { p_email: data.email });
+      if (typeof u === "string") userId = u;
+    } catch { /* ignore */ }
+
+    let ip: string | null = null;
+    let userAgent: string | null = null;
+    try {
+      const { getRequestHeader } = await import("@tanstack/react-start/server");
+      userAgent = (getRequestHeader("user-agent") || "").slice(0, 500) || null;
+      ip =
+        (getRequestHeader("x-forwarded-for") || getRequestHeader("cf-connecting-ip") || "")
+          .split(",")[0]
+          .trim()
+          .slice(0, 64) || null;
+    } catch { /* not available */ }
+
+    await svc.from("password_reset_audit").insert({
+      user_id: userId,
+      email: data.email,
+      event: data.event,
+      ip,
+      user_agent: userAgent,
+    });
+    return { ok: true as const };
+  });
+
+/** Fetch recent password reset events (admin-only). */
+export const getPasswordResetAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const svc = svcClient() ?? supabase;
+    const { data, error } = await svc
+      .from("password_reset_audit")
+      .select("id, user_id, email, event, ip, user_agent, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return {
+      entries: (data ?? []) as Array<{
+        id: string;
+        user_id: string | null;
+        email: string;
+        event: "request" | "complete";
+        ip: string | null;
+        user_agent: string | null;
+        created_at: string;
+      }>,
+    };
+  });
+
 export const getAdminStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
