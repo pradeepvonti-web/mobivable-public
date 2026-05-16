@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
 
 const MODEL_MAP: Record<string, string> = {
   "Opus 4.7": "google/gemini-2.5-pro",
@@ -14,7 +15,7 @@ const MODEL_MAP: Record<string, string> = {
   "GPT-5.2": "openai/gpt-5.2",
 };
 
-const SYSTEM_PROMPT =
+const DEFAULT_SYSTEM =
   "You are a senior mobile product designer + engineer collaborating with the user " +
   "to iteratively design and build a mobile application. Respond in concise, " +
   "actionable markdown. When the user asks for changes, describe the next screens, " +
@@ -51,6 +52,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         content: z.string().min(1).max(4000),
+        agentRole: z.enum(ALL_ROLES as [AgentRole, ...AgentRole[]]).optional(),
       })
       .parse(input),
   )
@@ -99,8 +101,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     }
 
     const modelId = MODEL_MAP[project.model] ?? "google/gemini-3-flash-preview";
+    const agent = data.agentRole ? AGENTS[data.agentRole] : null;
+    const systemPrompt = agent
+      ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project. Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful.`
+      : DEFAULT_SYSTEM;
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       {
         role: "system",
         content: `App idea: ${project.prompt}${project.result ? `\n\nInitial plan:\n${project.result}` : ""}`,
