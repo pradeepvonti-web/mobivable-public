@@ -269,7 +269,7 @@ function ProjectPage() {
           </h1>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading && (
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               [···] Loading
@@ -284,7 +284,7 @@ function ProjectPage() {
 
           {project && (
             <>
-              {/* User prompt bubble */}
+              {/* Initial user prompt */}
               <div className="flex justify-end">
                 <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-4">
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">
@@ -316,70 +316,113 @@ function ProjectPage() {
                 </div>
               </div>
 
-              {/* Status / assistant bubble */}
-              <div className="flex justify-start">
-                <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span
-                      className={`h-2 w-2 rounded-full ${
-                        isFailed
-                          ? "bg-destructive"
-                          : isBuilding
-                            ? "bg-primary animate-pulse"
-                            : "bg-primary"
-                      }`}
-                    />
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {isFailed
-                        ? "Failed"
-                        : isBuilding
-                          ? "Building plan…"
-                          : "Plan ready"}
-                    </span>
-                  </div>
-
-                  {isBuilding && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Running through {project.model}…</span>
+              {/* Initial plan from generation */}
+              {(isBuilding || isFailed || (isReady && project.result)) && (
+                <div className="flex justify-start">
+                  <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isFailed
+                            ? "bg-destructive"
+                            : isBuilding
+                              ? "bg-primary animate-pulse"
+                              : "bg-primary"
+                        }`}
+                      />
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {isFailed ? "Failed" : isBuilding ? "Building plan…" : "Plan ready"}
+                      </span>
                     </div>
-                  )}
 
-                  {isFailed && (
-                    <div className="space-y-3">
-                      <p className="text-sm text-destructive">
-                        {project.error_text ?? error ?? "Generation failed."}
-                      </p>
-                      <button
-                        onClick={runGeneration}
-                        disabled={generating}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-border text-[11px] font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-                      >
-                        <RefreshCw className="h-3 w-3" /> Retry
-                      </button>
-                    </div>
-                  )}
+                    {isBuilding && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Running through {project.model}…</span>
+                      </div>
+                    )}
 
-                  {isReady && project.result && (
-                    <>
+                    {isFailed && (
+                      <div className="space-y-3">
+                        <p className="text-sm text-destructive">
+                          {project.error_text ?? error ?? "Generation failed."}
+                        </p>
+                        <button
+                          onClick={runGeneration}
+                          disabled={generating}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 border border-border text-[11px] font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw className="h-3 w-3" /> Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {isReady && project.result && (
                       <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
                         <ReactMarkdown>{project.result}</ReactMarkdown>
                       </div>
-                      <button
-                        onClick={runGeneration}
-                        disabled={generating}
-                        className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 border border-border text-[11px] font-display uppercase tracking-wider hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                        {generating ? "Regenerating…" : "Regenerate"}
-                      </button>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Iterative chat messages */}
+              {messages.map((m) =>
+                m.role === "user" ? (
+                  <div key={m.id} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-3">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={m.id} className="flex justify-start">
+                    <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-3">
+                      {m.pending && !m.content ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Thinking…</span>
+                        </div>
+                      ) : (
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
+                          <ReactMarkdown>{m.content}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ),
+              )}
             </>
           )}
         </div>
+
+        {/* Composer */}
+        <form
+          onSubmit={handleSend}
+          className="border-t border-border p-3 flex items-end gap-2 bg-background"
+        >
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            rows={1}
+            placeholder="Ask for changes, new screens, or features…"
+            disabled={sending || !project}
+            className="flex-1 resize-none bg-card border border-border rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/60 disabled:opacity-50 max-h-32"
+          />
+          <button
+            type="submit"
+            disabled={sending || !input.trim() || !project}
+            aria-label="Send message"
+            className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </button>
+        </form>
       </section>
 
       {/* Preview pane */}
