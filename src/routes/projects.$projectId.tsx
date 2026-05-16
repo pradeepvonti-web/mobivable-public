@@ -952,14 +952,18 @@ function ProjectPage() {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
               (label === "Backend" && sidePanel === "backend");
+            const locked = label === "Backend" && !isPro;
             return (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
-                  if (label === "Backend") setSidePanel("backend");
-                  else if (label === "Chat") setSidePanel(null);
+                  if (label === "Backend") {
+                    if (!isPro) setUpgradeOpen(true);
+                    else setSidePanel("backend");
+                  } else if (label === "Chat") setSidePanel(null);
                 }}
+                title={locked ? "Backend is a Pro feature" : undefined}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
                     ? "bg-primary/10 text-primary"
@@ -967,7 +971,12 @@ function ProjectPage() {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span>{label}</span>
+                <span className="flex-1 text-left">{label}</span>
+                {locked && (
+                  <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                    Pro
+                  </span>
+                )}
               </button>
             );
           })}
