@@ -29,7 +29,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignupPage() {
-  const { plan } = useSearch({ from: "/signup" });
+  const { plan } = useSearch({ from: "/signup" }) as { plan: PlanValue };
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
