@@ -105,15 +105,33 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
-  const [model, setModelState] = useState(DEFAULT_MODEL);
+  const [defaultModel, setDefaultModel] = useState(FALLBACK_DEFAULT_MODEL);
+  const [model, setModelState] = useState(FALLBACK_DEFAULT_MODEL);
+  const [userPicked, setUserPicked] = useState(false);
   useEffect(() => {
     try {
       const saved = localStorage.getItem("preferred-model");
-      if (saved && MODELS.includes(saved)) setModelState(saved);
+      if (saved && MODELS.includes(saved)) {
+        setModelState(saved);
+        setUserPicked(true);
+      }
     } catch {}
-  }, []);
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "default_model")
+        .maybeSingle();
+      const v = typeof data?.value === "string" ? data.value : null;
+      if (v && MODELS.includes(v)) {
+        setDefaultModel(v);
+        setModelState((curr) => (userPicked ? curr : v));
+      }
+    })();
+  }, [userPicked]);
   const setModel = (m: string) => {
     setModelState(m);
+    setUserPicked(true);
     try {
       localStorage.setItem("preferred-model", m);
     } catch {}
