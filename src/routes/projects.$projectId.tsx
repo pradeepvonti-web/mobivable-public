@@ -3127,7 +3127,7 @@ function AssetCard({
   );
 }
 
-function AssetsPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AssetsPanel({ projectId, onClose, onChanged }: { projectId: string; onClose: () => void; onChanged?: () => void }) {
   const [iconUrl, setIconUrl] = useState<string | null>(null);
   const [splashUrl, setSplashUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
