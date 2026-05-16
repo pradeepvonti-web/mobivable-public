@@ -1,8 +1,4 @@
 import { useState } from "react";
-import {
-  LayoutDashboard, Users, FolderKanban, Sparkles,
-  Shield, CreditCard, Activity,
-} from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { AdminUsers } from "./AdminUsers";
 import { AdminProjects } from "./AdminProjects";
@@ -13,13 +9,13 @@ import { AdminActivity } from "./AdminActivity";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "users", label: "Users", icon: Users },
-  { id: "projects", label: "Projects", icon: FolderKanban },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "ai", label: "AI Providers", icon: Sparkles },
-  { id: "features", label: "Feature Control", icon: Shield },
-  { id: "activity", label: "Activity", icon: Activity },
+  { id: "overview", label: "Overview" },
+  { id: "users", label: "Users" },
+  { id: "projects", label: "Projects" },
+  { id: "payments", label: "Payments" },
+  { id: "ai", label: "AI Providers" },
+  { id: "features", label: "Feature Control" },
+  { id: "activity", label: "Activity" },
 ] as const;
 
 
@@ -51,40 +47,46 @@ export function AdminDashboard() {
       <div className="mx-auto max-w-[1440px] flex min-h-[calc(100vh-64px)]">
         {/* Sidebar */}
         <aside className="hidden lg:flex w-56 shrink-0 flex-col border-r border-border bg-card/30 p-3 gap-1">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all ${
-                tab === id
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
+          {TABS.map(({ id, label }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all ${
+                  active
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                }`}
+              >
+                <span className={`size-3 rounded-sm shrink-0 ${active ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                {label}
+              </button>
+            );
+          })}
         </aside>
 
         {/* Mobile tabs */}
         <div className="lg:hidden flex border-b border-border bg-card/30 overflow-x-auto w-full fixed top-16 z-30">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-xs whitespace-nowrap border-b-2 transition-colors ${
-                tab === id
-                  ? "border-primary text-primary font-medium"
-                  : "border-transparent text-muted-foreground"
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+          {TABS.map(({ id, label }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-1.5 px-4 py-3 text-xs whitespace-nowrap border-b-2 transition-colors ${
+                  active
+                    ? "border-primary text-primary font-medium"
+                    : "border-transparent text-muted-foreground"
+                }`}
+              >
+                <span className={`size-2.5 rounded-sm shrink-0 ${active ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content */}
