@@ -93,6 +93,25 @@ function LoginPage() {
             {submitting ? "Authenticating…" : "Login"}
           </button>
 
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={async () => {
+              setError(null);
+              setSubmitting(true);
+              const { error } = await supabase.auth.signInWithPassword({
+                email: "test@example.com",
+                password: "TestUser123!",
+              });
+              setSubmitting(false);
+              if (error) setError(error.message);
+              else navigate({ to: "/dashboard" });
+            }}
+            className="w-full py-3 border border-dashed border-primary text-primary font-display uppercase tracking-wider hover:bg-primary hover:text-background transition-all disabled:opacity-50"
+          >
+            Test Login
+          </button>
+
           <p className="text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link to="/signup" search={{ plan: "free_beta" }} className="text-primary underline-offset-4 hover:underline">
