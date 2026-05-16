@@ -690,9 +690,14 @@ function ProjectPage() {
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
           </div>
-          <h1 className="font-display text-lg uppercase tracking-tight truncate">
-            {project?.name ?? "Loading…"}
-          </h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-lg uppercase tracking-tight truncate">
+              {project?.name ?? "Loading…"}
+            </h1>
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground truncate">
+              Talking to · {AGENTS[selectedAgent].name}
+            </p>
+          </div>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
