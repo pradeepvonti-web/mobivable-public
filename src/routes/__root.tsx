@@ -10,6 +10,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { Toaster } from "@/components/ui/sonner";
 import { useTheme, themeNoFlashScript } from "@/components/theme-toggle";
 
 function NotFoundComponent() {
@@ -126,6 +127,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <PaymentTestModeBanner />
       <Outlet />
+      <Toaster position="bottom-right" />
     </QueryClientProvider>
   );
 }
