@@ -39,7 +39,16 @@ import {
   Pencil,
   X,
   Sparkles,
+  BookOpen,
+  Github,
+  Workflow,
+  Camera,
+  AtSign,
+  ClipboardList,
+  Paperclip,
+  ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
