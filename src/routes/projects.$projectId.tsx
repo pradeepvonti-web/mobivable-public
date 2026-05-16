@@ -153,6 +153,7 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualEditMap[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  const [newClassInput, setNewClassInput] = useState("");
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
