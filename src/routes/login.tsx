@@ -68,14 +68,14 @@ function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    clearError();
     setSubmitting(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate({ to: "/dashboard" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      showAuthError(err instanceof Error ? err.message : "Login failed.", "user");
     } finally {
       setSubmitting(false);
     }
