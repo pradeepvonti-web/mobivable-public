@@ -127,7 +127,7 @@ export function AdminPayments() {
             </thead>
             <tbody className="divide-y divide-border">
               {data.subscriptions.length === 0 && (
-                <tr><td colSpan={6} className="text-center px-4 py-8 text-muted-foreground text-xs">No subscriptions yet.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8"><AdminEmptyState title="No subscriptions yet" /></td></tr>
               )}
               {data.subscriptions.map((s: any) => (
                 <tr key={s.id} className="hover:bg-muted/20">
