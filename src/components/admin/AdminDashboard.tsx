@@ -34,12 +34,10 @@ export function AdminDashboard() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto max-w-[1440px] flex items-center gap-4 px-6 h-16">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 grid place-items-center">
-              <Shield className="h-4.5 w-4.5 text-primary-foreground" />
-            </div>
+            <div className="size-6 bg-primary rounded-sm" />
             <div>
-              <h1 className="text-sm font-display uppercase tracking-tight">Admin Dashboard</h1>
-              <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Mobivable Platform</p>
+              <h1 className="font-display text-2xl tracking-tighter uppercase leading-none">Mobivable</h1>
+              <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mt-0.5">Admin Dashboard</p>
             </div>
           </div>
           <div className="flex-1" />
