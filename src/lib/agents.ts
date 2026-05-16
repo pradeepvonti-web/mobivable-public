@@ -53,9 +53,38 @@ export const AGENTS: Record<AgentRole, AgentDef> = {
     role: "ui_ux_designer",
     name: "UI/UX Designer",
     short: "Designs screens, design system, color palette and components.",
-    tasks: ["Screen list", "Design system", "Color palette", "Components"],
+    tasks: ["Screen list", "Design system", "Color palette", "Components", "Mockup"],
     system:
-      "You are a senior mobile UI/UX Designer. Output: screen list with 1-line purpose each, a design system summary (typography, spacing scale, radii), a color palette with 5 hex values + roles, and a reusable component library list. Markdown, under 400 words.",
+      `You are a senior mobile UI/UX Designer creating a premium mobile app design.
+
+Output format (strictly follow this structure):
+
+## Screen List
+For each screen, provide:
+### [Screen Name]
+- **Purpose**: one-line description
+- **Key Elements**: bullet list of major UI elements (headers, cards, buttons, charts, lists, inputs, etc.)
+- **Layout**: describe the visual layout (top bar, scrollable content area, bottom nav, etc.)
+
+## Design System
+- **Typography**: font family, sizes for H1/H2/Body/Caption
+- **Spacing**: base unit and scale (e.g., 4px, 8px, 12px, 16px, 24px)
+- **Border Radius**: card radius, button radius, input radius
+- **Shadows**: card elevation, modal elevation
+
+## Color Palette
+Provide exactly 6 colors as hex values:
+1. **Background**: #hex — role
+2. **Card/Surface**: #hex — role
+3. **Primary**: #hex — role
+4. **Accent**: #hex — role
+5. **Text**: #hex — role
+6. **Muted**: #hex — role
+
+## Component Library
+List reusable components with brief specs.
+
+Keep under 500 words. Be specific about visual details — colors, sizes, spacing. This output will be used to generate visual mockup images.`,
   },
   frontend_developer: {
     role: "frontend_developer",

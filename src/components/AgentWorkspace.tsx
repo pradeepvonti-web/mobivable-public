@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "@/lib/agents";
 import { recommendAgents, startAgentRun, runAgentTask, finalizeAgentRun } from "@/lib/agent-run.functions";
+import { generateMockupImage } from "@/lib/generate-mockup.functions";
 
 type Run = { id: string; status: string; selected_roles: string[]; created_at: string };
 type Task = { id: string; role: string; ordinal: number; status: "waiting" | "working" | "completed" | "failed"; output: string | null; error_text: string | null; created_at?: string; updated_at?: string };
@@ -41,10 +42,58 @@ function StatusBadge({ status }: { status: Task["status"] }) {
 }
 
 /* ─── Timeline Item ─── */
-function TimelineItem({ task, isLast }: { task: Task; isLast: boolean }) {
+function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: { task: Task; isLast: boolean; projectId?: string; projectPrompt?: string; projectName?: string }) {
   const [open, setOpen] = useState(false);
+  const [mockupUrl, setMockupUrl] = useState<string | null>(null);
+  const [mockupLoading, setMockupLoading] = useState(false);
+  const [mockupError, setMockupError] = useState<string | null>(null);
+  const generateMockupFn = useServerFn(generateMockupImage);
   const def = AGENTS[task.role as AgentRole];
   const time = task.updated_at || task.created_at;
+  const isDesigner = task.role === "ui_ux_designer";
+
+  // Auto-generate mockup when UI/UX Designer completes
+  useEffect(() => {
+    if (isDesigner && task.status === "completed" && task.output && projectId && projectPrompt && !mockupUrl && !mockupLoading && !mockupError) {
+      setMockupLoading(true);
+      generateMockupFn({
+        data: {
+          projectId,
+          designerOutput: task.output,
+          projectPrompt,
+          projectName,
+        },
+      }).then((r) => {
+        if (r.ok && r.imageUrl) {
+          setMockupUrl(r.imageUrl);
+        } else {
+          setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+        }
+      }).catch((e) => {
+        setMockupError(e instanceof Error ? e.message : "Mockup generation failed");
+      }).finally(() => setMockupLoading(false));
+    }
+  }, [isDesigner, task.status, task.output, projectId]);
+
+  const handleRegenerateMockup = () => {
+    if (!projectId || !projectPrompt || !task.output) return;
+    setMockupUrl(null);
+    setMockupError(null);
+    setMockupLoading(true);
+    generateMockupFn({
+      data: {
+        projectId,
+        designerOutput: task.output,
+        projectPrompt,
+        projectName,
+      },
+    }).then((r) => {
+      if (r.ok && r.imageUrl) setMockupUrl(r.imageUrl);
+      else setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+    }).catch((e) => {
+      setMockupError(e instanceof Error ? e.message : "Failed");
+    }).finally(() => setMockupLoading(false));
+  };
 
   return (
     <div className="relative flex gap-3">
@@ -85,6 +134,69 @@ function TimelineItem({ task, isLast }: { task: Task; isLast: boolean }) {
               <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive">Error Detected</span>
             </div>
             <p className="text-[11px] text-destructive/90 leading-relaxed">{task.error_text}</p>
+          </div>
+        )}
+
+        {/* ─── UI/UX Designer: Mockup Image ─── */}
+        {isDesigner && task.status === "completed" && (
+          <div className="mt-3 space-y-2">
+            {/* Mockup Image */}
+            {mockupLoading && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 flex flex-col items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 grid place-items-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-foreground">Generating Design Mockup...</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Creating visual mockup from your design specs</p>
+                </div>
+              </div>
+            )}
+            {mockupUrl && (
+              <div className="rounded-2xl border border-primary/20 bg-card/60 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">Design Mockup</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateMockup}
+                    className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Regenerate
+                  </button>
+                </div>
+                <img
+                  src={mockupUrl}
+                  alt="App Design Mockup"
+                  className="w-full object-contain max-h-[400px]"
+                />
+                <div className="px-3 py-2 border-t border-border">
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Review the mockup. Continue to implementation, or request regeneration with feedback.
+                  </p>
+                </div>
+              </div>
+            )}
+            {mockupError && !mockupUrl && !mockupLoading && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="h-3 w-3 text-amber-500" />
+                  <span className="text-[10px] font-semibold text-amber-500">Mockup Unavailable</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{mockupError}</p>
+                <button
+                  type="button"
+                  onClick={handleRegenerateMockup}
+                  className="mt-2 inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-primary hover:text-foreground transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -172,8 +284,17 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
   const [orchestrating, setOrchestrating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"timeline" | "feed">("timeline");
+  const [projectInfo, setProjectInfo] = useState<{ prompt: string; name: string }>({ prompt: "", name: "" });
   const startedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load project info for mockup generation
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("projects").select("prompt, name").eq("id", projectId).maybeSingle();
+      if (data) setProjectInfo({ prompt: data.prompt ?? "", name: data.name ?? "" });
+    })();
+  }, [projectId]);
 
   // Auto-scroll to bottom when new tasks update
   useEffect(() => {
@@ -405,7 +526,7 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
 
             {/* Timeline */}
             {tasks.map((t, i) => (
-              <TimelineItem key={t.id} task={t} isLast={i === tasks.length - 1} />
+              <TimelineItem key={t.id} task={t} isLast={i === tasks.length - 1} projectId={projectId} projectPrompt={projectInfo.prompt} projectName={projectInfo.name} />
             ))}
 
             {/* Build Summary */}
