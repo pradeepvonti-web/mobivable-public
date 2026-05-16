@@ -32,6 +32,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 
 type Attachment = { path: string; url: string; name: string };
 
