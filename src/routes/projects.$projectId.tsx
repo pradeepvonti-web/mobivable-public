@@ -38,11 +38,13 @@ import {
   Trash2,
   Pencil,
   X,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
+import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
@@ -2841,6 +2843,57 @@ function AssetCard({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const runGenerate = useServerFn(generateAsset);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  async function uploadBlob(blob: Blob, ext: "png" | "jpg") {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) throw new Error("Not signed in");
+    const path = `${uid}/${projectId}/${kind}.${ext}`;
+    await supabase.storage
+      .from("project-attachments")
+      .remove([`${uid}/${projectId}/${kind}.png`, `${uid}/${projectId}/${kind}.jpg`]);
+    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    const { error: upErr } = await supabase.storage
+      .from("project-attachments")
+      .upload(path, blob, { upsert: true, contentType });
+    if (upErr) throw new Error(upErr.message);
+    const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+    onUploaded(`${pub.publicUrl}?t=${Date.now()}`);
+  }
+
+  async function handleGenerate() {
+    setErr(null);
+    const prompt = aiPrompt.trim();
+    if (prompt.length < 3) {
+      setErr("Describe what to generate (at least 3 characters)");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await runGenerate({ data: { kind, prompt } });
+      if (!res.ok) throw new Error(res.error);
+      const dataUrl = res.dataUrl;
+      const match = /^data:(image\/(png|jpe?g));base64,(.+)$/.exec(dataUrl);
+      if (!match) throw new Error("Unsupported image format");
+      const mime = match[1];
+      const ext: "png" | "jpg" = mime === "image/png" ? "png" : "jpg";
+      const bin = atob(match[3]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      await uploadBlob(new Blob([bytes], { type: mime }), ext);
+      setAiOpen(false);
+      setAiPrompt("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
 
   async function handleFile(file: File) {
     setErr(null);
@@ -2854,20 +2907,8 @@ function AssetCard({
     }
     setBusy(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) throw new Error("Not signed in");
-      const ext = file.type === "image/png" ? "png" : "jpg";
-      const path = `${uid}/${projectId}/${kind}.${ext}`;
-      await supabase.storage
-        .from("project-attachments")
-        .remove([`${uid}/${projectId}/${kind}.png`, `${uid}/${projectId}/${kind}.jpg`]);
-      const { error: upErr } = await supabase.storage
-        .from("project-attachments")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw new Error(upErr.message);
-      const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
-      onUploaded(`${pub.publicUrl}?t=${Date.now()}`);
+      const ext: "png" | "jpg" = file.type === "image/png" ? "png" : "jpg";
+      await uploadBlob(file, ext);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -2954,6 +2995,68 @@ function AssetCard({
           <p className="text-xs text-muted-foreground mt-1">PNG, JPG (max 5MB)</p>
         </button>
       )}
+
+      <div className="border-t border-border pt-3 space-y-2">
+        {!aiOpen ? (
+          <button
+            type="button"
+            disabled={busy || generating}
+            onClick={() => setAiOpen(true)}
+            className="w-full px-3 py-2 rounded-md border border-primary/40 text-xs flex items-center justify-center gap-1.5 text-primary hover:bg-primary/5 disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate with AI
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder={
+                kind === "icon"
+                  ? "e.g. minimalist purple diamond crystal logo"
+                  : "e.g. soft gradient sunrise with subtle mountain silhouette"
+              }
+              rows={2}
+              maxLength={500}
+              disabled={generating}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:border-primary resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiOpen(false);
+                  setAiPrompt("");
+                  setErr(null);
+                }}
+                disabled={generating}
+                className="px-3 py-2 rounded-md border border-border text-xs hover:bg-muted/50 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating || aiPrompt.trim().length < 3}
+                className="flex-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {err && <p className="text-xs text-destructive">{err}</p>}
     </div>
