@@ -17,16 +17,17 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   { label: "Habit Coach", prompt: "habit coach app" },
   { label: "Mood Journal", prompt: "mood journal app" },
 ];
+const DEFAULT_MODEL = "Gemini 3 Flash";
 const MODELS = [
-  "Opus 4.7",
-  "Sonnet 4.7",
-  "Haiku 4.7",
+  "Gemini 3 Flash",
   "Gemini 2.5 Pro",
   "Gemini 2.5 Flash",
-  "Gemini 3 Flash",
   "GPT-5",
   "GPT-5 Mini",
   "GPT-5.2",
+  "Opus 4.7",
+  "Sonnet 4.7",
+  "Haiku 4.7",
 ];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_ATTACHMENTS = 4;
@@ -104,7 +105,7 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
+  const [model, setModel] = useState(DEFAULT_MODEL);
   const [modelOpen, setModelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -307,10 +308,15 @@ export function AppPromptComposer() {
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                   <span>{model}</span>
+                  {model === DEFAULT_MODEL && (
+                    <span className="text-[10px] uppercase tracking-wider text-primary/80 font-display">
+                      Default
+                    </span>
+                  )}
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {modelOpen && (
-                  <div className="absolute right-0 mt-2 w-44 rounded-xl border border-border bg-card shadow-lg z-10 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card shadow-lg z-10 overflow-hidden">
                     {MODELS.map((m) => (
                       <button
                         key={m}
@@ -319,11 +325,16 @@ export function AppPromptComposer() {
                           setModel(m);
                           setModelOpen(false);
                         }}
-                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-primary/10 ${
+                        className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-primary/10 ${
                           m === model ? "text-primary" : "text-foreground"
                         }`}
                       >
-                        {m}
+                        <span>{m}</span>
+                        {m === DEFAULT_MODEL && (
+                          <span className="text-[10px] uppercase tracking-wider text-primary/80 font-display">
+                            Recommended
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
