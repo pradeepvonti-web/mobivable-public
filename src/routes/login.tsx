@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -42,6 +43,12 @@ function LoginPage() {
       intro="Sign in to your Mobivable workspace and pick up where your chat thread left off."
     >
       <div className="max-w-md mx-auto border border-border p-8">
+        <OAuthButtons onError={setError} />
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 h-px bg-border" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted">or</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
