@@ -224,7 +224,7 @@ function AdminSettingsPage() {
             <span
               className={
                 "text-sm " +
-                (msg.kind === "ok" ? "text-emerald-500" : "text-destructive")
+                (msg.kind === "ok" ? "text-primary" : "text-destructive")
               }
             >
               {msg.text}

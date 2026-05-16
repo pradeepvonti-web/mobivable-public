@@ -57,7 +57,7 @@ export function AdminFeatureFlags() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl tracking-tight">Feature Control</h2>
+        <h2 className="font-display uppercase text-2xl tracking-tight">Feature Control</h2>
         <p className="text-sm text-muted-foreground mt-1">{activeCount}/{FLAG_META.length} features enabled · changes apply instantly</p>
       </div>
 
@@ -71,19 +71,19 @@ export function AdminFeatureFlags() {
               type="button"
               onClick={() => toggle(key)}
               disabled={isSaving}
-              className={`text-left rounded-2xl border p-5 transition-all hover:shadow-md ${
-                enabled ? "border-emerald-500/40 bg-emerald-500/5" : "border-border bg-card/40"
+              className={`text-left rounded-lg border p-5 transition-all hover:shadow-md ${
+                enabled ? "border-primary/40 bg-primary/5" : "border-border bg-card/40"
               } ${isSaving ? "opacity-60" : ""}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-xl grid place-items-center ${enabled ? "bg-emerald-500/15" : "bg-muted"}`}>
-                  <Icon className={`h-5 w-5 ${enabled ? "text-emerald-500" : "text-muted-foreground"}`} />
+                <div className={`h-10 w-10 rounded-lg grid place-items-center ${enabled ? "bg-primary/15" : "bg-muted"}`}>
+                  <Icon className={`h-5 w-5 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{label}</p>
                   <p className="text-[10px] text-muted-foreground">{desc}</p>
                 </div>
-                <div className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? "bg-emerald-500" : "bg-muted"}`}>
+                <div className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? "bg-primary" : "bg-muted"}`}>
                   <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${enabled ? "left-[22px]" : "left-0.5"}`} />
                 </div>
               </div>
@@ -92,10 +92,10 @@ export function AdminFeatureFlags() {
         })}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
         <h3 className="font-display text-lg">Platform Limits</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="rounded-xl border border-border bg-background/50 p-4 block">
+          <label className="rounded-lg border border-border bg-background/50 p-4 block">
             <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Projects / User</p>
             <input
               type="number"
@@ -105,7 +105,7 @@ export function AdminFeatureFlags() {
               className="mt-1 w-full bg-transparent text-2xl font-display outline-none"
             />
           </label>
-          <label className="rounded-xl border border-border bg-background/50 p-4 block">
+          <label className="rounded-lg border border-border bg-background/50 p-4 block">
             <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Messages / Project</p>
             <input
               type="number"
