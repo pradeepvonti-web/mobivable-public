@@ -130,4 +130,11 @@
   pointer-events: none;
   z-index: 50;
   white-space: nowrap;
+.visual-edit-selected {
+  cursor: grab !important;
+}
+.visual-edit-drop {
+  outline: 2px dashed var(--color-primary) !important;
+  outline-offset: -2px !important;
+  background-color: color-mix(in oklab, var(--color-primary) 18%, transparent) !important;
 }
