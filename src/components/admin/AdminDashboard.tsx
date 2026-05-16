@@ -89,6 +89,7 @@ export function AdminDashboard() {
           {tab === "overview" && <AdminOverview />}
           {tab === "users" && <AdminUsers />}
           {tab === "projects" && <AdminProjects />}
+          {tab === "payments" && <AdminPayments />}
           {tab === "ai" && <AdminAIConfig />}
           {tab === "features" && <AdminFeatureFlags />}
         </main>
