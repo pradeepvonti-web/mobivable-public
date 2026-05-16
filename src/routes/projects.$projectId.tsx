@@ -204,6 +204,16 @@ function ProjectPage() {
       .maybeSingle();
     if (error) setError(error.message);
     setProject(data as Project | null);
+    const ve = (data as Project | null)?.visual_edits;
+    historyPastRef.current = (ve?.past ?? []).map((s) => ({
+      edits: s.edits ?? [],
+      reorders: s.reorders ?? {},
+    }));
+    historyFutureRef.current = (ve?.future ?? []).map((s) => ({
+      edits: s.edits ?? [],
+      reorders: s.reorders ?? {},
+    }));
+    setHistoryTick((t) => t + 1);
     setLoading(false);
     return data as Project | null;
   }
