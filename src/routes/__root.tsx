@@ -109,6 +109,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
         {children}
         <Scripts />
       </body>
@@ -118,6 +119,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Initialize global theme — keeps <html class="dark"> in sync everywhere.
+  useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
