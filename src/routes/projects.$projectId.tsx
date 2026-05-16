@@ -2391,7 +2391,6 @@ function HistoryDialog({
     name: string | null;
     prompt: string;
     updated_at: string;
-    message_count: number;
   };
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -2411,13 +2410,7 @@ function HistoryDialog({
         select: (c: string) => {
           eq: (c: string, v: string) => {
             order: (c: string, o: { ascending: boolean }) => Promise<{
-              data: Array<{
-                id: string;
-                name: string | null;
-                prompt: string;
-                updated_at: string;
-                project_messages: { count: number }[] | null;
-              }> | null;
+              data: Row[] | null;
               error: { message: string } | null;
             }>;
           };
@@ -2425,7 +2418,7 @@ function HistoryDialog({
       };
     })
       .from("projects")
-      .select("id, name, prompt, updated_at, project_messages(count)")
+      .select("id, name, prompt, updated_at")
       .eq("user_id", uid)
       .order("updated_at", { ascending: false });
     if (error) {
@@ -2433,15 +2426,7 @@ function HistoryDialog({
       setRows([]);
       return;
     }
-    setRows(
-      (data ?? []).map((r) => ({
-        id: r.id,
-        name: r.name,
-        prompt: r.prompt,
-        updated_at: r.updated_at,
-        message_count: r.project_messages?.[0]?.count ?? 0,
-      })),
-    );
+    setRows(data ?? []);
   }
 
   useEffect(() => {
