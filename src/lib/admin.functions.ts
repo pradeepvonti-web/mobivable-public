@@ -222,7 +222,7 @@ export const getFeatureFlags = createServerFn({ method: "GET" })
 
     // Read from env vars (simple feature flag system)
     return {
-      aiEnabled: !!(process.env.OPENAI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY),
+      aiEnabled: !!(process.env.LOVABLE_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY),
       exportEnabled: true,
       screenshotsEnabled: true,
       agentWorkspaceEnabled: true,
