@@ -161,6 +161,84 @@ function Index() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="py-24 border-b border-border">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+            <h2 className="font-display text-5xl uppercase tracking-tighter">Operator Log</h2>
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              Verified Builders
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                code: "USR-0891",
+                quote: "I described a crypto wallet app in three sentences. Twenty minutes later I had a TestFlight build. This is absurd.",
+                author: "Maya Chen",
+                role: "Indie Hacker",
+              },
+              {
+                code: "USR-1044",
+                quote: "We replaced a six-month agency timeline with a single afternoon. The output was production-grade Swift.",
+                author: "James Okoro",
+                role: "CTO, Baseline",
+              },
+              {
+                code: "USR-1202",
+                quote: "I don't know how to code. I shipped my meditation app to the App Store last week. That's the whole review.",
+                author: "Sofia Reyes",
+                role: "Solo Founder",
+              },
+            ].map((t) => (
+              <div key={t.code} className="border border-border p-8 flex flex-col">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-6">{t.code}</span>
+                <p className="text-sm leading-relaxed text-foreground mb-8 flex-1">"{t.quote}"</p>
+                <div>
+                  <div className="font-display text-lg uppercase">{t.author}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted">{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-24 border-b border-border">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+            <h2 className="font-display text-5xl uppercase tracking-tighter">Signal Clarity</h2>
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              Common Queries
+            </div>
+          </div>
+          <div className="border border-border">
+            <FaqItem
+              question="Do I need to know how to code?"
+              answer="No. Mobivable is designed for builders who think in products, not syntax. You describe what you want in plain language, and the AI architect generates native iOS and Android binaries. Developers can still drop into the generated source if they want to extend."
+            />
+            <FaqItem
+              question="What does 'native' actually mean here?"
+              answer="It means Swift for iOS and Kotlin for Android — not webviews, not wrappers, not cross-platform abstractions. The AI compiles to platform-native code so your app runs at 120fps with full access to camera, push, biometrics, and every other OS capability."
+            />
+            <FaqItem
+              question="How do App Store submissions work?"
+              answer="You click one button. Mobivable handles certificates, screenshots, metadata, and the actual upload to App Store Connect and Google Play Console. You track the review status in the same dashboard where you built the app."
+            />
+            <FaqItem
+              question="Can I export the source code?"
+              answer="Yes. Every build includes the full generated project — Xcode workspace, Android Studio project, and backend scaffold. You own everything."
+            />
+            <FaqItem
+              question="Is there a free tier?"
+              answer="Initiate is free during public beta. It includes unlimited AI iterations, one published app, and community support. When we leave beta, existing free users keep their apps running."
+              isLast
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Footer CTA */}
       <footer className="bg-primary text-background py-24 px-6 overflow-hidden relative">
         <div className="absolute top-0 right-0 font-display text-[20vw] leading-none opacity-10 pointer-events-none translate-x-1/4 -translate-y-1/4">
