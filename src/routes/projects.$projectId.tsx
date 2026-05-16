@@ -290,6 +290,31 @@ function ProjectPage() {
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
+  const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(`mobivable:recentTemplates:${projectId}`);
+      return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const recordTemplateUse = (role: AgentRole, tpl: string) => {
+    setRecentTemplates((prev) => {
+      const existing = prev[role] ?? [];
+      const next = [tpl, ...existing.filter((t) => t !== tpl)].slice(0, 5);
+      const updated = { ...prev, [role]: next };
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(recentTemplatesKey, JSON.stringify(updated));
+        } catch {
+          // ignore quota errors
+        }
+      }
+      return updated;
+    });
+  };
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
@@ -1044,6 +1069,39 @@ function ProjectPage() {
         {(() => {
           const a = AGENTS[selectedAgent];
           const templates = AGENT_TEMPLATES[selectedAgent] ?? [];
+          const recents = recentTemplates[selectedAgent] ?? [];
+          const rest = templates.filter((t) => !recents.includes(t));
+          const renderRow = (tpl: string, isRecent: boolean) => (
+            <div
+              key={`${isRecent ? "r" : "t"}:${tpl}`}
+              className={`group flex items-stretch gap-1 rounded-md border ${isRecent ? "border-primary/40 bg-primary/5" : "border-border bg-background"} hover:border-primary/50 transition-colors overflow-hidden`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setInput(tpl);
+                  recordTemplateUse(selectedAgent, tpl);
+                }}
+                title="Insert into chat input"
+                className="flex-1 text-left text-xs px-3 py-2 hover:bg-primary/5 transition-colors"
+              >
+                {tpl}
+              </button>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={() => {
+                  recordTemplateUse(selectedAgent, tpl);
+                  handleSend(undefined, tpl);
+                }}
+                title="Send now"
+                aria-label="Send template"
+                className="px-2.5 grid place-items-center border-l border-border text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
           return (
             <div className="px-4 py-3 border-b border-border bg-card/40">
               <div className="flex items-start gap-2">
@@ -1070,37 +1128,44 @@ function ProjectPage() {
                   ))}
                 </div>
               </div>
-              {templates.length > 0 && (
+              {recents.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Recent
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecentTemplates((prev) => {
+                          const updated = { ...prev, [selectedAgent]: [] };
+                          if (typeof window !== "undefined") {
+                            try {
+                              window.localStorage.setItem(recentTemplatesKey, JSON.stringify(updated));
+                            } catch {
+                              // ignore
+                            }
+                          }
+                          return updated;
+                        });
+                      }}
+                      className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {recents.map((tpl) => renderRow(tpl, true))}
+                  </div>
+                </div>
+              )}
+              {rest.length > 0 && (
                 <div className="mt-3">
                   <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
-                    Templates
+                    {recents.length > 0 ? "More templates" : "Templates"}
                   </p>
                   <div className="flex flex-col gap-1.5">
-                    {templates.map((tpl) => (
-                      <div
-                        key={tpl}
-                        className="group flex items-stretch gap-1 rounded-md border border-border bg-background hover:border-primary/40 transition-colors overflow-hidden"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setInput(tpl)}
-                          title="Insert into chat input"
-                          className="flex-1 text-left text-xs px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          {tpl}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={sending}
-                          onClick={() => handleSend(undefined, tpl)}
-                          title="Send now"
-                          aria-label="Send template"
-                          className="px-2.5 grid place-items-center border-l border-border text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                    {rest.map((tpl) => renderRow(tpl, false))}
                   </div>
                 </div>
               )}
