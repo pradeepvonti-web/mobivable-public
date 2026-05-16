@@ -44,7 +44,7 @@ function DocsPage() {
               {s.code}
             </span>
             <h3 className="font-display text-2xl uppercase mb-3">{s.title}</h3>
-            <p className="text-sm text-muted group-hover:text-background/80 leading-relaxed">{s.body}</p>
+            <p className="text-sm text-muted-foreground group-hover:text-background/80 leading-relaxed">{s.body}</p>
           </a>
         ))}
       </div>

@@ -28,7 +28,7 @@ function CheckoutSuccessPage() {
       intro="Your plan is live. Taking you to your dashboard…"
     >
       <div className="max-w-xl border border-border p-8 space-y-6">
-        <p className="font-mono text-sm text-muted uppercase tracking-widest">
+        <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
           [···] Receipt sent to your email · Redirecting
         </p>
         <div className="flex flex-col sm:flex-row gap-3">

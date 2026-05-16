@@ -173,7 +173,7 @@ export function SiteNav() {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden md:flex gap-6 text-xs font-mono uppercase tracking-widest text-muted">
+        <div className="hidden md:flex gap-6 text-xs font-mono uppercase tracking-widest text-muted-foreground">
           {sectionLinks.map((l) => {
             const isActive = isHome && activeSection === l.id;
             return (
@@ -240,7 +240,7 @@ export function SiteNav() {
                   onClick={() => setOpen(false)}
                   onKeyDown={activateOnSpace}
                   className={`py-3 border-b border-border flex items-center justify-between transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                    isActive ? "text-primary" : "text-muted"
+                    isActive ? "text-primary" : "text-muted-foreground"
                   }`}
                   aria-current={isActive ? "true" : undefined}
                 >
@@ -257,7 +257,7 @@ export function SiteNav() {
                 to={l.to}
                 onClick={() => setOpen(false)}
                 onKeyDown={activateOnSpace}
-                className="py-3 border-b border-border text-muted hover:text-primary transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="py-3 border-b border-border text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 activeProps={{ className: "py-3 border-b border-border text-primary" }}
               >
                 {l.label}

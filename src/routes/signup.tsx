@@ -72,7 +72,7 @@ function SignupPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Plan picker */}
         <aside className="lg:col-span-5 border border-border p-6">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-muted mb-4">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
             Selected Tier
           </div>
           <div className="space-y-3">
@@ -96,12 +96,12 @@ function SignupPage() {
                       {meta.tag}
                     </span>
                   </div>
-                  <p className="text-xs text-muted">{meta.blurb}</p>
+                  <p className="text-xs text-muted-foreground">{meta.blurb}</p>
                 </button>
               );
             })}
           </div>
-          <p className="mt-6 font-mono text-[10px] uppercase tracking-widest text-muted">
+          <p className="mt-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {plan === "free_beta"
               ? "[0] No card required"
               : "[0] You'll confirm billing after account creation"}
@@ -115,7 +115,7 @@ function SignupPage() {
               <h2 className="font-display text-3xl uppercase tracking-tighter mb-4">
                 Check your inbox
               </h2>
-              <p className="text-muted leading-relaxed mb-6">
+              <p className="text-muted-foreground leading-relaxed mb-6">
                 We sent a confirmation link to <span className="text-foreground">{email}</span>.
                 Click it to activate your <span className="text-primary">{selected.name}</span> account.
               </p>
@@ -131,12 +131,12 @@ function SignupPage() {
             <OAuthButtons onError={setError} />
             <div className="flex items-center gap-3 my-6">
               <div className="flex-1 h-px bg-border" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted">or</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
               <div className="flex-1 h-px bg-border" />
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="display_name" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
+                <label htmlFor="display_name" className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
                   Display Name
                 </label>
                 <input
@@ -149,7 +149,7 @@ function SignupPage() {
                 />
               </div>
               <div>
-                <label htmlFor="email" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
+                <label htmlFor="email" className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
                   Email
                 </label>
                 <input
@@ -163,7 +163,7 @@ function SignupPage() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
+                <label htmlFor="password" className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
                   Password
                 </label>
                 <input
@@ -176,7 +176,7 @@ function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-transparent border border-border px-4 py-3 font-body text-foreground focus:outline-none focus:border-primary"
                 />
-                <p className="mt-2 font-mono text-[10px] text-muted">Min 8 characters</p>
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">Min 8 characters</p>
               </div>
 
               {error && (
@@ -193,7 +193,7 @@ function SignupPage() {
                 {submitting ? "Provisioning…" : `Create ${selected.name} Account`}
               </button>
 
-              <p className="text-center text-sm text-muted">
+              <p className="text-center text-sm text-muted-foreground">
                 Already onboard?{" "}
                 <Link to="/login" className="text-primary underline-offset-4 hover:underline">
                   Login

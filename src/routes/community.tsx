@@ -38,12 +38,12 @@ function CommunityPage() {
               <span className="font-mono text-[10px] uppercase tracking-widest text-primary group-hover:text-background">
                 {c.code}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted group-hover:text-background/70">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-background/70">
                 {c.members}
               </span>
             </div>
             <h3 className="font-display text-4xl md:text-5xl uppercase tracking-tighter mb-4">{c.name}</h3>
-            <p className="text-sm text-muted group-hover:text-background/80 max-w-[45ch] leading-relaxed mb-8">{c.body}</p>
+            <p className="text-sm text-muted-foreground group-hover:text-background/80 max-w-[45ch] leading-relaxed mb-8">{c.body}</p>
             <span className="font-mono text-[10px] uppercase tracking-widest group-hover:underline">
               Connect →
             </span>

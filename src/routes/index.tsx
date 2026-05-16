@@ -37,10 +37,10 @@ function FaqItem({ question, answer, isLast }: { question: string; answer: strin
         aria-expanded={open}
       >
         <span className="font-display text-xl uppercase tracking-tighter">{question}</span>
-        <ChevronDown className={`size-5 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`size-5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <p className="mt-4 text-sm text-muted leading-relaxed max-w-[70ch]">{answer}</p>
+        <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-[70ch]">{answer}</p>
       )}
     </div>
   );
@@ -69,7 +69,7 @@ function Index() {
               <br />
               Dominate.
             </h1>
-            <p className="text-xl text-muted max-w-[45ch] text-pretty leading-relaxed mb-10">
+            <p className="text-xl text-muted-foreground max-w-[45ch] text-pretty leading-relaxed mb-10">
               Democratize mobile app creation with AI. Transform raw ideas into native iOS and
               Android binaries through a single conversational thread.
             </p>
@@ -78,7 +78,7 @@ function Index() {
                 <button className="px-8 py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all">
                   Start Generating
                 </button>
-                <span className="text-[10px] font-mono text-muted uppercase text-center mt-2">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase text-center mt-2">
                   Free during beta
                 </span>
               </div>
@@ -130,7 +130,7 @@ function Index() {
               >
                 <span className="font-display text-4xl text-primary mb-4 block">{s.n}</span>
                 <h3 className="font-display text-2xl uppercase mb-3">{s.t}</h3>
-                <p className="text-sm text-muted leading-relaxed">{s.d}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{s.d}</p>
               </div>
             ))}
           </div>
@@ -142,7 +142,7 @@ function Index() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
             <h2 className="font-display text-5xl uppercase tracking-tighter">Core Infrastructure</h2>
-            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
               Status: <span className="text-primary">Operational</span>
             </div>
           </div>
@@ -158,7 +158,7 @@ function Index() {
                 className="w-full aspect-video object-cover border border-border rounded-sm mb-6 group-hover:border-primary/40 transition-colors"
               />
               <h4 className="font-display text-xl uppercase mb-2">Self-Healing Logic</h4>
-              <p className="text-sm text-muted max-w-[50ch]">
+              <p className="text-sm text-muted-foreground max-w-[50ch]">
                 AI doesn't just build the UI; it scaffolds your database, authentication, and API
                 endpoints automatically.
               </p>
@@ -173,7 +173,7 @@ function Index() {
                 className="w-full aspect-video object-cover border border-border rounded-sm mb-6 group-hover:border-primary/40 transition-colors"
               />
               <h4 className="font-display text-xl uppercase mb-2">Native Performance</h4>
-              <p className="text-sm text-muted max-w-[50ch]">
+              <p className="text-sm text-muted-foreground max-w-[50ch]">
                 No wrappers. No lag. Mobivable compiles to Swift and Kotlin for true native 120fps
                 fluid performance.
               </p>
@@ -196,14 +196,14 @@ function Index() {
                     role="tab"
                     aria-selected={billing === c}
                     onClick={() => setBilling(c)}
-                    className={`px-4 py-2 transition-colors ${billing === c ? "bg-primary text-background" : "text-muted hover:text-foreground"}`}
+                    className={`px-4 py-2 transition-colors ${billing === c ? "bg-primary text-background" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     {c}
                     {c === "yearly" && <span className="ml-2 opacity-70">−20%</span>}
                   </button>
                 ))}
               </div>
-              <div className="font-mono text-[10px] text-muted uppercase tracking-widest hidden md:block">
+              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest hidden md:block">
                 Pricing Matrix v1.0
               </div>
             </div>
@@ -280,10 +280,10 @@ function Index() {
                 )}
                 <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4">{p.tag}</span>
                 <h3 className="font-display text-3xl uppercase tracking-tighter mb-2">{p.name}</h3>
-                <p className="text-sm text-muted mb-6 max-w-[35ch]">{p.blurb}</p>
+                <p className="text-sm text-muted-foreground mb-6 max-w-[35ch]">{p.blurb}</p>
                 <div className="flex items-baseline gap-2 mb-8">
                   <span className="font-display text-5xl">${billing === "yearly" ? p.yearly : p.monthly}</span>
-                  <span className="font-mono text-xs text-muted uppercase">{p.cadence}</span>
+                  <span className="font-mono text-xs text-muted-foreground uppercase">{p.cadence}</span>
                 </div>
                 <ul className="space-y-3 mb-10 flex-1">
                   {p.features.map((f) => (
@@ -327,7 +327,7 @@ function Index() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left p-5 font-mono text-[10px] uppercase tracking-widest text-muted">Capability</th>
+                  <th className="text-left p-5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Capability</th>
                   <th className="text-center p-5 font-display uppercase tracking-tight">Free Beta</th>
                   <th className="text-center p-5 font-display uppercase tracking-tight text-primary">Starter</th>
                   <th className="text-center p-5 font-display uppercase tracking-tight">Pro</th>
@@ -354,7 +354,7 @@ function Index() {
                 ].map((row, idx) => (
                   <tr key={row[0]} className={idx % 2 === 0 ? "bg-foreground/[0.02]" : ""}>
                     <td className="p-4 text-foreground uppercase tracking-wider">{row[0]}</td>
-                    <td className="p-4 text-center text-muted">{row[1]}</td>
+                    <td className="p-4 text-center text-muted-foreground">{row[1]}</td>
                     <td className="p-4 text-center text-foreground">{row[2]}</td>
                     <td className="p-4 text-center text-foreground">{row[3]}</td>
                   </tr>
@@ -370,7 +370,7 @@ function Index() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
             <h2 className="font-display text-5xl uppercase tracking-tighter">Operator Log</h2>
-            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
               Verified Builders
             </div>
           </div>
@@ -400,7 +400,7 @@ function Index() {
                 <p className="text-sm leading-relaxed text-foreground mb-8 flex-1">"{t.quote}"</p>
                 <div>
                   <div className="font-display text-lg uppercase">{t.author}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted">{t.role}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t.role}</div>
                 </div>
               </div>
             ))}
@@ -413,7 +413,7 @@ function Index() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
             <h2 className="font-display text-5xl uppercase tracking-tighter">Signal Clarity</h2>
-            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
               Common Queries
             </div>
           </div>

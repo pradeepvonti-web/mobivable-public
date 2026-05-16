@@ -12,7 +12,7 @@ export function AuthHydrating() {
           <div className="absolute inset-0 border-2 border-border" />
           <div className="absolute inset-0 border-2 border-primary border-t-transparent border-r-transparent animate-spin" />
         </div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           Handshake in progress…
         </p>
       </div>

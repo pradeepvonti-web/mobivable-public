@@ -108,7 +108,7 @@ function PricingPage() {
               role="tab"
               aria-selected={billing === c}
               onClick={() => setBilling(c)}
-              className={`px-5 py-3 transition-colors ${billing === c ? "bg-primary text-background" : "text-muted hover:text-foreground"}`}
+              className={`px-5 py-3 transition-colors ${billing === c ? "bg-primary text-background" : "text-muted-foreground hover:text-foreground"}`}
             >
               {c}
               {c === "yearly" && <span className="ml-2 opacity-70">−20%</span>}
@@ -145,7 +145,7 @@ function PricingPage() {
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-display text-6xl">${price}</span>
               </div>
-              <p className={`font-mono text-[10px] uppercase tracking-widest mb-8 ${t.highlight ? "text-background/70" : "text-muted"}`}>
+              <p className={`font-mono text-[10px] uppercase tracking-widest mb-8 ${t.highlight ? "text-background/70" : "text-muted-foreground"}`}>
                 {note}
               </p>
               <ul className="space-y-3 mb-10">
