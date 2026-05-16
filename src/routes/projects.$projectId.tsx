@@ -481,10 +481,19 @@ function ProjectPage() {
                 </button>
                 <button
                   type="button"
-                  className="h-8 inline-flex items-center gap-1.5 rounded-full border border-border px-3 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  onClick={() => {
+                    setVisualEdit((v) => !v);
+                    setSelectedEl(null);
+                    if (!visualEdit) setMobileView("preview");
+                  }}
+                  className={`h-8 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs transition-colors ${
+                    visualEdit
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  }`}
                 >
                   <MousePointerClick className="h-3.5 w-3.5" />
-                  <span>Visual edits</span>
+                  <span>{visualEdit ? "Exit visual edits" : "Visual edits"}</span>
                 </button>
               </div>
               <div className="flex items-center gap-2 relative">
