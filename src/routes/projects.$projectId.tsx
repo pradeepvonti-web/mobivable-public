@@ -1323,6 +1323,10 @@ function ProjectPage() {
         </form>
       </section>
 
+      {sidePanel === "backend" && (
+        <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
+
       {/* Preview pane */}
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
         {/* Top toolbar: segmented pane tabs on the left, status + actions on the right */}
