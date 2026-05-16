@@ -655,7 +655,7 @@ function ProjectPage() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!input.trim() || !project}
+                    disabled={(!input.trim() && pending.length === 0) || !project}
                     aria-label="Send message"
                     className="h-8 w-8 grid place-items-center rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
