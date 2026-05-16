@@ -599,26 +599,63 @@ function ProjectPage() {
           className="border-t border-border p-3 bg-background"
         >
           {selectedEl && (
-            <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-primary font-mono uppercase shrink-0">{selectedEl.tag}</span>
-                {selectedEl.text && (
-                  <span className="text-muted-foreground truncate">"{selectedEl.text}"</span>
-                )}
+            <div className="mb-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-primary font-mono uppercase shrink-0">
+                    {selectedEl.tag}
+                  </span>
+                  <span className="text-muted-foreground font-mono truncate">
+                    {selectedEl.path.join(".")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current = null;
+                    setSelectedEl(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label="Clear selection"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  selectedElRef.current?.classList.remove("visual-edit-selected");
-                  selectedElRef.current = null;
-                  setSelectedEl(null);
-                }}
-                className="text-muted-foreground hover:text-foreground shrink-0"
-                aria-label="Clear selection"
-              >
-                ✕
-              </button>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Text
+                </span>
+                <input
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  placeholder="(no text content)"
+                  className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Classes
+                </span>
+                <input
+                  value={editClasses}
+                  onChange={(e) => setEditClasses(e.target.value)}
+                  placeholder="tailwind classes"
+                  className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={savingEdit}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1 text-[11px] font-display uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                  Save edit
+                </button>
+              </div>
             </div>
           )}
           {pending.length > 0 && (
