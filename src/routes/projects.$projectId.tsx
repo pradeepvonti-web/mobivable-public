@@ -1414,7 +1414,7 @@ function ProjectPage() {
                 }
               }}
               rows={1}
-              placeholder="Ask Mobivable…"
+              placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Ask Mobivable…"}
               disabled={sending || !project}
               className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-32 leading-relaxed"
             />
