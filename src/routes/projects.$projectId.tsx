@@ -1,7 +1,8 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
+import { requireAuth } from "@/lib/require-auth";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -17,8 +18,7 @@ type Project = {
 
 export const Route = createFileRoute("/projects/$projectId")({
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
+    await requireAuth();
   },
   component: ProjectPage,
   head: () => ({
