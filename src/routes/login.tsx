@@ -46,12 +46,12 @@ function LoginPage() {
         <OAuthButtons onError={setError} />
         <div className="flex items-center gap-3 my-6">
           <div className="flex-1 h-px bg-border" />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted">or</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
           <div className="flex-1 h-px bg-border" />
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
+            <label htmlFor="email" className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
               Email
             </label>
             <input
@@ -65,7 +65,7 @@ function LoginPage() {
             />
           </div>
           <div>
-            <label htmlFor="password" className="block font-mono text-[10px] uppercase tracking-widest text-muted mb-2">
+            <label htmlFor="password" className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
               Password
             </label>
             <input
@@ -93,7 +93,7 @@ function LoginPage() {
             {submitting ? "Authenticating…" : "Login"}
           </button>
 
-          <p className="text-center text-sm text-muted">
+          <p className="text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link to="/signup" search={{ plan: "free_beta" }} className="text-primary underline-offset-4 hover:underline">
               Create one

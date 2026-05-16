@@ -38,13 +38,13 @@ function GalleryPage() {
                   {a.name}
                 </span>
               </div>
-              <div className="absolute top-4 left-4 font-mono text-[10px] uppercase tracking-widest text-muted">
+              <div className="absolute top-4 left-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 {a.code}
               </div>
               <div className="absolute top-4 right-4 size-2 rounded-full bg-primary animate-pulse" />
             </div>
             <div className="mt-4 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted">{a.category}</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{a.category}</span>
               <span className="font-mono text-[10px] uppercase tracking-widest text-primary group-hover:underline">
                 View →
               </span>

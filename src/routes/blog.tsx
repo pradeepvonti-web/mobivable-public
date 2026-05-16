@@ -35,7 +35,7 @@ function BlogPage() {
             className="group block border-b border-border py-10 hover:bg-card transition-colors"
           >
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-baseline px-2">
-              <div className="md:col-span-2 font-mono text-[10px] uppercase tracking-widest text-muted">
+              <div className="md:col-span-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 <div className="text-primary">{p.code}</div>
                 <div>{p.date}</div>
               </div>
@@ -43,9 +43,9 @@ function BlogPage() {
                 <h2 className="font-display text-3xl md:text-4xl uppercase tracking-tighter group-hover:text-primary transition-colors mb-2">
                   {p.title}
                 </h2>
-                <p className="text-sm text-muted max-w-[60ch] leading-relaxed">{p.excerpt}</p>
+                <p className="text-sm text-muted-foreground max-w-[60ch] leading-relaxed">{p.excerpt}</p>
               </div>
-              <div className="md:col-span-3 md:text-right font-mono text-[10px] uppercase tracking-widest text-muted group-hover:text-primary">
+              <div className="md:col-span-3 md:text-right font-mono text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary">
                 Read entry →
               </div>
             </div>

@@ -30,7 +30,7 @@ export function PageShell({
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-6 py-20">{children}</main>
-      <footer className="border-t border-border py-10 px-6 text-center font-mono text-[10px] uppercase tracking-widest text-muted">
+      <footer className="border-t border-border py-10 px-6 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         Mobivable © {new Date().getFullYear()} — Democratize mobile app creation with AI
       </footer>
     </div>

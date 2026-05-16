@@ -95,14 +95,14 @@ function CheckoutPage() {
     >
       <div className="max-w-2xl border border-border p-8 space-y-6">
         {authState === "loading" && (
-          <p className="font-mono text-sm text-muted uppercase tracking-widest">
+          <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
             [···] Checking session
           </p>
         )}
 
         {authState === "guest" && (
           <div className="space-y-5">
-            <p className="text-muted leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed">
               You need an account before we can attach your{" "}
               <span className="text-foreground">{meta.name}</span> subscription. Create one now
               (or log in) and you'll come right back here to finish checkout.
@@ -122,7 +122,7 @@ function CheckoutPage() {
                 Log in
               </Link>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               [0] After signing in, this page will open checkout automatically.
             </p>
           </div>
@@ -130,10 +130,10 @@ function CheckoutPage() {
 
         {authState === "user" && (
           <div className="space-y-4">
-            <p className="font-mono text-sm text-muted uppercase tracking-widest">
+            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
               [···] Opening secure checkout
             </p>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-muted-foreground">
               The Paddle checkout should appear in a moment. If it doesn't,{" "}
               <button
                 type="button"
