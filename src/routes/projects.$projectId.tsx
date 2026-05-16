@@ -2512,8 +2512,7 @@ function HistoryDialog({
                         {r.prompt}
                       </p>
                       <p className="text-[11px] text-muted-foreground/80 mt-1">
-                        {new Date(r.updated_at).toLocaleString()} · {r.message_count} message
-                        {r.message_count === 1 ? "" : "s"}
+                        {new Date(r.updated_at).toLocaleString()}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
