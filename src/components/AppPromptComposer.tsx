@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image as ImageIcon, Send, ChevronDown, Loader2, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,62 @@ const SUGGESTIONS = ["Fitness Tracker", "Recipe Finder", "Habit Coach", "Mood Jo
 const MODELS = ["Opus 4.7", "Sonnet 4.7", "Haiku 4.7"];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_ATTACHMENTS = 4;
+const TYPED_PHRASES = [
+  "recipe finder app",
+  "meal planner app",
+  "fitness tracker app",
+  "habit coach app",
+  "mood journal app",
+];
 
 type Attachment = { path: string; url: string; name: string };
+
+function useTypewriter(phrases: string[], active: boolean) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (!active) {
+      setText("");
+      return;
+    }
+    let phraseIdx = 0;
+    let charIdx = 0;
+    let deleting = false;
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      if (cancelled) return;
+      const current = phrases[phraseIdx];
+      if (!deleting) {
+        charIdx++;
+        setText(current.slice(0, charIdx));
+        if (charIdx === current.length) {
+          deleting = true;
+          timeout = setTimeout(tick, 1400);
+          return;
+        }
+        timeout = setTimeout(tick, 55 + Math.random() * 50);
+      } else {
+        charIdx--;
+        setText(current.slice(0, charIdx));
+        if (charIdx === 0) {
+          deleting = false;
+          phraseIdx = (phraseIdx + 1) % phrases.length;
+          timeout = setTimeout(tick, 350);
+          return;
+        }
+        timeout = setTimeout(tick, 28);
+      }
+    };
+    timeout = setTimeout(tick, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [phrases, active]);
+  return text;
+}
+
 
 function deriveName(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ");
@@ -28,6 +82,8 @@ export function AppPromptComposer() {
   const [uploading, setUploading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+  const typedPlaceholder = useTypewriter(TYPED_PHRASES, !prompt && !submitting);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -125,20 +181,38 @@ export function AppPromptComposer() {
           }}
         />
         <div className="relative rounded-2xl border border-primary/40 bg-card/60 backdrop-blur-sm p-5 md:p-6">
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-            placeholder="recipe finder app"
-            rows={6}
-            disabled={submitting}
-            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none disabled:opacity-60"
-          />
+          <div className="relative">
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder=""
+              rows={6}
+              disabled={submitting}
+              className="relative w-full bg-transparent text-lg md:text-xl text-foreground focus:outline-none resize-none disabled:opacity-60"
+            />
+            {!prompt && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 text-lg md:text-xl text-muted-foreground select-none"
+              >
+                <span>{typedPlaceholder}</span>
+                <span
+                  className={`inline-block w-[2px] h-[1.1em] ml-0.5 align-middle bg-primary ${
+                    focused ? "" : "animate-pulse"
+                  }`}
+                  style={{ animation: focused ? "none" : undefined }}
+                />
+              </div>
+            )}
+          </div>
 
           {attachments.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3">
