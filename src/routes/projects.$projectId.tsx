@@ -51,6 +51,7 @@ import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, type AgentRole } from "@/lib/agents";
 import { useTheme } from "@/components/theme-toggle";
+import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
 
