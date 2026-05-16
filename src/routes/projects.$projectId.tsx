@@ -2907,20 +2907,8 @@ function AssetCard({
     }
     setBusy(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) throw new Error("Not signed in");
-      const ext = file.type === "image/png" ? "png" : "jpg";
-      const path = `${uid}/${projectId}/${kind}.${ext}`;
-      await supabase.storage
-        .from("project-attachments")
-        .remove([`${uid}/${projectId}/${kind}.png`, `${uid}/${projectId}/${kind}.jpg`]);
-      const { error: upErr } = await supabase.storage
-        .from("project-attachments")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw new Error(upErr.message);
-      const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
-      onUploaded(`${pub.publicUrl}?t=${Date.now()}`);
+      const ext: "png" | "jpg" = file.type === "image/png" ? "png" : "jpg";
+      await uploadBlob(file, ext);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
