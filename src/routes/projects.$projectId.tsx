@@ -346,6 +346,32 @@ function ProjectPage() {
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
+  // Load latest icon/splash URLs so the generated app config can reference them.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const { data: files } = await supabase.storage
+        .from("project-attachments")
+        .list(`${uid}/${projectId}`, { limit: 100 });
+      if (cancelled) return;
+      const find = (k: "icon" | "splash") =>
+        files?.find((f) => f.name === `${k}.png` || f.name === `${k}.jpg`);
+      const toUrl = (f?: { name: string }) =>
+        f
+          ? supabase.storage
+              .from("project-attachments")
+              .getPublicUrl(`${uid}/${projectId}/${f.name}`).data.publicUrl
+          : null;
+      setAppAssets({ icon: toUrl(find("icon")), splash: toUrl(find("splash")) });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, assetsTick]);
+
   const { config: previewConfig } = usePreviewConfig();
   // Dynamic table/column names from admin config — bypass generated types.
   const sb = supabase as unknown as {
