@@ -2494,6 +2494,22 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
     }
   }
 
+  function exportEnv() {
+    const lines = vars
+      .filter((v) => v.visible)
+      .map((v) => `${v.name}=${/[\s"'#$`\\]/.test(v.value) ? `"${v.value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : v.value}`);
+    if (lines.length === 0) return;
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ".env";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function removeVar(id: string) {
     await (supabase as unknown as {
       from: (t: string) => {
