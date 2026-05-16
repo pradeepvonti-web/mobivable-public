@@ -956,7 +956,7 @@ function ProjectPage() {
       </aside>
 
       {/* Chat thread */}
-      <section className={`${mobileView === "chat" ? "flex" : "hidden"} lg:flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
+      <section className={`${sidePanel === "backend" ? "hidden" : mobileView === "chat" ? "flex" : "hidden"} ${sidePanel === "backend" ? "lg:hidden" : "lg:flex"} flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
         <header className="p-4 border-b border-border flex items-center gap-3">
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
@@ -1322,6 +1322,10 @@ function ProjectPage() {
           </div>
         </form>
       </section>
+
+      {sidePanel === "backend" && (
+        <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
 
       {/* Preview pane */}
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
@@ -1965,9 +1969,6 @@ function ProjectPage() {
         </button>
       </nav>
       </div>
-      {sidePanel === "backend" && (
-        <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
-      )}
     </div>
   );
 }
@@ -2127,8 +2128,8 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 lg:p-8 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+    <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+      <div className="flex-1 overflow-y-auto">
         <header className="p-5 border-b border-border flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 rounded-lg bg-primary/15 grid place-items-center shrink-0">
@@ -2268,6 +2269,6 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
