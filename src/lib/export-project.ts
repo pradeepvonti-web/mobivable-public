@@ -317,7 +317,7 @@ export async function createExportZip(schema: MobileAppSchema): Promise<Blob> {
   ev.setUint16(20, 0, true);
   parts.push(end);
 
-  return new Blob(parts, { type: "application/zip" });
+  return new Blob(parts as BlobPart[], { type: "application/zip" });
 }
 
 /** CRC32 helper */
