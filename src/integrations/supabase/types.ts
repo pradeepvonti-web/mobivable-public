@@ -191,6 +191,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          visual_edits: Json
         }
         Insert: {
           attachments?: Json
@@ -204,6 +205,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          visual_edits?: Json
         }
         Update: {
           attachments?: Json
@@ -217,6 +219,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          visual_edits?: Json
         }
         Relationships: []
       }

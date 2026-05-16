@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS visual_edits jsonb NOT NULL DEFAULT '{}'::jsonb;
