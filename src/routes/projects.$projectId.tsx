@@ -1484,7 +1484,10 @@ function ProjectPage() {
                               {
                                 icon: History,
                                 label: "History",
-                                onClick: stub("Project history"),
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  setHistoryOpen(true);
+                                },
                               },
                               {
                                 icon: BookOpen,
