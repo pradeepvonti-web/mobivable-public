@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   LayoutDashboard, Users, FolderKanban, Sparkles,
-  Shield, CreditCard,
+  Shield, CreditCard, Activity,
 } from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { AdminUsers } from "./AdminUsers";
@@ -9,6 +9,7 @@ import { AdminProjects } from "./AdminProjects";
 import { AdminAIConfig } from "./AdminAIConfig";
 import { AdminFeatureFlags } from "./AdminFeatureFlags";
 import { AdminPayments } from "./AdminPayments";
+import { AdminActivity } from "./AdminActivity";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -17,7 +18,9 @@ const TABS = [
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "ai", label: "AI Providers", icon: Sparkles },
   { id: "features", label: "Feature Control", icon: Shield },
+  { id: "activity", label: "Activity", icon: Activity },
 ] as const;
+
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -92,6 +95,7 @@ export function AdminDashboard() {
           {tab === "payments" && <AdminPayments />}
           {tab === "ai" && <AdminAIConfig />}
           {tab === "features" && <AdminFeatureFlags />}
+          {tab === "activity" && <AdminActivity />}
         </main>
       </div>
     </div>

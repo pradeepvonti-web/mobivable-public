@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
 import { OAuthButtons } from "@/components/OAuthButtons";
+import { logAdminLoginAttempt } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -21,6 +23,11 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorHint, setErrorHint] = useState<string | null>(null);
+  const logAttempt = useServerFn(logAdminLoginAttempt);
+  function audit(targetEmail: string, success: boolean, reason?: string) {
+    // Fire-and-forget; server filters to admin emails only.
+    void logAttempt({ data: { email: targetEmail, success, reason } }).catch(() => {});
+  }
 
   function describeAuthError(msg: string, context: "user" | "admin"): { title: string; hint: string } {
     const m = msg.toLowerCase();
@@ -72,7 +79,11 @@ function LoginPage() {
     setSubmitting(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        audit(email, false, error.message);
+        throw error;
+      }
+      audit(email, true);
       navigate({ to: "/dashboard" });
     } catch (err) {
       showAuthError(err instanceof Error ? err.message : "Login failed.", "user");
@@ -183,13 +194,19 @@ function LoginPage() {
             onClick={async () => {
               clearError();
               setSubmitting(true);
+              const adminEmail = "pradeepvonti@aksdataai.com";
               const { error } = await supabase.auth.signInWithPassword({
-                email: "pradeepvonti@aksdataai.com",
+                email: adminEmail,
                 password: "Anushka01@",
               });
               setSubmitting(false);
-              if (error) showAuthError(error.message, "admin");
-              else navigate({ to: "/admin" });
+              if (error) {
+                audit(adminEmail, false, error.message);
+                showAuthError(error.message, "admin");
+              } else {
+                audit(adminEmail, true);
+                navigate({ to: "/admin" });
+              }
             }}
             className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
           >
