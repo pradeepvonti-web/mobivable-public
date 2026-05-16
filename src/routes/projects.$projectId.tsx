@@ -403,9 +403,14 @@ function ProjectPage() {
       const existing = visualEditsRef.current.filter(
         (e) => pathKey(e.path) !== pathKey(selectedEl.path),
       );
+      const stylesClean: VisualStyles = {};
+      for (const k of STYLE_KEYS) {
+        const v = editStyles[k];
+        if (typeof v === "string" && v !== "") stylesClean[k] = v;
+      }
       const next: VisualEdit[] = [
         ...existing,
-        { path: selectedEl.path, text: newText, classes: cleaned },
+        { path: selectedEl.path, text: newText, classes: cleaned, styles: stylesClean },
       ];
       visualEditsRef.current = next;
 
