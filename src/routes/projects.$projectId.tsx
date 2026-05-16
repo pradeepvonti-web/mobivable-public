@@ -601,6 +601,13 @@ function ProjectPage() {
           {isReady ? "Preview" : "Offline"}
         </div>
 
+        {visualEdit && (
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
+            <MousePointerClick className="h-3.5 w-3.5" />
+            Click any element to select
+          </div>
+        )}
+
         {/* Phone frame */}
         <div className="relative">
           <div
