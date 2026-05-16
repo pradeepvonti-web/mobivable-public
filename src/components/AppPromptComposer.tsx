@@ -231,9 +231,11 @@ export function AppPromptComposer() {
               <button
                 type="button"
                 aria-label="Attach image"
-                className="h-10 w-10 grid place-items-center rounded-full border border-primary/40 text-foreground hover:border-primary hover:text-primary transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || submitting || attachments.length >= MAX_ATTACHMENTS}
+                className="h-10 w-10 grid place-items-center rounded-full border border-primary/40 text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
               >
-                <ImageIcon className="h-4 w-4" />
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
               </button>
 
               <button
