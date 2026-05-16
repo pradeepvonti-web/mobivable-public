@@ -195,6 +195,7 @@ function ProjectPage() {
     setSending(true);
     setInput("");
     setSelectedEl(null);
+    setPending([]);
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
