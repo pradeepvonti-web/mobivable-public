@@ -311,6 +311,7 @@ function ProjectPage() {
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
   const [input, setInput] = useState("");
+  const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
   const draftStorageKey = (role: AgentRole) => `mobivable:chatDraft:${projectId}:${role}`;
   const draftHydratedRef = useRef(false);
   // When the selected agent changes (or on mount), restore that role's draft.
