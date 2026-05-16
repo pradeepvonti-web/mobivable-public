@@ -7,6 +7,7 @@ import { AdminFeatureFlags } from "./AdminFeatureFlags";
 import { AdminPayments } from "./AdminPayments";
 import { AdminActivity } from "./AdminActivity";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandMark } from "./BrandMark";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -30,7 +31,7 @@ export function AdminDashboard() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto max-w-[1440px] flex items-center gap-4 px-6 h-16">
           <div className="flex items-center gap-2.5">
-            <div className="size-6 bg-primary rounded-sm" />
+            <BrandMark size="md" />
             <div>
               <h1 className="font-display text-2xl tracking-tighter uppercase leading-none">Mobivable</h1>
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mt-0.5">Admin Dashboard</p>
@@ -60,7 +61,7 @@ export function AdminDashboard() {
                     : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 }`}
               >
-                <span className={`size-3 rounded-sm shrink-0 ${active ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                <BrandMark size="sm" active={active} />
                 {label}
               </button>
             );
@@ -82,7 +83,7 @@ export function AdminDashboard() {
                     : "border-transparent text-muted-foreground"
                 }`}
               >
-                <span className={`size-2.5 rounded-sm shrink-0 ${active ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                <BrandMark size="xs" active={active} />
                 {label}
               </button>
             );
