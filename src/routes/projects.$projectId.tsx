@@ -284,7 +284,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro";
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets">(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
