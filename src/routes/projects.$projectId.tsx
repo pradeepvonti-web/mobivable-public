@@ -957,7 +957,8 @@ function ProjectPage() {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
               (label === "Backend" && sidePanel === "backend") ||
-              (label === "Env Variables" && sidePanel === "env");
+              (label === "Env Variables" && sidePanel === "env") ||
+              (label === "Assets" && sidePanel === "assets");
             const locked = label === "Backend" && !isPro;
             return (
               <button
@@ -969,6 +970,8 @@ function ProjectPage() {
                     else setSidePanel("backend");
                   } else if (label === "Env Variables") {
                     setSidePanel("env");
+                  } else if (label === "Assets") {
+                    setSidePanel("assets");
                   } else if (label === "Chat") setSidePanel(null);
                 }}
                 title={locked ? "Backend is a Pro feature" : undefined}
