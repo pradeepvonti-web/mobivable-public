@@ -39,6 +39,25 @@ type ProviderConfig = {
 
 // ─── Provider Configurations ────────────────────────────────────
 const PROVIDERS: Record<AIProvider, ProviderConfig> = {
+  lovable: {
+    id: "lovable",
+    name: "Lovable AI",
+    baseUrl: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    defaultModel: "google/gemini-3-flash-preview",
+    models: [
+      { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Lovable)" },
+      { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Lovable)" },
+      { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Lovable)" },
+      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Lovable)" },
+      { id: "openai/gpt-5", label: "GPT-5 (Lovable)" },
+      { id: "openai/gpt-5-mini", label: "GPT-5 Mini (Lovable)" },
+    ],
+    authHeader: (key) => ({
+      "Lovable-API-Key": key,
+      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+    }),
+    getKey: () => process.env.LOVABLE_API_KEY,
+  },
   openai: {
     id: "openai",
     name: "OpenAI",
