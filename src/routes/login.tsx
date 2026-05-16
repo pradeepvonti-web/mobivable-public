@@ -125,8 +125,19 @@ function LoginPage() {
           </div>
 
           {error && (
-            <div className="border border-destructive/40 bg-destructive/10 text-destructive text-sm p-3 font-mono">
-              {error}
+            <div role="alert" aria-live="polite" className="border border-destructive/40 bg-destructive/10 text-destructive text-sm p-3 space-y-2">
+              <p className="font-mono">{error}</p>
+              {errorHint && <p className="text-xs text-destructive/80">{errorHint}</p>}
+              <p className="text-xs">
+                <a
+                  href="https://docs.lovable.dev/features/security#troubleshooting-login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-4 hover:no-underline"
+                >
+                  Troubleshooting sign-in issues →
+                </a>
+              </p>
             </div>
           )}
 
@@ -142,14 +153,14 @@ function LoginPage() {
             type="button"
             disabled={submitting}
             onClick={async () => {
-              setError(null);
+              clearError();
               setSubmitting(true);
               const { error } = await supabase.auth.signInWithPassword({
                 email: "test@example.com",
                 password: "TestUser123!",
               });
               setSubmitting(false);
-              if (error) setError(error.message);
+              if (error) showAuthError(error.message, "user");
               else navigate({ to: "/dashboard" });
             }}
             className="w-full py-3 border border-dashed border-primary text-primary font-display uppercase tracking-wider hover:bg-primary hover:text-background transition-all disabled:opacity-50"
@@ -161,14 +172,14 @@ function LoginPage() {
             type="button"
             disabled={submitting}
             onClick={async () => {
-              setError(null);
+              clearError();
               setSubmitting(true);
               const { error } = await supabase.auth.signInWithPassword({
                 email: "pradeepvonti@aksdataai.com",
                 password: "Anushka01@",
               });
               setSubmitting(false);
-              if (error) setError(error.message);
+              if (error) showAuthError(error.message, "admin");
               else navigate({ to: "/admin" });
             }}
             className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
