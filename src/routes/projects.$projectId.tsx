@@ -74,6 +74,8 @@ function ProjectPage() {
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef(false);
+  const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
   async function reloadProject() {
     const { data, error } = await supabase
