@@ -9,7 +9,11 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
     prompt:
       "Build a fitness tracker app to help me track my progress. I can log my activities every day and it will count my calories and show weekly summaries. Use athletic blue theme.",
   },
-  { label: "Recipe Finder", prompt: "recipe finder app" },
+  {
+    label: "Recipe Finder",
+    prompt:
+      "Make a recipe app where I can search for recipes by ingredients I have at home. Show cooking time and difficulty level. Let me save my favorite recipes. Use warm kitchen colors.",
+  },
   { label: "Habit Coach", prompt: "habit coach app" },
   { label: "Mood Journal", prompt: "mood journal app" },
 ];
