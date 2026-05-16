@@ -15,11 +15,13 @@ import {
   RefreshCw,
   Smartphone,
   Eye,
+  Send,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
+import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
@@ -62,8 +64,15 @@ function ProjectPage() {
   const [generating, setGenerating] = useState(false);
   const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [messages, setMessages] = useState<
+    { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
+  >([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const generateFn = useServerFn(generateProject);
+  const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   async function reloadProject() {
     const { data, error } = await supabase
