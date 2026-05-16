@@ -855,19 +855,32 @@ function ProjectPage() {
               </div>
             ) : (
               <div
+                ref={previewRootRef}
                 className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
                 onClickCapture={(e) => {
                   if (!visualEdit) return;
                   e.preventDefault();
                   e.stopPropagation();
                   const t = e.target as HTMLElement;
+                  const root = previewRootRef.current;
+                  if (!root) return;
+                  const path = getPath(t, root);
+                  if (!path) return;
                   selectedElRef.current?.classList.remove("visual-edit-selected");
                   t.classList.add("visual-edit-selected");
                   selectedElRef.current = t;
+                  const cls = (t.className?.toString() || "")
+                    .split(/\s+/)
+                    .filter((c) => c && c !== "visual-edit-selected")
+                    .join(" ");
+                  const txt = t.children.length === 0 ? (t.textContent || "") : "";
+                  setEditText(txt);
+                  setEditClasses(cls);
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
-                    text: (t.innerText || "").trim().slice(0, 80),
-                    classes: t.className?.toString().slice(0, 200) || "",
+                    text: txt.trim().slice(0, 80),
+                    classes: cls.slice(0, 200),
+                    path,
                   });
                   setVisualEdit(false);
                   setMobileView("chat");
