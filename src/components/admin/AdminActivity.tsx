@@ -207,7 +207,7 @@ function PasswordResetSection() {
               ) : error ? (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-destructive">{error}</td></tr>
               ) : !entries || entries.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No password reset events recorded yet.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8"><AdminEmptyState title="No password reset events recorded yet" /></td></tr>
               ) : (
                 entries.map((e) => (
                   <tr key={e.id} className="border-t border-border/60 align-top">
