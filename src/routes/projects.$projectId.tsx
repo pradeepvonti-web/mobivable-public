@@ -1108,9 +1108,33 @@ function ProjectPage() {
         </div>
 
         {visualEdit && (
-          <div className="absolute top-4 right-4 z-30 flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
-            <MousePointerClick className="h-3.5 w-3.5" />
-            Click any element to select
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={undoVisualEdit}
+                disabled={historyPastRef.current.length === 0}
+                aria-label="Undo visual edit"
+                title="Undo last visual edit"
+                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={redoVisualEdit}
+                disabled={historyFutureRef.current.length === 0}
+                aria-label="Redo visual edit"
+                title="Redo visual edit"
+                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-primary bg-primary/15 px-3 py-1.5 text-xs text-primary font-medium shadow-lg backdrop-blur">
+              <MousePointerClick className="h-3.5 w-3.5" />
+              Click any element to select
+            </div>
           </div>
         )}
 
