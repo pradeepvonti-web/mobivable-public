@@ -17,6 +17,12 @@ import {
   Eye,
   Send,
   Square,
+  Plus,
+  MousePointerClick,
+  Mic,
+  ArrowUp,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -70,6 +76,8 @@ function ProjectPage() {
   >([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [mode, setMode] = useState<"build" | "plan">("build");
+  const [modeOpen, setModeOpen] = useState(false);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
@@ -443,41 +451,108 @@ function ProjectPage() {
         {/* Composer */}
         <form
           onSubmit={handleSend}
-          className="border-t border-border p-3 flex items-end gap-2 bg-background"
+          className="border-t border-border p-3 bg-background"
         >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            rows={1}
-            placeholder="Ask for changes, new screens, or features…"
-            disabled={sending || !project}
-            className="flex-1 resize-none bg-card border border-border rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/60 disabled:opacity-50 max-h-32"
-          />
-          {sending ? (
-            <button
-              type="button"
-              onClick={handleCancel}
-              aria-label="Stop generating"
-              className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-            >
-              <Square className="h-4 w-4 fill-current" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim() || !project}
-              aria-label="Send message"
-              className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          )}
+          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              rows={1}
+              placeholder="Ask Mobivable…"
+              disabled={sending || !project}
+              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-32 leading-relaxed"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Add attachment"
+                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="h-8 inline-flex items-center gap-1.5 rounded-full border border-border px-3 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                >
+                  <MousePointerClick className="h-3.5 w-3.5" />
+                  <span>Visual edits</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 relative">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setModeOpen((o) => !o)}
+                    className="h-8 inline-flex items-center gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span className="capitalize">{mode}</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                  {modeOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-56 rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg p-1.5 z-10">
+                      {(
+                        [
+                          { id: "build", label: "Build", hint: "Make changes directly" },
+                          { id: "plan", label: "Plan", hint: "Discuss before building" },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setMode(opt.id);
+                            setModeOpen(false);
+                          }}
+                          className="w-full flex items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-accent transition-colors"
+                        >
+                          <Check
+                            className={`h-4 w-4 mt-0.5 ${mode === opt.id ? "opacity-100" : "opacity-0"}`}
+                          />
+                          <div>
+                            <div className="text-sm font-medium">{opt.label}</div>
+                            <div className="text-xs text-muted-foreground">{opt.hint}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Voice input"
+                  className="h-8 w-8 grid place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                >
+                  <Mic className="h-4 w-4" />
+                </button>
+                {sending ? (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    aria-label="Stop generating"
+                    className="h-8 w-8 grid place-items-center rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || !project}
+                    aria-label="Send message"
+                    className="h-8 w-8 grid place-items-center rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </form>
       </section>
 
