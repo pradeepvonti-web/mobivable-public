@@ -79,10 +79,29 @@ const SECTION_ICONS = {
 export function ProjectPreview({
   project,
   messages,
+  visibility,
 }: {
   project: Project | null;
   messages: Message[];
+  visibility?: {
+    header: boolean;
+    pitch: boolean;
+    features: boolean;
+    screens: boolean;
+    palette: boolean;
+    dataModel: boolean;
+    chat: boolean;
+  };
 }) {
+  const vis = visibility ?? {
+    header: true,
+    pitch: true,
+    features: true,
+    screens: true,
+    palette: true,
+    dataModel: true,
+    chat: true,
+  };
   const sections = useMemo(
     () => (project?.result ? parseSections(project.result) : []),
     [project?.result],
