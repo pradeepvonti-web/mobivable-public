@@ -52,6 +52,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         content: z.string().min(1).max(4000),
+        agentRole: z.enum(ALL_ROLES as [AgentRole, ...AgentRole[]]).optional(),
       })
       .parse(input),
   )
