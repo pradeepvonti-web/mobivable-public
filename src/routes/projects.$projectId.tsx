@@ -345,10 +345,42 @@ function ProjectPage() {
   // Apply persisted visual edits to the rendered preview
   useEffect(() => {
     const edits = project?.visual_edits?.edits ?? [];
+    const reorders = project?.visual_edits?.reorders ?? {};
     visualEditsRef.current = edits;
+    reordersRef.current = { ...reorders };
     const root = previewRootRef.current;
-    if (!root || edits.length === 0) return;
+    if (!root) return;
     const id = requestAnimationFrame(() => {
+      // 1) Tag every element with its original child index (once)
+      const tag = (el: HTMLElement) => {
+        Array.from(el.children).forEach((c, i) => {
+          const child = c as HTMLElement;
+          if (child.dataset.origIdx === undefined) {
+            child.dataset.origIdx = String(i);
+          }
+          tag(child);
+        });
+      };
+      tag(root);
+
+      // 2) Replay reorders by reattaching children in the recorded original-index order
+      for (const [key, order] of Object.entries(reorders)) {
+        const parentPath = key === "" ? [] : key.split(".").map(Number);
+        const parent = resolvePath(root, parentPath);
+        if (!parent) continue;
+        const byOrig = new Map<number, HTMLElement>();
+        Array.from(parent.children).forEach((c) => {
+          const child = c as HTMLElement;
+          const idx = Number(child.dataset.origIdx);
+          if (!Number.isNaN(idx)) byOrig.set(idx, child);
+        });
+        for (const orig of order) {
+          const child = byOrig.get(orig);
+          if (child) parent.appendChild(child);
+        }
+      }
+
+      // 3) Apply text / classes / styles
       for (const edit of edits) {
         const el = resolvePath(root, edit.path);
         if (!el) continue;
