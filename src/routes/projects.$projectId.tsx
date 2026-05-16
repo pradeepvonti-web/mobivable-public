@@ -367,7 +367,20 @@ function ProjectPage() {
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
   const [newClassInput, setNewClassInput] = useState("");
-  const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
+  type PendingAttachment = {
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    progress: number;
+    status: "uploading" | "ready" | "error";
+    error?: string;
+    previewUrl?: string;
+    extractedText?: string;
+    extractError?: string;
+  };
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generateFn = useServerFn(generateProject);
@@ -484,31 +497,116 @@ function ProjectPage() {
     streamRef.current?.return?.(undefined);
   }
 
+  function isExtractable(file: File) {
+    if (file.size > 200 * 1024) return false;
+    if (file.type.startsWith("text/")) return true;
+    if (/\.(txt|md|markdown|json|csv|tsv|log|ya?ml|xml|html?|css|js|jsx|ts|tsx|py|rb|go|rs|java|c|cc|cpp|h|sh|sql|env)$/i.test(file.name)) return true;
+    if (file.type === "application/json") return true;
+    return false;
+  }
+
+  async function uploadOne(file: File, uid: string, token: string) {
+    const id = crypto.randomUUID();
+    const path = `${uid}/${projectId}/${id}-${file.name}`;
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+    const entry: PendingAttachment = {
+      id,
+      name: file.name,
+      url: "",
+      type: file.type || "file",
+      size: file.size,
+      progress: 0,
+      status: "uploading",
+      previewUrl,
+    };
+    setPending((p) => [...p, entry]);
+
+    const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
+    const endpoint = `${supabaseUrl}/storage/v1/object/project-attachments/${path}`;
+
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", endpoint, true);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("x-upsert", "false");
+      if (file.type) xhr.setRequestHeader("Content-Type", file.type);
+      xhr.upload.onprogress = (ev) => {
+        if (!ev.lengthComputable) return;
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        setPending((p) => p.map((x) => (x.id === id ? { ...x, progress: pct } : x)));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+          setPending((p) =>
+            p.map((x) =>
+              x.id === id
+                ? { ...x, url: pub.publicUrl, progress: 100, status: "ready" }
+                : x,
+            ),
+          );
+        } else {
+          let msg = `Upload failed (${xhr.status})`;
+          try {
+            const j = JSON.parse(xhr.responseText);
+            if (j?.message) msg = j.message;
+          } catch {
+            /* ignore */
+          }
+          setPending((p) =>
+            p.map((x) => (x.id === id ? { ...x, status: "error", error: msg } : x)),
+          );
+        }
+        resolve();
+      };
+      xhr.onerror = () => {
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id ? { ...x, status: "error", error: "Network error" } : x,
+          ),
+        );
+        resolve();
+      };
+      xhr.send(file);
+    });
+
+    if (isExtractable(file)) {
+      try {
+        const text = await file.text();
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id ? { ...x, extractedText: text.slice(0, 20000) } : x,
+          ),
+        );
+      } catch (e) {
+        setPending((p) =>
+          p.map((x) =>
+            x.id === id
+              ? { ...x, extractError: e instanceof Error ? e.message : "Extract failed" }
+              : x,
+          ),
+        );
+      }
+    }
+  }
+
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     setUploading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
-      if (!uid) throw new Error("Not authenticated");
-      const uploaded: { name: string; url: string; type: string }[] = [];
-      for (const file of Array.from(files)) {
-        if (file.size > 20 * 1024 * 1024) {
-          setError(`${file.name} is over 20MB`);
-          continue;
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!uid || !token) throw new Error("Not authenticated");
+      const accepted = Array.from(files).filter((f) => {
+        if (f.size > 20 * 1024 * 1024) {
+          setError(`${f.name} is over 20MB`);
+          return false;
         }
-        const path = `${uid}/${projectId}/${crypto.randomUUID()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("project-attachments")
-          .upload(path, file, { contentType: file.type || undefined });
-        if (upErr) {
-          setError(upErr.message);
-          continue;
-        }
-        const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
-        uploaded.push({ name: file.name, url: pub.publicUrl, type: file.type || "file" });
-      }
-      setPending((p) => [...p, ...uploaded]);
+        return true;
+      });
+      await Promise.all(accepted.map((f) => uploadOne(f, uid, token)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -520,14 +618,19 @@ function ProjectPage() {
   async function handleSend(e?: React.FormEvent | { preventDefault?: () => void }, overrideText?: string) {
     e?.preventDefault?.();
     const raw = (overrideText ?? input).trim();
-    if ((!raw && pending.length === 0) || sending) return;
-    const attachBlock = pending.length
-      ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
+    const readyAttachments = pending.filter((p) => p.status === "ready");
+    if ((!raw && readyAttachments.length === 0) || sending) return;
+    const attachBlock = readyAttachments.length
+      ? `\n\nAttachments:\n${readyAttachments.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
       : "";
+    const extractedBlocks = readyAttachments
+      .filter((p) => p.extractedText)
+      .map((p) => `\n\n--- File: ${p.name} ---\n${p.extractedText}\n--- end ---`)
+      .join("");
     const base = raw || "(see attachments)";
     const content = selectedEl
-      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}`
-      : `${base}${attachBlock}`;
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${base}${attachBlock}${extractedBlocks}`
+      : `${base}${attachBlock}${extractedBlocks}`;
     cancelRef.current = false;
     setSending(true);
     setInput("");
@@ -1384,29 +1487,73 @@ function ProjectPage() {
           )}
           {pending.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
-              {pending.map((a, i) => (
-                <div
-                  key={a.url}
-                  className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-2 py-1.5 text-xs"
-                >
-                  {a.type.startsWith("image/") ? (
-                    <img src={a.url} alt={a.name} className="h-8 w-8 rounded object-cover" />
-                  ) : (
-                    <div className="h-8 w-8 grid place-items-center rounded bg-muted text-muted-foreground">
-                      <Plus className="h-3 w-3 rotate-45" />
-                    </div>
-                  )}
-                  <span className="max-w-[140px] truncate">{a.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
-                    aria-label={`Remove ${a.name}`}
-                    className="text-muted-foreground hover:text-foreground"
+              {pending.map((a) => {
+                const thumb = a.previewUrl || (a.type.startsWith("image/") ? a.url : null);
+                const ext = a.name.split(".").pop()?.slice(0, 4).toUpperCase() || "FILE";
+                const sizeKb = a.size < 1024 * 1024
+                  ? `${Math.max(1, Math.round(a.size / 1024))} KB`
+                  : `${(a.size / (1024 * 1024)).toFixed(1)} MB`;
+                return (
+                  <div
+                    key={a.id}
+                    className={`relative flex items-center gap-2 rounded-xl border px-2 py-1.5 text-xs min-w-[180px] ${
+                      a.status === "error"
+                        ? "border-destructive/60 bg-destructive/10"
+                        : "border-border bg-card/60"
+                    }`}
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    {thumb ? (
+                      <img src={thumb} alt={a.name} className="h-9 w-9 rounded object-cover shrink-0" />
+                    ) : (
+                      <div className="h-9 w-9 grid place-items-center rounded bg-muted text-[10px] font-semibold text-muted-foreground shrink-0">
+                        {ext}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="max-w-[140px] truncate font-medium">{a.name}</span>
+                        {a.status === "uploading" && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                        {a.status === "ready" && a.extractedText && (
+                          <span className="text-[9px] uppercase tracking-wider text-primary">
+                            extracted
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {a.status === "uploading"
+                          ? `${a.progress}%`
+                          : a.status === "error"
+                          ? a.error || "Failed"
+                          : sizeKb}
+                      </div>
+                      {a.status === "uploading" && (
+                        <div className="mt-1 h-1 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all"
+                            style={{ width: `${a.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPending((p) => {
+                          const removed = p.find((x) => x.id === a.id);
+                          if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+                          return p.filter((x) => x.id !== a.id);
+                        });
+                      }}
+                      aria-label={`Remove ${a.name}`}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
           <input
@@ -1645,7 +1792,7 @@ function ProjectPage() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={(!input.trim() && pending.length === 0) || !project}
+                    disabled={(!input.trim() && pending.filter((p) => p.status === "ready").length === 0) || !project || pending.some((p) => p.status === "uploading")}
                     aria-label="Send message"
                     className="h-8 w-8 grid place-items-center rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
