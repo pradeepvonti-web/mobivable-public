@@ -1519,7 +1519,13 @@ function ProjectPage() {
         )}
 
         {/* Phone frame */}
-        <div className="relative">
+        <div
+          className={`relative transition-all duration-300 ${
+            paneTab === "agents"
+              ? "lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:scale-[0.32] lg:origin-right z-20 hidden lg:block"
+              : ""
+          }`}
+        >
           <div
             aria-hidden
             className="absolute -inset-6 rounded-[3rem] blur-2xl opacity-50"
