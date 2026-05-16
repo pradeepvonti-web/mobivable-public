@@ -723,6 +723,9 @@ function ProjectPage() {
                   e.preventDefault();
                   e.stopPropagation();
                   const t = e.target as HTMLElement;
+                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  t.classList.add("visual-edit-selected");
+                  selectedElRef.current = t;
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: (t.innerText || "").trim().slice(0, 80),
