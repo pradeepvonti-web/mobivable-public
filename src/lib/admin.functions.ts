@@ -213,22 +213,116 @@ export const adminUpdatePlan = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ─── Get Feature Flags ──────────────────────────────────────────
+// ─── Feature Flags (DB-backed in app_settings) ──────────────────
+const FLAG_DEFAULTS = {
+  aiEnabled: true,
+  exportEnabled: true,
+  screenshotsEnabled: true,
+  agentWorkspaceEnabled: true,
+  backendEnabled: true,
+  signupEnabled: true,
+  paymentsEnabled: true,
+  maxProjectsPerUser: 50,
+  maxMessagesPerProject: 500,
+};
+
 export const getFeatureFlags = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
 
-    // Read from env vars (simple feature flag system)
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "feature_flags")
+      .maybeSingle();
+
+    const stored = (data?.value as Record<string, any>) ?? {};
+    const aiConfigured = !!(process.env.LOVABLE_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY);
     return {
-      aiEnabled: !!(process.env.LOVABLE_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY),
-      exportEnabled: true,
-      screenshotsEnabled: true,
-      agentWorkspaceEnabled: true,
-      backendEnabled: true,
-      signupEnabled: true,
-      maxProjectsPerUser: parseInt(process.env.MAX_PROJECTS_PER_USER ?? "50", 10),
-      maxMessagesPerProject: parseInt(process.env.MAX_MESSAGES_PER_PROJECT ?? "500", 10),
+      ...FLAG_DEFAULTS,
+      ...stored,
+      aiEnabled: aiConfigured && (stored.aiEnabled ?? true),
     };
+  });
+
+export const setFeatureFlag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { key: string; value: any }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "feature_flags")
+      .maybeSingle();
+    const current = (existing?.value as Record<string, any>) ?? {};
+    const next = { ...current, [data.key]: data.value };
+
+    await supabase.from("app_settings").upsert(
+      { key: "feature_flags", value: next, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+    return { ok: true };
+  });
+
+// ─── Payments / Subscriptions ───────────────────────────────────
+export const getAdminPayments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: subs } = await supabase
+      .from("subscriptions")
+      .select("id, user_id, paddle_subscription_id, paddle_customer_id, product_id, price_id, status, current_period_end, cancel_at_period_end, environment, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    const rows = subs ?? [];
+    const now = Date.now();
+    const isActive = (s: any) =>
+      (["active", "trialing", "past_due"].includes(s.status) &&
+        (!s.current_period_end || new Date(s.current_period_end).getTime() > now)) ||
+      (s.status === "canceled" && s.current_period_end && new Date(s.current_period_end).getTime() > now);
+
+    const active = rows.filter(isActive);
+    const live = rows.filter((s: any) => s.environment === "live");
+    const sandbox = rows.filter((s: any) => s.environment === "sandbox");
+    const canceled = rows.filter((s: any) => s.status === "canceled");
+
+    const byPlan: Record<string, number> = {};
+    for (const s of active) byPlan[s.price_id] = (byPlan[s.price_id] ?? 0) + 1;
+
+    // Plan distribution from profiles
+    const { data: planRows } = await supabase.from("profiles").select("plan");
+    const planCounts: Record<string, number> = {};
+    for (const p of planRows ?? []) planCounts[p.plan] = (planCounts[p.plan] ?? 0) + 1;
+
+    return {
+      total: rows.length,
+      activeCount: active.length,
+      liveCount: live.length,
+      sandboxCount: sandbox.length,
+      canceledCount: canceled.length,
+      byPlan,
+      planCounts,
+      subscriptions: rows,
+    };
+  });
+
+export const adminCancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { subscriptionId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    await supabase
+      .from("subscriptions")
+      .update({ status: "canceled", cancel_at_period_end: true, updated_at: new Date().toISOString() })
+      .eq("id", data.subscriptionId);
+    return { ok: true };
   });
