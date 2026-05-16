@@ -127,6 +127,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          attachments: Json
           created_at: string
           id: string
           model: string
@@ -137,6 +138,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachments?: Json
           created_at?: string
           id?: string
           model: string
@@ -147,6 +149,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachments?: Json
           created_at?: string
           id?: string
           model?: string

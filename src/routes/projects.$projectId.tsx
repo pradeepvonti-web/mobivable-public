@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
 
+type Attachment = { path: string; url: string; name: string };
+
 type Project = {
   id: string;
   name: string;
@@ -10,6 +12,7 @@ type Project = {
   model: string;
   status: string;
   created_at: string;
+  attachments: Attachment[] | null;
 };
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -33,7 +36,7 @@ function ProjectPage() {
     (async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, name, prompt, model, status, created_at")
+        .select("id, name, prompt, model, status, created_at, attachments")
         .eq("id", projectId)
         .maybeSingle();
       if (error) setError(error.message);
@@ -93,6 +96,21 @@ function ProjectPage() {
           <p className="text-lg text-foreground leading-relaxed whitespace-pre-wrap">
             {project.prompt}
           </p>
+          {project.attachments && project.attachments.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {project.attachments.map((a) => (
+                <a
+                  key={a.path}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="h-24 w-24 rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
+                >
+                  <img src={a.url} alt={a.name} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
           <div className="mt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground border-t border-border pt-4">
             Model · {project.model}
           </div>
