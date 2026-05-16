@@ -809,6 +809,79 @@ function ProjectPage() {
 
       {/* Preview pane */}
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
+        {(visualEdit || selectedEl) && (
+          <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MousePointerClick className="h-4 w-4 text-primary" />
+                <h2 className="font-display text-xs uppercase tracking-wider">Inspector</h2>
+              </div>
+              {selectedEl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current = null;
+                    setSelectedEl(null);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {!selectedEl ? (
+                <p className="text-xs text-muted-foreground">
+                  Click any element in the preview to inspect and edit it.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Tag</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono text-primary shrink-0">
+                        &lt;{selectedEl.tag}&gt;
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground truncate">
+                        {selectedEl.path.join(" › ")}
+                      </span>
+                    </div>
+                  </div>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Text</span>
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={3}
+                      placeholder="(no text content / has children)"
+                      className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:border-primary/60"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Current classes</span>
+                    <textarea
+                      value={editClasses}
+                      onChange={(e) => setEditClasses(e.target.value)}
+                      rows={6}
+                      placeholder="tailwind classes"
+                      className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono leading-relaxed focus:outline-none focus:border-primary/60"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={savingEdit}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-2 text-xs font-display uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Save changes
+                  </button>
+                </>
+              )}
+            </div>
+          </aside>
+        )}
         <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -883,7 +956,6 @@ function ProjectPage() {
                     path,
                   });
                   setVisualEdit(false);
-                  setMobileView("chat");
                 }}
               >
                 <FitTrackApp />
