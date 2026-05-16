@@ -1454,9 +1454,9 @@ function ProjectPage() {
                         className="absolute bottom-full left-0 mb-2 w-64 rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl p-1.5 z-20"
                       >
                         {(() => {
-                          const navigateAction = (path: string) => {
+                          const goTo = (path: string) => {
                             setPlusOpen(false);
-                            void navigate({ to: path });
+                            if (typeof window !== "undefined") window.location.assign(path);
                           };
                           const stub = (label: string) => () => {
                             setPlusOpen(false);
