@@ -105,7 +105,7 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
+  const [model, setModel] = useState(DEFAULT_MODEL);
   const [modelOpen, setModelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
