@@ -1981,6 +1981,40 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
   const [connected, setConnected] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<
+    { ok: boolean; message: string } | null
+  >(null);
+
+  async function testConnection() {
+    setTestResult(null);
+    setTesting(true);
+    try {
+      const url = supabaseUrl.trim().replace(/\/+$/, "");
+      const key = anonKey.trim();
+      if (!url || !key) throw new Error("Enter both Project URL and anon key");
+      if (!/^https:\/\/.+\.supabase\.co$/i.test(url)) {
+        throw new Error("URL must look like https://xxxxx.supabase.co");
+      }
+      const started = performance.now();
+      const res = await fetch(`${url}/auth/v1/settings`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+      const ms = Math.round(performance.now() - started);
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Invalid anon key (HTTP ${res.status})`);
+      }
+      if (!res.ok) throw new Error(`Unexpected response: HTTP ${res.status}`);
+      setTestResult({ ok: true, message: `Connection OK · ${ms}ms` });
+    } catch (e) {
+      setTestResult({
+        ok: false,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -2183,6 +2217,16 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
               {error && (
                 <p className="text-xs text-destructive">{error}</p>
               )}
+              {testResult && (
+                <p
+                  className={`text-xs font-mono ${
+                    testResult.ok ? "text-emerald-500" : "text-destructive"
+                  }`}
+                >
+                  {testResult.ok ? "✓ " : "✗ "}
+                  {testResult.message}
+                </p>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <button
@@ -2192,6 +2236,14 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
                   className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >
                   {saving ? "Saving…" : connected ? "Update connection" : "Connect"}
+                </button>
+                <button
+                  type="button"
+                  onClick={testConnection}
+                  disabled={testing || !supabaseUrl.trim() || !anonKey.trim()}
+                  className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 disabled:opacity-40 transition-colors"
+                >
+                  {testing ? "Testing…" : "Test connection"}
                 </button>
                 {connected && (
                   <button
