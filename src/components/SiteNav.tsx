@@ -221,6 +221,10 @@ export function SiteNav() {
       {open && (
         <div
           id="mobile-nav"
+          ref={mobilePanelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site navigation"
           className="md:hidden border-t border-border bg-background/95 backdrop-blur-md"
         >
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-1 text-sm font-mono uppercase tracking-widest">
@@ -231,7 +235,8 @@ export function SiteNav() {
                   key={l.id}
                   href={`/#${l.id}`}
                   onClick={() => setOpen(false)}
-                  className={`py-3 border-b border-border flex items-center justify-between transition-colors hover:text-primary ${
+                  onKeyDown={activateOnSpace}
+                  className={`py-3 border-b border-border flex items-center justify-between transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                     isActive ? "text-primary" : "text-muted"
                   }`}
                   aria-current={isActive ? "true" : undefined}
@@ -248,13 +253,17 @@ export function SiteNav() {
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="py-3 border-b border-border text-muted hover:text-primary transition-colors"
+                onKeyDown={activateOnSpace}
+                className="py-3 border-b border-border text-muted hover:text-primary transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 activeProps={{ className: "py-3 border-b border-border text-primary" }}
               >
                 {l.label}
               </Link>
             ))}
-            <button className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
+            <button
+              type="button"
+              className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
               Start Building
             </button>
           </div>
