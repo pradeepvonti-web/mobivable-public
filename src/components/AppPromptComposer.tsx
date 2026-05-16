@@ -17,7 +17,7 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   { label: "Habit Coach", prompt: "habit coach app" },
   { label: "Mood Journal", prompt: "mood journal app" },
 ];
-const DEFAULT_MODEL = "Gemini 3 Flash";
+const FALLBACK_DEFAULT_MODEL = "Gemini 3 Flash";
 const MODELS = [
   "Gemini 3 Flash",
   "Gemini 2.5 Pro",
