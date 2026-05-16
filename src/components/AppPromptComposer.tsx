@@ -181,20 +181,38 @@ export function AppPromptComposer() {
           }}
         />
         <div className="relative rounded-2xl border border-primary/40 bg-card/60 backdrop-blur-sm p-5 md:p-6">
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-            placeholder="recipe finder app"
-            rows={6}
-            disabled={submitting}
-            className="w-full bg-transparent text-lg md:text-xl text-foreground placeholder:text-muted-foreground focus:outline-none resize-none disabled:opacity-60"
-          />
+          <div className="relative">
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder=""
+              rows={6}
+              disabled={submitting}
+              className="relative w-full bg-transparent text-lg md:text-xl text-foreground focus:outline-none resize-none disabled:opacity-60"
+            />
+            {!prompt && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 text-lg md:text-xl text-muted-foreground select-none"
+              >
+                <span>{typedPlaceholder}</span>
+                <span
+                  className={`inline-block w-[2px] h-[1.1em] ml-0.5 align-middle bg-primary ${
+                    focused ? "" : "animate-pulse"
+                  }`}
+                  style={{ animation: focused ? "none" : undefined }}
+                />
+              </div>
+            )}
+          </div>
 
           {attachments.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3">
