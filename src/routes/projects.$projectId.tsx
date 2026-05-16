@@ -497,13 +497,9 @@ function ProjectPage() {
     streamRef.current?.return?.(undefined);
   }
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || !files.length) return;
-    setUploading(true);
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) throw new Error("Not authenticated");
+  function isExtractableHeader() { /* no-op */ }
+  void isExtractableHeader;
+
   function isExtractable(file: File) {
     if (file.size > 200 * 1024) return false;
     if (file.type.startsWith("text/")) return true;
