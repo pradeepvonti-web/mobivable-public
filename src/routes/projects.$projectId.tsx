@@ -168,6 +168,7 @@ function ProjectPage() {
   const [editStyles, setEditStyles] = useState<VisualStyles>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const selectedElRef = useRef<HTMLElement | null>(null);
+  const selectedOrigRef = useRef<{ text: string; classes: string; styles: VisualStyles } | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
