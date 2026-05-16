@@ -2237,6 +2237,14 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
                 >
                   {saving ? "Saving…" : connected ? "Update connection" : "Connect"}
                 </button>
+                <button
+                  type="button"
+                  onClick={testConnection}
+                  disabled={testing || !supabaseUrl.trim() || !anonKey.trim()}
+                  className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 disabled:opacity-40 transition-colors"
+                >
+                  {testing ? "Testing…" : "Test connection"}
+                </button>
                 {connected && (
                   <button
                     type="button"
