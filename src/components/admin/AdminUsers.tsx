@@ -157,7 +157,7 @@ export function AdminUsers() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">No users found.</td>
+                  <td colSpan={6} className="px-4 py-8"><AdminEmptyState title="No users found" /></td>
                 </tr>
               )}
             </tbody>
