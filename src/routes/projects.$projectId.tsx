@@ -1004,6 +1004,31 @@ function ProjectPage() {
                   const txt = t.children.length === 0 ? (t.textContent || "") : "";
                   setEditText(txt);
                   setEditClasses(cls);
+                  const persisted = visualEditsRef.current.find(
+                    (e) => pathKey(e.path) === pathKey(path),
+                  );
+                  const cs = window.getComputedStyle(t);
+                  const toHex = (rgb: string): string => {
+                    const m = rgb.match(/\d+(\.\d+)?/g);
+                    if (!m || m.length < 3) return "";
+                    const [r, g, b, a] = m.map(Number);
+                    if (a === 0) return "";
+                    const h = (n: number) => n.toString(16).padStart(2, "0");
+                    return `#${h(r)}${h(g)}${h(b)}`;
+                  };
+                  const pxNum = (v: string) => parseFloat(v) || 0;
+                  setEditStyles({
+                    background:
+                      persisted?.styles?.background ?? toHex(cs.backgroundColor),
+                    borderColor:
+                      persisted?.styles?.borderColor ?? toHex(cs.borderTopColor),
+                    borderWidth:
+                      persisted?.styles?.borderWidth ?? `${pxNum(cs.borderTopWidth)}px`,
+                    padding:
+                      persisted?.styles?.padding ?? `${pxNum(cs.paddingTop)}px`,
+                    fontSize:
+                      persisted?.styles?.fontSize ?? `${pxNum(cs.fontSize)}px`,
+                  });
                   setSelectedEl({
                     tag: t.tagName.toLowerCase(),
                     text: txt.trim().slice(0, 80),
