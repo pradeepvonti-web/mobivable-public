@@ -46,7 +46,7 @@ type VisualEdit = {
   classes?: string;
   styles?: VisualStyles;
 };
-type VisualEditMap = { edits: VisualEdit[] };
+type VisualEditMap = { edits: VisualEdit[]; reorders?: Record<string, number[]> };
 
 const STYLE_KEYS: (keyof VisualStyles)[] = [
   "background",
@@ -145,6 +145,8 @@ function ProjectPage() {
   const selectedElRef = useRef<HTMLElement | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
   const visualEditsRef = useRef<VisualEdit[]>([]);
+  const reordersRef = useRef<Record<string, number[]>>({});
+  const dragSrcRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -260,6 +262,7 @@ function ProjectPage() {
     setSending(true);
     setInput("");
     selectedElRef.current?.classList.remove("visual-edit-selected");
+    selectedElRef.current?.removeAttribute("draggable");
     selectedElRef.current = null;
     setSelectedEl(null);
     setPending([]);
@@ -345,10 +348,42 @@ function ProjectPage() {
   // Apply persisted visual edits to the rendered preview
   useEffect(() => {
     const edits = project?.visual_edits?.edits ?? [];
+    const reorders = project?.visual_edits?.reorders ?? {};
     visualEditsRef.current = edits;
+    reordersRef.current = { ...reorders };
     const root = previewRootRef.current;
-    if (!root || edits.length === 0) return;
+    if (!root) return;
     const id = requestAnimationFrame(() => {
+      // 1) Tag every element with its original child index (once)
+      const tag = (el: HTMLElement) => {
+        Array.from(el.children).forEach((c, i) => {
+          const child = c as HTMLElement;
+          if (child.dataset.origIdx === undefined) {
+            child.dataset.origIdx = String(i);
+          }
+          tag(child);
+        });
+      };
+      tag(root);
+
+      // 2) Replay reorders by reattaching children in the recorded original-index order
+      for (const [key, order] of Object.entries(reorders)) {
+        const parentPath = key === "" ? [] : key.split(".").map(Number);
+        const parent = resolvePath(root, parentPath);
+        if (!parent) continue;
+        const byOrig = new Map<number, HTMLElement>();
+        Array.from(parent.children).forEach((c) => {
+          const child = c as HTMLElement;
+          const idx = Number(child.dataset.origIdx);
+          if (!Number.isNaN(idx)) byOrig.set(idx, child);
+        });
+        for (const orig of order) {
+          const child = byOrig.get(orig);
+          if (child) parent.appendChild(child);
+        }
+      }
+
+      // 3) Apply text / classes / styles
       for (const edit of edits) {
         const el = resolvePath(root, edit.path);
         if (!el) continue;
@@ -413,18 +448,25 @@ function ProjectPage() {
         { path: selectedEl.path, text: newText, classes: cleaned, styles: stylesClean },
       ];
       visualEditsRef.current = next;
-
-      const { error: upErr } = await supabase
-        .from("projects")
-        .update({ visual_edits: { edits: next } })
-        .eq("id", projectId);
-      if (upErr) {
-        setError(upErr.message);
-      } else {
-        setProject((p) => (p ? { ...p, visual_edits: { edits: next } } : p));
-      }
+      await persistVisualEdits(next, reordersRef.current);
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function persistVisualEdits(
+    edits: VisualEdit[],
+    reorders: Record<string, number[]>,
+  ) {
+    const payload: VisualEditMap = { edits, reorders };
+    const { error: upErr } = await supabase
+      .from("projects")
+      .update({ visual_edits: payload })
+      .eq("id", projectId);
+    if (upErr) {
+      setError(upErr.message);
+    } else {
+      setProject((p) => (p ? { ...p, visual_edits: payload } : p));
     }
   }
 
@@ -669,6 +711,7 @@ function ProjectPage() {
                   type="button"
                   onClick={() => {
                     selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current?.removeAttribute("draggable");
                     selectedElRef.current = null;
                     setSelectedEl(null);
                   }}
@@ -876,6 +919,7 @@ function ProjectPage() {
                   type="button"
                   onClick={() => {
                     selectedElRef.current?.classList.remove("visual-edit-selected");
+                    selectedElRef.current?.removeAttribute("draggable");
                     selectedElRef.current = null;
                     setSelectedEl(null);
                   }}
@@ -1061,6 +1105,97 @@ function ProjectPage() {
               <div
                 ref={previewRootRef}
                 className={`h-full w-full relative ${visualEdit ? "visual-edit-mode" : ""}`}
+                onDragStartCapture={(e) => {
+                  const t = e.target as HTMLElement;
+                  if (t !== selectedElRef.current) {
+                    e.preventDefault();
+                    return;
+                  }
+                  dragSrcRef.current = t;
+                  e.dataTransfer.effectAllowed = "move";
+                  try {
+                    e.dataTransfer.setData("text/plain", "visual-edit");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                onDragOverCapture={(e) => {
+                  const src = dragSrcRef.current;
+                  if (!src) return;
+                  const t = e.target as HTMLElement;
+                  if (t === src || !src.parentElement) return;
+                  const overSibling = t.parentElement === src.parentElement;
+                  const overParent = t === src.parentElement;
+                  if (!overSibling && !overParent) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  document
+                    .querySelectorAll(".visual-edit-drop")
+                    .forEach((n) => n.classList.remove("visual-edit-drop"));
+                  if (overSibling) t.classList.add("visual-edit-drop");
+                }}
+                onDragLeaveCapture={(e) => {
+                  (e.target as HTMLElement).classList?.remove("visual-edit-drop");
+                }}
+                onDropCapture={(e) => {
+                  const src = dragSrcRef.current;
+                  if (!src || !src.parentElement) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const root = previewRootRef.current;
+                  if (!root) return;
+                  document
+                    .querySelectorAll(".visual-edit-drop")
+                    .forEach((n) => n.classList.remove("visual-edit-drop"));
+                  const t = e.target as HTMLElement;
+                  const parent = src.parentElement;
+                  const oldChildren = Array.from(parent.children) as HTMLElement[];
+                  if (t === parent) {
+                    parent.appendChild(src);
+                  } else if (t.parentElement === parent && t !== src) {
+                    const rect = t.getBoundingClientRect();
+                    const vertical = rect.height >= rect.width;
+                    const before = vertical
+                      ? e.clientY < rect.top + rect.height / 2
+                      : e.clientX < rect.left + rect.width / 2;
+                    parent.insertBefore(src, before ? t : t.nextSibling);
+                  } else {
+                    dragSrcRef.current = null;
+                    return;
+                  }
+                  const newChildren = Array.from(parent.children) as HTMLElement[];
+                  const newIndex = newChildren.indexOf(src);
+                  // Remap edits paths under this parent
+                  const parentPath = getPath(parent, root);
+                  if (parentPath) {
+                    const idxMap = new Map<number, number>();
+                    newChildren.forEach((c, i) => {
+                      idxMap.set(oldChildren.indexOf(c), i);
+                    });
+                    const remapped = visualEditsRef.current.map((ed) => {
+                      if (ed.path.length <= parentPath.length) return ed;
+                      for (let i = 0; i < parentPath.length; i++) {
+                        if (ed.path[i] !== parentPath[i]) return ed;
+                      }
+                      const np = [...ed.path];
+                      const m = idxMap.get(ed.path[parentPath.length]);
+                      if (m !== undefined) np[parentPath.length] = m;
+                      return { ...ed, path: np };
+                    });
+                    visualEditsRef.current = remapped;
+                    // Record permutation of original indices for this parent
+                    const order = newChildren.map((c) => Number(c.dataset.origIdx ?? 0));
+                    reordersRef.current = {
+                      ...reordersRef.current,
+                      [pathKey(parentPath)]: order,
+                    };
+                    setSelectedEl((s) =>
+                      s ? { ...s, path: [...parentPath, newIndex] } : s,
+                    );
+                    void persistVisualEdits(visualEditsRef.current, reordersRef.current);
+                  }
+                  dragSrcRef.current = null;
+                }}
                 onClickCapture={(e) => {
                   if (!visualEdit) return;
                   e.preventDefault();
@@ -1070,8 +1205,12 @@ function ProjectPage() {
                   if (!root) return;
                   const path = getPath(t, root);
                   if (!path) return;
-                  selectedElRef.current?.classList.remove("visual-edit-selected");
+                  if (selectedElRef.current) {
+                    selectedElRef.current.classList.remove("visual-edit-selected");
+                    selectedElRef.current.removeAttribute("draggable");
+                  }
                   t.classList.add("visual-edit-selected");
+                  t.setAttribute("draggable", "true");
                   selectedElRef.current = t;
                   const cls = (t.className?.toString() || "")
                     .split(/\s+/)
