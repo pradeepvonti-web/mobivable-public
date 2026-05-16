@@ -1561,7 +1561,7 @@ function ProjectPage() {
                   setVisualEdit(false);
                 }}
               >
-                <ProjectPreview key={previewKey} project={project} messages={messages} />
+                <ProjectPreview key={previewKey} project={project} messages={messages} visibility={previewConfig.visibility} />
               </div>
             )}
           </div>
