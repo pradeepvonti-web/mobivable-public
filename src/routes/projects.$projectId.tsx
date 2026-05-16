@@ -2359,6 +2359,7 @@ function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => vo
   const [newName, setNewName] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newVisible, setNewVisible] = useState(true);
+  const [newPublic, setNewPublic] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
