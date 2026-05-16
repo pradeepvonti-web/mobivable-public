@@ -153,7 +153,7 @@ export function detectProvider(): ProviderConfig | null {
   }
 
   // Auto-detect by checking which keys are available
-  const priority: AIProvider[] = ["openai", "gemini", "anthropic", "groq", "openrouter"];
+  const priority: AIProvider[] = ["lovable", "openai", "gemini", "anthropic", "groq", "openrouter"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;
