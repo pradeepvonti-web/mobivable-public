@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logPasswordResetEvent } from "@/lib/admin.functions";
 import { PageShell } from "@/components/PageShell";
 
 export const Route = createFileRoute("/forgot-password")({
@@ -28,6 +29,8 @@ function ForgotPasswordPage() {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
+      // Audit the request (fire-and-forget).
+      void logPasswordResetEvent({ data: { email: email.trim(), event: "request" } }).catch(() => {});
       // Always show success to avoid leaking whether the email exists.
       setSent(true);
     } catch (err) {
