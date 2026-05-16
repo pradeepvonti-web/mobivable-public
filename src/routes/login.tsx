@@ -213,6 +213,28 @@ function LoginPage() {
             Admin Login
           </button>
 
+          <div className="border border-border/60 bg-muted/20 p-4 space-y-2 text-xs text-muted-foreground">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-foreground">
+              Admin password reset
+            </p>
+            <p>
+              Admin accounts use the same secure reset flow as regular users. Request a link from{" "}
+              <Link to="/forgot-password" className="text-primary underline-offset-4 hover:underline">
+                Forgot password
+              </Link>{" "}
+              using the admin email — the link is single-use, expires shortly, and lands you on a page
+              to choose a new password.
+            </p>
+            <p>
+              If no link arrives, the address may not be tied to an admin account. Contact the platform
+              owner to provision admin access, or claim it from the{" "}
+              <Link to="/admin" className="text-primary underline-offset-4 hover:underline">
+                /admin
+              </Link>{" "}
+              page when no admin exists yet.
+            </p>
+          </div>
+
           <p className="text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link to="/signup" search={{ plan: "free_beta" }} className="text-primary underline-offset-4 hover:underline">
