@@ -33,8 +33,35 @@ import { FitTrackApp } from "@/components/FitTrackApp";
 
 type Attachment = { path: string; url: string; name: string };
 
-type VisualEdit = { path: number[]; text?: string; classes?: string };
+type VisualStyles = {
+  background?: string;
+  borderColor?: string;
+  borderWidth?: string;
+  padding?: string;
+  fontSize?: string;
+};
+type VisualEdit = {
+  path: number[];
+  text?: string;
+  classes?: string;
+  styles?: VisualStyles;
+};
 type VisualEditMap = { edits: VisualEdit[] };
+
+const STYLE_KEYS: (keyof VisualStyles)[] = [
+  "background",
+  "borderColor",
+  "borderWidth",
+  "padding",
+  "fontSize",
+];
+const STYLE_CSS: Record<keyof VisualStyles, string> = {
+  background: "background",
+  borderColor: "borderColor",
+  borderWidth: "borderWidth",
+  padding: "padding",
+  fontSize: "fontSize",
+};
 
 type Project = {
   id: string;
