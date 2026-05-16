@@ -16,6 +16,7 @@ import {
   Smartphone,
   Eye,
   Send,
+  Square,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
