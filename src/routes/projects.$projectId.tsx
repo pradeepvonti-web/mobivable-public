@@ -261,6 +261,7 @@ function ProjectPage() {
       setUserEmail(data.user?.email ?? "");
     });
   }, []);
+  const [sidePanel, setSidePanel] = useState<null | "backend">(null);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
@@ -928,20 +929,29 @@ function ProjectPage() {
           </nav>
         </div>
         <div className="mt-auto border-t border-border p-2">
-          {SIDE_ITEMS.map(({ icon: Icon, label, active }) => (
-            <button
-              key={label}
-              type="button"
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{label}</span>
-            </button>
-          ))}
+          {SIDE_ITEMS.map(({ icon: Icon, label }) => {
+            const isActive =
+              (label === "Chat" && sidePanel === null) ||
+              (label === "Backend" && sidePanel === "backend");
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (label === "Backend") setSidePanel("backend");
+                  else if (label === "Chat") setSidePanel(null);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </aside>
 
@@ -1954,6 +1964,257 @@ function ProjectPage() {
           {generating ? "Building" : "Retry"}
         </button>
       </nav>
+      </div>
+      {sidePanel === "backend" && (
+        <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
+    </div>
+  );
+}
+
+function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [supabaseUrl, setSupabaseUrl] = useState("");
+  const [anonKey, setAnonKey] = useState("");
+  const [projectRef, setProjectRef] = useState("");
+  const [connected, setConnected] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (c: string, v: string) => {
+              eq: (c: string, v: string) => {
+                maybeSingle: () => Promise<{ data: {
+                  supabase_url: string | null;
+                  supabase_anon_key: string | null;
+                  supabase_project_ref: string | null;
+                  connected_at: string | null;
+                } | null }>;
+              };
+            };
+          };
+        };
+      })
+        .from("project_integrations")
+        .select("supabase_url,supabase_anon_key,supabase_project_ref,connected_at")
+        .eq("project_id", projectId)
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (data) {
+        setSupabaseUrl(data.supabase_url ?? "");
+        setAnonKey(data.supabase_anon_key ?? "");
+        setProjectRef(data.supabase_project_ref ?? "");
+        setSavedAt(data.connected_at);
+        setConnected(!!data.connected_at);
+      }
+      setLoading(false);
+    })();
+  }, [projectId]);
+
+  async function save() {
+    setError(null);
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const now = new Date().toISOString();
+      const { error: err } = await (supabase as unknown as {
+        from: (t: string) => {
+          upsert: (
+            row: Record<string, unknown>,
+            opts: { onConflict: string },
+          ) => Promise<{ error: { message: string } | null }>;
+        };
+      })
+        .from("project_integrations")
+        .upsert(
+          {
+            project_id: projectId,
+            user_id: uid,
+            supabase_url: supabaseUrl.trim() || null,
+            supabase_anon_key: anonKey.trim() || null,
+            supabase_project_ref: projectRef.trim() || null,
+            connected_at: supabaseUrl.trim() && anonKey.trim() ? now : null,
+          },
+          { onConflict: "project_id,user_id" },
+        );
+      if (err) throw new Error(err.message);
+      setConnected(!!(supabaseUrl.trim() && anonKey.trim()));
+      setSavedAt(now);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnect() {
+    setSaving(true);
+    setError(null);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      await (supabase as unknown as {
+        from: (t: string) => {
+          delete: () => {
+            eq: (c: string, v: string) => {
+              eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+            };
+          };
+        };
+      })
+        .from("project_integrations")
+        .delete()
+        .eq("project_id", projectId)
+        .eq("user_id", uid);
+      setSupabaseUrl("");
+      setAnonKey("");
+      setProjectRef("");
+      setConnected(false);
+      setSavedAt(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 lg:p-8 overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+        <header className="p-5 border-b border-border flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+              <Database className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-display text-lg truncate">Supabase Backend</h2>
+              <p className="text-xs text-muted-foreground truncate">
+                Connect a Supabase project to power this mobile app
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+          >
+            Close
+          </button>
+        </header>
+
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    connected ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"
+                  }`}
+                />
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+                  {connected ? "Connected" : "Not connected"}
+                </span>
+                {savedAt && (
+                  <span className="ml-auto text-[10px] font-mono text-muted-foreground">
+                    Saved {new Date(savedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Project URL
+                </label>
+                <input
+                  type="url"
+                  value={supabaseUrl}
+                  onChange={(e) => setSupabaseUrl(e.target.value)}
+                  placeholder="https://xxxxx.supabase.co"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Anon / Publishable Key
+                </label>
+                <input
+                  type="password"
+                  value={anonKey}
+                  onChange={(e) => setAnonKey(e.target.value)}
+                  placeholder="eyJhbGciOi…"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  The publishable/anon key is safe to embed in client apps. Never paste your
+                  service role key here.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Project Ref <span className="text-muted-foreground/60 normal-case">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={projectRef}
+                  onChange={(e) => setProjectRef(e.target.value)}
+                  placeholder="xxxxxxxxxxxxxxxxxxxx"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {error && (
+                <p className="text-xs text-destructive">{error}</p>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={saving || !supabaseUrl.trim() || !anonKey.trim()}
+                  className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
+                >
+                  {saving ? "Saving…" : connected ? "Update connection" : "Connect"}
+                </button>
+                {connected && (
+                  <button
+                    type="button"
+                    onClick={disconnect}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                )}
+                <a
+                  href="https://supabase.com/dashboard"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto text-xs text-primary hover:underline"
+                >
+                  Open Supabase ↗
+                </a>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
