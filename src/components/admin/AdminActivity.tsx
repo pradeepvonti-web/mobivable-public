@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, XCircle, RefreshCw, KeyRound, MailCheck } from "lucide-react";
+import { CheckCircle2, XCircle, KeyRound, MailCheck } from "lucide-react";
+import { AdminIcons, AdminActionButton, AdminEmptyState } from "./admin-ui";
 import { getAdminLoginAudit, getPasswordResetAudit } from "@/lib/admin.functions";
 
 type Entry = {
@@ -49,15 +50,9 @@ export function AdminActivity() {
             Sign-in attempts targeting admin accounts (latest 100).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs hover:bg-muted/40 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        <AdminActionButton icon={AdminIcons.refresh} onClick={load} disabled={loading} loading={loading}>
           Refresh
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -94,8 +89,8 @@ export function AdminActivity() {
                 </tr>
               ) : !entries || entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    No admin login attempts recorded yet.
+                  <td colSpan={6} className="px-4 py-8">
+                    <AdminEmptyState title="No admin login attempts recorded yet" />
                   </td>
                 </tr>
               ) : (
@@ -183,15 +178,9 @@ function PasswordResetSection() {
             Reset link requests and successful completions (latest 100).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs hover:bg-muted/40 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        <AdminActionButton icon={AdminIcons.refresh} onClick={load} disabled={loading} loading={loading}>
           Refresh
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -218,7 +207,7 @@ function PasswordResetSection() {
               ) : error ? (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-destructive">{error}</td></tr>
               ) : !entries || entries.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No password reset events recorded yet.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8"><AdminEmptyState title="No password reset events recorded yet" /></td></tr>
               ) : (
                 entries.map((e) => (
                   <tr key={e.id} className="border-t border-border/60 align-top">

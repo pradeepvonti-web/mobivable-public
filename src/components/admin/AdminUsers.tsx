@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Users, Shield, Crown, Search, ChevronDown, Loader2 } from "lucide-react";
+import { AdminEmptyState } from "./admin-ui";
 import { getAdminUsers, toggleUserRole, adminUpdatePlan } from "@/lib/admin.functions";
 
 type UserRow = {
@@ -156,7 +157,7 @@ export function AdminUsers() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">No users found.</td>
+                  <td colSpan={6} className="px-4 py-8"><AdminEmptyState title="No users found" /></td>
                 </tr>
               )}
             </tbody>

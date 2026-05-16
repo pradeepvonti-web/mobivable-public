@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Search, Trash2, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
+import { AdminEmptyState } from "./admin-ui";
 import { getAdminProjects, adminDeleteProject } from "@/lib/admin.functions";
 
 type ProjectRow = {
@@ -159,7 +160,7 @@ export function AdminProjects() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">No projects found.</td>
+                  <td colSpan={5} className="px-4 py-8"><AdminEmptyState title="No projects found" /></td>
                 </tr>
               )}
             </tbody>

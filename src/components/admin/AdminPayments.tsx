@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { CreditCard, Loader2, TrendingUp, Users, XCircle, CheckCircle2, FlaskConical, Radio } from "lucide-react";
+import { AdminIcons, AdminActionButton, AdminEmptyState } from "./admin-ui";
 import { getAdminPayments, adminCancelSubscription } from "@/lib/admin.functions";
 
 type Data = Awaited<ReturnType<typeof getAdminPayments>>;
@@ -52,7 +53,7 @@ export function AdminPayments() {
           <h2 className="font-display uppercase text-2xl tracking-tight">Payments & Subscriptions</h2>
           <p className="text-sm text-muted-foreground mt-1">Monitor revenue, manage subscriptions, and view plan distribution.</p>
         </div>
-        <button onClick={refresh} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted/40">Refresh</button>
+        <AdminActionButton icon={AdminIcons.refresh} onClick={refresh}>Refresh</AdminActionButton>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -126,7 +127,7 @@ export function AdminPayments() {
             </thead>
             <tbody className="divide-y divide-border">
               {data.subscriptions.length === 0 && (
-                <tr><td colSpan={6} className="text-center px-4 py-8 text-muted-foreground text-xs">No subscriptions yet.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8"><AdminEmptyState title="No subscriptions yet" /></td></tr>
               )}
               {data.subscriptions.map((s: any) => (
                 <tr key={s.id} className="hover:bg-muted/20">
