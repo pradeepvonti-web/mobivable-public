@@ -130,6 +130,7 @@
   pointer-events: none;
   z-index: 50;
   white-space: nowrap;
+}
 .visual-edit-selected {
   cursor: grab !important;
 }
