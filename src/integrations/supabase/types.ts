@@ -283,6 +283,42 @@ export type Database = {
         }
         Relationships: []
       }
+      project_integrations: {
+        Row: {
+          connected_at: string | null
+          created_at: string
+          id: string
+          project_id: string
+          supabase_anon_key: string | null
+          supabase_project_ref: string | null
+          supabase_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          supabase_anon_key?: string | null
+          supabase_project_ref?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          supabase_anon_key?: string | null
+          supabase_project_ref?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_messages: {
         Row: {
           content: string
