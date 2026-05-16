@@ -16,6 +16,7 @@ import {
   Smartphone,
   Eye,
   Send,
+  Square,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -73,6 +74,8 @@ function ProjectPage() {
   const chatFn = useServerFn(sendProjectMessage);
   const triggeredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef(false);
+  const streamRef = useRef<AsyncIterator<unknown> | null>(null);
 
   async function reloadProject() {
     const { data, error } = await supabase
@@ -126,10 +129,16 @@ function ProjectPage() {
     );
   }
 
+  function handleCancel() {
+    cancelRef.current = true;
+    streamRef.current?.return?.(undefined);
+  }
+
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
     const content = input.trim();
     if (!content || sending) return;
+    cancelRef.current = false;
     setSending(true);
     setInput("");
     const tempId = `tmp-${Date.now()}`;
@@ -140,9 +149,11 @@ function ProjectPage() {
     ]);
     try {
       const stream = await chatFn({ data: { projectId, content } });
+      streamRef.current = stream as unknown as AsyncIterator<unknown>;
       let acc = "";
       let errored = false;
       for await (const event of stream) {
+        if (cancelRef.current) break;
         if (event.type === "delta") {
           acc += event.delta;
           setMessages((prev) =>
@@ -161,7 +172,17 @@ function ProjectPage() {
           );
         }
       }
-      if (!errored) await loadMessages();
+      if (cancelRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `${tempId}-a`
+              ? { ...m, content: `${acc}${acc ? "\n\n" : ""}_Stopped._`, pending: false }
+              : m,
+          ),
+        );
+      } else if (!errored) {
+        await loadMessages();
+      }
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -175,6 +196,8 @@ function ProjectPage() {
         ),
       );
     } finally {
+      streamRef.current = null;
+      cancelRef.current = false;
       setSending(false);
     }
   }
@@ -394,9 +417,20 @@ function ProjectPage() {
                           <span>Thinking…</span>
                         </div>
                       ) : (
-                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-                          <ReactMarkdown>{m.content}</ReactMarkdown>
-                        </div>
+                        <>
+                          <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
+                            <ReactMarkdown>{m.content}</ReactMarkdown>
+                          </div>
+                          {sending && m.id.endsWith("-a") && (
+                            <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                              </span>
+                              <span>Streaming…</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -425,14 +459,25 @@ function ProjectPage() {
             disabled={sending || !project}
             className="flex-1 resize-none bg-card border border-border rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/60 disabled:opacity-50 max-h-32"
           />
-          <button
-            type="submit"
-            disabled={sending || !input.trim() || !project}
-            aria-label="Send message"
-            className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </button>
+          {sending ? (
+            <button
+              type="button"
+              onClick={handleCancel}
+              aria-label="Stop generating"
+              className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim() || !project}
+              aria-label="Send message"
+              className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          )}
         </form>
       </section>
 
