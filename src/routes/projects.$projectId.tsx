@@ -240,6 +240,26 @@ function ProjectPage() {
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
   const [input, setInput] = useState("");
+  const draftStorageKey = (role: AgentRole) => `mobivable:chatDraft:${projectId}:${role}`;
+  const draftHydratedRef = useRef(false);
+  // When the selected agent changes (or on mount), restore that role's draft.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(draftStorageKey(selectedAgent));
+    setInput(saved ?? "");
+    // Mark hydrated on next tick so the persist effect doesn't immediately overwrite.
+    draftHydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent, projectId]);
+  // Persist the current draft per agent role.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!draftHydratedRef.current) return;
+    const key = draftStorageKey(selectedAgent);
+    if (input) window.localStorage.setItem(key, input);
+    else window.localStorage.removeItem(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, selectedAgent, projectId]);
   const [sending, setSending] = useState(false);
   const [mode, setMode] = useState<"build" | "plan">("build");
   const [modeOpen, setModeOpen] = useState(false);
