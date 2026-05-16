@@ -146,11 +146,15 @@ function ProjectPage() {
 
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
-    const content = input.trim();
-    if (!content || sending) return;
+    const raw = input.trim();
+    if (!raw || sending) return;
+    const content = selectedEl
+      ? `[Visual edit target: <${selectedEl.tag}>${selectedEl.text ? ` "${selectedEl.text}"` : ""}]\n\n${raw}`
+      : raw;
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    setSelectedEl(null);
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
