@@ -25,6 +25,27 @@ function useActiveSection(ids: string[], enabled: boolean) {
       return;
     }
 
+    // Compute initial active section synchronously by geometry, so the
+    // pulsing dot reflects the right link on first paint and right after
+    // a route change — without waiting for the IntersectionObserver to
+    // tick (which can take a frame and miss the initial state).
+    const computeNow = () => {
+      const probe = window.innerHeight * 0.3;
+      let current: string | null = null;
+      let bestTop = -Infinity;
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= probe && top > bestTop) {
+          bestTop = top;
+          current = id;
+        }
+      }
+      setActive(current ?? ids[0] ?? null);
+    };
+    computeNow();
+
     const elements = ids
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
@@ -44,7 +65,7 @@ function useActiveSection(ids: string[], enabled: boolean) {
             best = { id, ratio };
           }
         }
-        setActive(best?.id ?? null);
+        if (best) setActive(best.id);
       },
       {
         rootMargin: "-20% 0px -55% 0px",
