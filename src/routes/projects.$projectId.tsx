@@ -486,9 +486,9 @@ function ProjectPage() {
     }
   }
 
-  async function handleSend(e?: React.FormEvent) {
-    e?.preventDefault();
-    const raw = input.trim();
+  async function handleSend(e?: React.FormEvent | { preventDefault?: () => void }, overrideText?: string) {
+    e?.preventDefault?.();
+    const raw = (overrideText ?? input).trim();
     if ((!raw && pending.length === 0) || sending) return;
     const attachBlock = pending.length
       ? `\n\nAttachments:\n${pending.map((p) => `- [${p.name}](${p.url})`).join("\n")}`
