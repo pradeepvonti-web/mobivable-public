@@ -1,4 +1,5 @@
-import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/require-auth";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,24 +24,7 @@ type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "p
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
-    // Wait for session to hydrate from storage (OAuth redirect race).
-    let session = (await supabase.auth.getSession()).data.session;
-    if (!session) {
-      session = await new Promise((resolve) => {
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-          if (s) {
-            clearTimeout(timer);
-            sub.subscription.unsubscribe();
-            resolve(s);
-          }
-        });
-        const timer = setTimeout(() => {
-          sub.subscription.unsubscribe();
-          resolve(null);
-        }, 1500);
-      });
-    }
-    if (!session) throw redirect({ to: "/login" });
+    await requireAuth();
   },
   component: DashboardPage,
   head: () => ({
