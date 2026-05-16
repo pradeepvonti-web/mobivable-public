@@ -1575,7 +1575,7 @@ function ProjectPage() {
         {/* Phone frame */}
         <div
           className={`relative transition-all duration-300 ${
-            paneTab === "agents"
+            paneTab !== "preview"
               ? "lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:scale-[0.32] lg:origin-right z-20 hidden lg:block"
               : ""
           }`}
