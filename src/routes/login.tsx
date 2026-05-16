@@ -194,13 +194,19 @@ function LoginPage() {
             onClick={async () => {
               clearError();
               setSubmitting(true);
+              const adminEmail = "pradeepvonti@aksdataai.com";
               const { error } = await supabase.auth.signInWithPassword({
-                email: "pradeepvonti@aksdataai.com",
+                email: adminEmail,
                 password: "Anushka01@",
               });
               setSubmitting(false);
-              if (error) showAuthError(error.message, "admin");
-              else navigate({ to: "/admin" });
+              if (error) {
+                audit(adminEmail, false, error.message);
+                showAuthError(error.message, "admin");
+              } else {
+                audit(adminEmail, true);
+                navigate({ to: "/admin" });
+              }
             }}
             className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
           >
