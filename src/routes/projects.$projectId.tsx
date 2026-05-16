@@ -455,6 +455,25 @@ function ProjectPage() {
           onSubmit={handleSend}
           className="border-t border-border p-3 bg-background"
         >
+          {selectedEl && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-primary font-mono uppercase shrink-0">{selectedEl.tag}</span>
+                {selectedEl.text && (
+                  <span className="text-muted-foreground truncate">"{selectedEl.text}"</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEl(null)}
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                aria-label="Clear selection"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
             <textarea
               value={input}
