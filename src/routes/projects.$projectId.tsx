@@ -303,6 +303,7 @@ function ProjectPage() {
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
     if (typeof window === "undefined") return {};
@@ -466,6 +467,19 @@ function ProjectPage() {
     }));
     setHistoryTick((t) => t + 1);
     setLoading(false);
+    // Also load Supabase integration config for export
+    try {
+      const { data: u } = await sb.auth.getUser();
+      if (u?.user?.id) {
+        const { data: integ } = await (sb as any)
+          .from("project_integrations")
+          .select("supabase_url,supabase_anon_key")
+          .eq("project_id", projectId)
+          .eq("user_id", u.user.id)
+          .maybeSingle();
+        if (integ) setProjectIntegration(integ);
+      }
+    } catch { /* non-critical */ }
     return row;
   }
 
@@ -1996,6 +2010,8 @@ function ProjectPage() {
                 return s ?? SAMPLE_APPS[demoApp] ?? null;
               })()}
               projectName={project?.name}
+              supabaseUrl={projectIntegration.supabase_url ?? undefined}
+              supabaseAnonKey={projectIntegration.supabase_anon_key ?? undefined}
             />
           </div>
         )}

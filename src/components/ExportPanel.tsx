@@ -4,7 +4,7 @@ import {
   FileText, Package, Code2, FolderOpen, QrCode, Loader2,
 } from "lucide-react";
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
-import { exportToExpo, createExportZip, type ExportedFile } from "@/lib/export-project";
+import { exportToExpo, createExportZip, type ExportedFile, type ExportOptions } from "@/lib/export-project";
 
 type Tab = "files" | "qr" | "preview";
 
@@ -12,25 +12,33 @@ type Tab = "files" | "qr" | "preview";
 export function ExportPanel({
   schema,
   projectName,
+  supabaseUrl,
+  supabaseAnonKey,
 }: {
   schema: MobileAppSchema | null;
   projectName?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("files");
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<string>("App.tsx");
 
+  const exportOpts: ExportOptions | undefined = supabaseUrl && supabaseAnonKey
+    ? { supabaseUrl, supabaseAnonKey }
+    : undefined;
+
   const files = useMemo(() => {
     if (!schema) return [];
-    return exportToExpo(schema);
-  }, [schema]);
+    return exportToExpo(schema, exportOpts);
+  }, [schema, supabaseUrl, supabaseAnonKey]);
 
   const handleDownload = useCallback(async () => {
     if (!schema) return;
     setDownloading(true);
     try {
-      const blob = await createExportZip(schema);
+      const blob = await createExportZip(schema, exportOpts);
       const name = (projectName ?? schema.name ?? "app").toLowerCase().replace(/[^a-z0-9]/g, "-");
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

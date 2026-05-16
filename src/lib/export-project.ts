@@ -160,8 +160,26 @@ ${navItems.map(item => {
 }
 
 // ─── Generate package.json ──────────────────────────────────────
-function generatePackageJson(schema: MobileAppSchema): string {
+function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean): string {
   const name = schema.name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+  const deps: Record<string, string> = {
+    "expo": "~51.0.0",
+    "expo-status-bar": "~1.12.1",
+    "expo-linear-gradient": "~13.0.2",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native-stack": "^6.11.0",
+    "react-native-screens": "~3.31.1",
+    "react-native-safe-area-context": "4.10.5",
+    "@expo/vector-icons": "^14.0.2",
+  };
+  if (hasSupabase) {
+    deps["@supabase/supabase-js"] = "^2.45.0";
+    deps["@react-native-async-storage/async-storage"] = "1.23.1";
+    deps["react-native-url-polyfill"] = "^2.0.0";
+  }
   return JSON.stringify({
     name,
     version: "1.0.0",
@@ -172,18 +190,7 @@ function generatePackageJson(schema: MobileAppSchema): string {
       ios: "expo start --ios",
       web: "expo start --web",
     },
-    dependencies: {
-      "expo": "~51.0.0",
-      "expo-status-bar": "~1.12.1",
-      "expo-linear-gradient": "~13.0.2",
-      "react": "18.2.0",
-      "react-native": "0.74.5",
-      "@react-navigation/native": "^6.1.18",
-      "@react-navigation/bottom-tabs": "^6.6.1",
-      "react-native-screens": "~3.31.1",
-      "react-native-safe-area-context": "4.10.5",
-      "@expo/vector-icons": "^14.0.2",
-    },
+    dependencies: deps,
     devDependencies: {
       "@babel/core": "^7.20.0",
       "@types/react": "~18.2.45",
@@ -223,24 +230,403 @@ function generateTsConfig(): string {
   }, null, 2);
 }
 
+// ─── Supabase client init ───────────────────────────────────────
+function generateSupabaseClient(): string {
+  return `import 'react-native-url-polyfill/auto';
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+`;
+}
+
+// ─── Auth hook ──────────────────────────────────────────────────
+function generateUseAuth(): string {
+  return `import { useState, useEffect, createContext, useContext } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
+
+type AuthContextType = {
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => setSession(session),
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message };
+  };
+
+  const signUp = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    return { error: error?.message };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+}
+`;
+}
+
+// ─── Login screen ───────────────────────────────────────────────
+function generateLoginScreen(colors: Record<string, string>): string {
+  return `import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
+import { useAuth } from '../hooks/useAuth';
+
+const colors = ${JSON.stringify(colors, null, 2)};
+
+export default function LoginScreen({ navigation }: any) {
+  const { signIn, signUp } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter email and password');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const result = isSignUp
+      ? await signUp(email.trim(), password)
+      : await signIn(email.trim(), password);
+    setLoading(false);
+    if (result.error) setError(result.error);
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { backgroundColor: colors.bg }]}
+    >
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {isSignUp ? 'Create Account' : 'Welcome Back'}
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          {isSignUp ? 'Sign up to get started' : 'Sign in to continue'}
+        </Text>
+
+        {error && (
+          <View style={[styles.errorBox, { backgroundColor: colors.danger + '15', borderColor: colors.danger + '30' }]}>
+            <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
+
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+          placeholder="Email"
+          placeholderTextColor={colors.muted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+          placeholder="Password"
+          placeholderTextColor={colors.muted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.primary }]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isSignUp ? 'Sign Up' : 'Sign In'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.switchButton}
+          onPress={() => { setIsSignUp(!isSignUp); setError(null); }}
+        >
+          <Text style={{ color: colors.muted, fontSize: 13 }}>
+            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>
+              {isSignUp ? 'Sign In' : 'Sign Up'}
+            </Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center' },
+  content: { paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '700', marginBottom: 4 },
+  subtitle: { fontSize: 14, marginBottom: 24 },
+  errorBox: { padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
+  input: {
+    height: 50, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16,
+    fontSize: 15, marginBottom: 12,
+  },
+  button: {
+    height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
+  },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  switchButton: { alignItems: 'center', marginTop: 20 },
+});
+`;
+}
+
+// ─── Data hooks ─────────────────────────────────────────────────
+function generateDataHooks(schema: MobileAppSchema): string {
+  const tableName = schema.name.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
+  return `import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './useAuth';
+
+/**
+ * Generic hook to fetch data from any Supabase table.
+ * Usage: const { data, loading, error, refetch } = useTable('products');
+ */
+export function useTable<T = any>(table: string, options?: {
+  select?: string;
+  orderBy?: string;
+  ascending?: boolean;
+  limit?: number;
+  filter?: { column: string; value: any };
+}) {
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let query = supabase.from(table).select(options?.select ?? '*');
+      if (options?.filter) {
+        query = query.eq(options.filter.column, options.filter.value);
+      }
+      if (options?.orderBy) {
+        query = query.order(options.orderBy, { ascending: options?.ascending ?? false });
+      }
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+      const { data: rows, error: err } = await query;
+      if (err) throw err;
+      setData((rows ?? []) as T[]);
+    } catch (e: any) {
+      setError(e.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [table]);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
+/**
+ * Hook to insert a row into any Supabase table.
+ * Usage: const { insert, loading } = useInsert('messages');
+ */
+export function useInsert<T = any>(table: string) {
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+
+  const insert = async (row: Partial<T>) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .insert({ ...row, user_id: user?.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return { data, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { insert, loading };
+}
+
+/**
+ * Hook to subscribe to realtime changes on a table.
+ * Usage: useRealtime('messages', (payload) => console.log(payload));
+ */
+export function useRealtime(table: string, onInsert: (payload: any) => void) {
+  useEffect(() => {
+    const channel = supabase
+      .channel(\`realtime:\${table}\`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table }, (payload) => {
+        onInsert(payload.new);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [table]);
+}
+`;
+}
+
+// ─── .env.example ───────────────────────────────────────────────
+function generateEnvExample(supabaseUrl?: string, anonKey?: string): string {
+  return `# Supabase Configuration
+# Get these from: https://supabase.com/dashboard → Settings → API
+EXPO_PUBLIC_SUPABASE_URL=${supabaseUrl || "https://your-project.supabase.co"}
+EXPO_PUBLIC_SUPABASE_ANON_KEY=${anonKey || "your-anon-key-here"}
+`;
+}
+
+// ─── App.tsx with auth wrapper ──────────────────────────────────
+function generateAppTsxWithAuth(schema: MobileAppSchema): string {
+  const baseApp = generateAppTsx(schema);
+  // Wrap the default export with AuthProvider
+  return baseApp
+    .replace(
+      "import React from 'react';",
+      "import React from 'react';\nimport { AuthProvider, useAuth } from './hooks/useAuth';\nimport LoginScreen from './screens/LoginScreen';",
+    )
+    .replace(
+      "export default function App() {",
+      `function MainApp() {`,
+    )
+    .replace(
+      /}\s*$/,
+      `}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { session, loading } = useAuth();
+  if (loading) return null;
+  if (!session) return <LoginScreen navigation={null} />;
+  return <MainApp />;
+}
+`,
+    );
+}
+
 // ─── Public API ─────────────────────────────────────────────────
 export type ExportedFile = { path: string; content: string };
 
+export interface ExportOptions {
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+}
+
 /** Convert a MobileAppSchema into a complete set of Expo project files. */
-export function exportToExpo(schema: MobileAppSchema): ExportedFile[] {
-  return [
-    { path: "App.tsx", content: generateAppTsx(schema) },
-    { path: "package.json", content: generatePackageJson(schema) },
+export function exportToExpo(schema: MobileAppSchema, options?: ExportOptions): ExportedFile[] {
+  const hasSupabase = !!(options?.supabaseUrl && options?.supabaseAnonKey);
+  const colors = themeToRNColors(schema.theme);
+
+  const files: ExportedFile[] = [
+    { path: hasSupabase ? "App.tsx" : "App.tsx", content: hasSupabase ? generateAppTsxWithAuth(schema) : generateAppTsx(schema) },
+    { path: "package.json", content: generatePackageJson(schema, hasSupabase) },
     { path: "app.json", content: generateAppJson(schema) },
     { path: "tsconfig.json", content: generateTsConfig() },
     { path: "babel.config.js", content: `module.exports = function(api) {\n  api.cache(true);\n  return { presets: ['babel-preset-expo'] };\n};\n` },
-    { path: "README.md", content: `# ${schema.name}\n\nGenerated by **Mobivable AI App Studio**.\n\n## Getting Started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n\nScan the QR code with the **Expo Go** app on your phone.\n` },
   ];
+
+  if (hasSupabase) {
+    files.push(
+      { path: "lib/supabase.ts", content: generateSupabaseClient() },
+      { path: "hooks/useAuth.ts", content: generateUseAuth() },
+      { path: "hooks/useData.ts", content: generateDataHooks(schema) },
+      { path: "screens/LoginScreen.tsx", content: generateLoginScreen(colors) },
+      { path: ".env.example", content: generateEnvExample(options?.supabaseUrl, options?.supabaseAnonKey) },
+      { path: ".env", content: generateEnvExample(options?.supabaseUrl, options?.supabaseAnonKey) },
+    );
+  }
+
+  // README always last
+  files.push({
+    path: "README.md",
+    content: `# ${schema.name}\n\nGenerated by **Mobivable AI App Studio**.\n\n## Getting Started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n\nScan the QR code with the **Expo Go** app on your phone.\n${hasSupabase ? `\n## Supabase Backend\n\nThis app is connected to Supabase. Environment variables are in \`.env\`.\n\n### Available Hooks\n\n- \`useAuth()\` — Login, signup, logout, current user\n- \`useTable('table_name')\` — Fetch data from any table\n- \`useInsert('table_name')\` — Insert rows into any table\n- \`useRealtime('table_name', callback)\` — Subscribe to live changes\n` : ""}`,
+  });
+
+  return files;
 }
 
 /** Create a downloadable ZIP blob from exported files. */
-export async function createExportZip(schema: MobileAppSchema): Promise<Blob> {
-  const files = exportToExpo(schema);
+export async function createExportZip(schema: MobileAppSchema, options?: ExportOptions): Promise<Blob> {
+  const files = exportToExpo(schema, options);
 
   // Simple ZIP using the JSZip-compatible approach
   // We'll create a basic uncompressed ZIP manually
