@@ -124,6 +124,15 @@ function LoginPage() {
             />
           </div>
 
+          <div className="text-right -mt-2">
+            <Link
+              to="/forgot-password"
+              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
           {error && (
             <div role="alert" aria-live="polite" className="border border-destructive/40 bg-destructive/10 text-destructive text-sm p-3 space-y-2">
               <p className="font-mono">{error}</p>
