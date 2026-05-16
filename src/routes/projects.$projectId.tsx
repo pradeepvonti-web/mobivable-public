@@ -239,15 +239,7 @@ function ProjectPage() {
     return row;
   }
 
-  async function loadRecent() {
-    const listSelect = aliasedSelect(previewConfig.projectsListFields);
-    const { data } = await sb
-      .from(previewConfig.projectsTable)
-      .select(listSelect)
-      .order(previewConfig.projectsListFields.createdAt, { ascending: false })
-      .limit(8);
-    setRecent((data as { id: string; name: string }[] | null) ?? []);
-  }
+
 
   async function runGeneration() {
     if (generating) return;
