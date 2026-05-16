@@ -80,6 +80,7 @@ function ProjectPage() {
   const [modeOpen, setModeOpen] = useState(false);
   const [visualEdit, setVisualEdit] = useState(false);
   const [selectedEl, setSelectedEl] = useState<{ tag: string; text: string; classes: string } | null>(null);
+  const selectedElRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<{ name: string; url: string; type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
