@@ -51,6 +51,7 @@ import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, type AgentRole } from "@/lib/agents";
 import { useTheme } from "@/components/theme-toggle";
+import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
 
@@ -310,6 +311,7 @@ function ProjectPage() {
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
   const [input, setInput] = useState("");
+  const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
   const draftStorageKey = (role: AgentRole) => `mobivable:chatDraft:${projectId}:${role}`;
   const draftHydratedRef = useRef(false);
   // When the selected agent changes (or on mount), restore that role's draft.
@@ -1413,7 +1415,7 @@ function ProjectPage() {
                 }
               }}
               rows={1}
-              placeholder="Ask Mobivable…"
+              placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Ask Mobivable…"}
               disabled={sending || !project}
               className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-32 leading-relaxed"
             />
