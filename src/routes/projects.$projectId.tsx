@@ -14,6 +14,7 @@ import {
   Loader2,
   RefreshCw,
   Smartphone,
+  Eye,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
@@ -60,6 +61,7 @@ function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
+  const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const generateFn = useServerFn(generateProject);
   const triggeredRef = useRef(false);
 
@@ -120,7 +122,7 @@ function ProjectPage() {
   const isFailed = !!project && project.status === "failed";
 
   return (
-    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col lg:flex-row">
+    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Left rail */}
       <aside className="hidden lg:flex w-60 shrink-0 border-r border-border flex-col">
         <div className="p-4 border-b border-border flex items-center gap-2">
@@ -186,7 +188,7 @@ function ProjectPage() {
       </aside>
 
       {/* Chat thread */}
-      <section className="flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col">
+      <section className={`${mobileView === "chat" ? "flex" : "hidden"} lg:flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
         <header className="p-4 border-b border-border flex items-center gap-3">
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
@@ -310,7 +312,7 @@ function ProjectPage() {
       </section>
 
       {/* Preview pane */}
-      <section className="flex-1 relative grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0">
+      <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
         <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -356,6 +358,39 @@ function ProjectPage() {
           </div>
         </div>
       </section>
+
+      {/* Mobile bottom action bar */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur border-t border-border grid grid-cols-3 h-16">
+        <button
+          type="button"
+          onClick={() => setMobileView("chat")}
+          className={`flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider transition-colors ${
+            mobileView === "chat" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Chat
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView("preview")}
+          className={`flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider transition-colors ${
+            mobileView === "preview" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <Eye className="h-4 w-4" />
+          Preview
+        </button>
+        <button
+          type="button"
+          onClick={runGeneration}
+          disabled={generating || !project}
+          className="flex flex-col items-center justify-center gap-1 text-[10px] font-display uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+        >
+          <RefreshCw className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} />
+          {generating ? "Building" : "Retry"}
+        </button>
+      </nav>
     </div>
   );
 }
