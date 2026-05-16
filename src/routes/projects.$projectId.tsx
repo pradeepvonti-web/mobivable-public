@@ -261,6 +261,7 @@ function ProjectPage() {
       setUserEmail(data.user?.email ?? "");
     });
   }, []);
+  const [sidePanel, setSidePanel] = useState<null | "backend">(null);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
