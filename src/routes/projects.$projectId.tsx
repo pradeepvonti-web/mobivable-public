@@ -1351,8 +1351,41 @@ function ProjectPage() {
         </form>
       </section>
 
-      {sidePanel === "backend" && (
+      {sidePanel === "backend" && isPro && (
         <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
+
+      {upgradeOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                Pro
+              </span>
+              <h2 className="font-display text-lg">Backend is a Pro feature</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Connect a Supabase backend to power data, auth, and storage in your
+              mobile app. Upgrade to Pro to unlock per-project backends.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(false)}
+                className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors"
+              >
+                Not now
+              </button>
+              <Link
+                to="/pricing"
+                onClick={() => setUpgradeOpen(false)}
+                className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Upgrade to Pro
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Preview pane */}
