@@ -395,7 +395,6 @@ function ProjectPage() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    loadRecent();
     loadMessages();
     (async () => {
       const p = await reloadProject();
