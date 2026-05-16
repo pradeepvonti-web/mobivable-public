@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Menu, X } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Treat Space like Enter to activate links inside the mobile sheet.
 // Browsers activate anchors on Enter natively, but Space is a no-op
