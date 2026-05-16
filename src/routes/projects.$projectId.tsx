@@ -31,7 +31,7 @@ import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
-import { FitTrackApp } from "@/components/FitTrackApp";
+import { ProjectPreview } from "@/components/ProjectPreview";
 
 type Attachment = { path: string; url: string; name: string };
 
