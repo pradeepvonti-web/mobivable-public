@@ -256,12 +256,31 @@ function ProjectPage() {
   }, [theme]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userPlan, setUserPlan] = useState<string | null>(null);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUserEmail(data.user?.email ?? "");
+      if (data.user?.id) {
+        const { data: prof } = await (supabase as unknown as {
+          from: (t: string) => {
+            select: (c: string) => {
+              eq: (c: string, v: string) => {
+                maybeSingle: () => Promise<{ data: { plan: string | null } | null }>;
+              };
+            };
+          };
+        })
+          .from("profiles")
+          .select("plan")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        setUserPlan(prof?.plan ?? null);
+      }
     });
   }, []);
+  const isPro = userPlan === "pro";
   const [sidePanel, setSidePanel] = useState<null | "backend">(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [messages, setMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
   >([]);
