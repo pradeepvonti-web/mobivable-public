@@ -96,6 +96,8 @@ export function SiteNav() {
   const isHome = pathname === "/";
   const activeSection = useActiveSection(SECTION_IDS, isHome);
   const [open, setOpen] = useState(false);
+  const mobilePanelRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Close the mobile sheet whenever route changes
   useEffect(() => {
@@ -112,6 +114,52 @@ export function SiteNav() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, [open]);
+
+  // Keyboard support for the mobile sheet:
+  //   Esc       — close and return focus to the trigger
+  //   Tab/S-Tab — trap focus inside the panel
+  // Also move initial focus into the panel when it opens.
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const panel = mobilePanelRef.current;
+    if (!panel) return;
+
+    const getFocusable = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+    // Focus the first interactive item on open
+    const first = getFocusable()[0];
+    first?.focus();
+
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && active === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (
