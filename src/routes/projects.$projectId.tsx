@@ -1046,6 +1046,24 @@ function ProjectPage() {
 
       {/* Preview pane */}
       <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
+        {/* Pane tab toggle */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setPaneTab("preview")}
+            className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs transition-colors ${paneTab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaneTab("agents")}
+            className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs transition-colors ${paneTab === "agents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Users className="h-3.5 w-3.5" /> Agents
+          </button>
+        </div>
+        {paneTab === "agents" && <AgentWorkspace projectId={projectId} />}
         {(visualEdit || selectedEl) && (
           <aside className="hidden lg:flex absolute top-0 right-0 bottom-0 w-80 z-20 border-l border-border bg-card/95 backdrop-blur flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
