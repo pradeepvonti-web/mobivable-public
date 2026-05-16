@@ -26,7 +26,6 @@ import {
   Undo2,
   Redo2,
   Users,
-  Code2,
   ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
