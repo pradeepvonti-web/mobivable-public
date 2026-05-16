@@ -105,7 +105,19 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [model, setModelState] = useState(DEFAULT_MODEL);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("preferred-model");
+      if (saved && MODELS.includes(saved)) setModelState(saved);
+    } catch {}
+  }, []);
+  const setModel = (m: string) => {
+    setModelState(m);
+    try {
+      localStorage.setItem("preferred-model", m);
+    } catch {}
+  };
   const [modelOpen, setModelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
