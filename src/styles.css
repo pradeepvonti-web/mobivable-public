@@ -84,6 +84,14 @@
     font-family: var(--font-body);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
   ::selection {
     background-color: var(--color-primary);
     color: var(--color-background);

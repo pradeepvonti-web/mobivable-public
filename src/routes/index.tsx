@@ -34,6 +34,9 @@ function Index() {
             <span className="font-display text-2xl tracking-tighter uppercase">Mobivable</span>
           </div>
           <div className="hidden md:flex gap-8 text-xs font-mono uppercase tracking-widest text-muted">
+            <a href="#engine" className="hover:text-primary transition-colors">Engine</a>
+            <a href="#process" className="hover:text-primary transition-colors">Process</a>
+            <a href="#infrastructure" className="hover:text-primary transition-colors">Infrastructure</a>
             <a href="#" className="hover:text-primary transition-colors">Docs</a>
             <a href="#" className="hover:text-primary transition-colors">Pricing</a>
             <a href="#" className="hover:text-primary transition-colors">Gallery</a>
