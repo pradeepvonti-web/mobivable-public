@@ -36,6 +36,8 @@ import {
   KeyRound,
   EyeOff,
   Trash2,
+  Pencil,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
