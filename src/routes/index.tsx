@@ -184,10 +184,27 @@ function Index() {
       {/* Pricing */}
       <section id="pricing" className="py-24 border-b border-border">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+          <div className="mb-10 flex flex-col md:flex-row justify-between md:items-end gap-6 border-b border-border pb-8">
             <h2 className="font-display text-5xl uppercase tracking-tighter">Access Tiers</h2>
-            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
-              Pricing Matrix v1.0
+            <div className="flex items-center gap-4">
+              <div className="inline-flex border border-border font-mono text-[10px] uppercase tracking-widest" role="tablist" aria-label="Billing cadence">
+                {(["monthly", "yearly"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="tab"
+                    aria-selected={billing === c}
+                    onClick={() => setBilling(c)}
+                    className={`px-4 py-2 transition-colors ${billing === c ? "bg-primary text-background" : "text-muted hover:text-foreground"}`}
+                  >
+                    {c}
+                    {c === "yearly" && <span className="ml-2 opacity-70">−20%</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="font-mono text-[10px] text-muted uppercase tracking-widest hidden md:block">
+                Pricing Matrix v1.0
+              </div>
             </div>
           </div>
 
@@ -197,7 +214,8 @@ function Index() {
                 plan: "free_beta" as const,
                 name: "Free Beta",
                 tag: "TIER_00",
-                price: "$0",
+                monthly: 0,
+                yearly: 0,
                 cadence: "/ forever",
                 blurb: "For first-time builders shipping their initial app during the public beta.",
                 cta: "Start Building",
@@ -214,8 +232,9 @@ function Index() {
                 plan: "starter" as const,
                 name: "Starter",
                 tag: "TIER_01",
-                price: "$29",
-                cadence: "/ month",
+                monthly: 29,
+                yearly: 23,
+                cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
                 blurb: "For solo founders running a small portfolio of live apps.",
                 cta: "Go Starter",
                 featured: true,
@@ -232,8 +251,9 @@ function Index() {
                 plan: "pro" as const,
                 name: "Pro",
                 tag: "TIER_02",
-                price: "$99",
-                cadence: "/ month",
+                monthly: 99,
+                yearly: 79,
+                cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
                 blurb: "For teams and operators shipping production apps at scale.",
                 cta: "Go Pro",
                 featured: false,
