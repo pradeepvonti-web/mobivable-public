@@ -160,7 +160,7 @@ function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [recent, setRecent] = useState<{ id: string; name: string }[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<AgentRole>("product_manager");
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<
