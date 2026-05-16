@@ -923,6 +923,82 @@ function ProjectPage() {
                       className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono leading-relaxed focus:outline-none focus:border-primary/60"
                     />
                   </label>
+
+                  <div className="space-y-3 rounded-xl border border-border bg-background/40 p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Style</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block">
+                        <span className="text-[10px] text-muted-foreground">Background</span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editStyles.background || "#000000"}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, background: e.target.value }))}
+                            className="h-7 w-9 rounded border border-border bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={editStyles.background || ""}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, background: e.target.value }))}
+                            placeholder="transparent"
+                            className="flex-1 min-w-0 rounded border border-border bg-background px-1.5 py-1 text-[10px] font-mono"
+                          />
+                        </div>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] text-muted-foreground">Border color</span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editStyles.borderColor || "#000000"}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, borderColor: e.target.value }))}
+                            className="h-7 w-9 rounded border border-border bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={editStyles.borderColor || ""}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, borderColor: e.target.value }))}
+                            placeholder="none"
+                            className="flex-1 min-w-0 rounded border border-border bg-background px-1.5 py-1 text-[10px] font-mono"
+                          />
+                        </div>
+                      </label>
+                    </div>
+                    {([
+                      ["borderWidth", "Border width", 0, 16],
+                      ["padding", "Padding", 0, 64],
+                      ["fontSize", "Font size", 8, 72],
+                    ] as const).map(([key, label, min, max]) => {
+                      const num = parseFloat(editStyles[key] || "0") || 0;
+                      return (
+                        <label key={key} className="block">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{label}</span>
+                            <span className="text-[10px] font-mono text-foreground">{num}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={1}
+                            value={num}
+                            onChange={(e) => setEditStyles((s) => ({ ...s, [key]: `${e.target.value}px` }))}
+                            className="mt-1 w-full accent-primary"
+                          />
+                        </label>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditStyles({ background: "", borderColor: "", borderWidth: "", padding: "", fontSize: "" })
+                      }
+                      className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    >
+                      Reset styles
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={saveEdit}
