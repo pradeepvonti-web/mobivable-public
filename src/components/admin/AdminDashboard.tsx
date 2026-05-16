@@ -1,8 +1,4 @@
 import { useState } from "react";
-import {
-  LayoutDashboard, Users, FolderKanban, Sparkles,
-  Shield, CreditCard, Activity,
-} from "lucide-react";
 import { AdminOverview } from "./AdminOverview";
 import { AdminUsers } from "./AdminUsers";
 import { AdminProjects } from "./AdminProjects";
@@ -13,13 +9,13 @@ import { AdminActivity } from "./AdminActivity";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "users", label: "Users", icon: Users },
-  { id: "projects", label: "Projects", icon: FolderKanban },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "ai", label: "AI Providers", icon: Sparkles },
-  { id: "features", label: "Feature Control", icon: Shield },
-  { id: "activity", label: "Activity", icon: Activity },
+  { id: "overview", label: "Overview" },
+  { id: "users", label: "Users" },
+  { id: "projects", label: "Projects" },
+  { id: "payments", label: "Payments" },
+  { id: "ai", label: "AI Providers" },
+  { id: "features", label: "Feature Control" },
+  { id: "activity", label: "Activity" },
 ] as const;
 
 
