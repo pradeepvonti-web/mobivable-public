@@ -425,6 +425,25 @@ function ProjectPage() {
     }
   }, [editStyles]);
 
+  // Live-preview text edits on the selected element
+  useEffect(() => {
+    const el = selectedElRef.current;
+    if (!el || !selectedEl) return;
+    if (el.children.length === 0 && el.textContent !== editText) {
+      el.textContent = editText;
+    }
+  }, [editText, selectedEl]);
+
+  // Live-preview class edits on the selected element (preserve selected outline)
+  useEffect(() => {
+    const el = selectedElRef.current;
+    if (!el || !selectedEl) return;
+    const cls = editClasses.split(/\s+/).filter(Boolean);
+    if (!cls.includes("visual-edit-selected")) cls.push("visual-edit-selected");
+    const next = cls.join(" ");
+    if (el.className !== next) el.className = next;
+  }, [editClasses, selectedEl]);
+
   async function saveEdit() {
     if (!selectedEl || !selectedElRef.current) return;
     setSavingEdit(true);
