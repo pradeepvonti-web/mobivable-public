@@ -169,25 +169,71 @@ function ProjectPage() {
       : "product_manager";
   });
   const agentHydratedRef = useRef(false);
-  // Hydrate from localStorage on mount and whenever the project changes.
-  // Runs BEFORE the persist effect on first mount so we don't clobber the saved value.
+  // Hydrate from localStorage immediately, then reconcile with the cloud-synced value.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(agentStorageKey);
-    const next: AgentRole =
+    const local: AgentRole =
       saved && (ALL_ROLES as string[]).includes(saved)
         ? (saved as AgentRole)
         : "product_manager";
-    setSelectedAgent(next);
+    setSelectedAgent(local);
     agentHydratedRef.current = true;
+
+    // Pull the user's account-synced preference (RLS scopes to current user).
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) return;
+      const { data } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (c: string, v: string) => {
+              eq: (c: string, v: string) => {
+                maybeSingle: () => Promise<{ data: { selected_agent: string } | null }>;
+              };
+            };
+          };
+        };
+      })
+        .from("user_project_prefs")
+        .select("selected_agent")
+        .eq("user_id", uid)
+        .eq("project_id", projectId)
+        .maybeSingle();
+      const remote = data?.selected_agent;
+      if (remote && (ALL_ROLES as string[]).includes(remote) && remote !== local) {
+        setSelectedAgent(remote as AgentRole);
+        window.localStorage.setItem(agentStorageKey, remote);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
-  // Persist only after hydration so the initial SSR default doesn't overwrite storage.
+
+  // Persist locally + to the account-synced table after hydration.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!agentHydratedRef.current) return;
     window.localStorage.setItem(agentStorageKey, selectedAgent);
-  }, [agentStorageKey, selectedAgent]);
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) return;
+      await (supabase as unknown as {
+        from: (t: string) => {
+          upsert: (
+            row: Record<string, unknown>,
+            opts: { onConflict: string },
+          ) => Promise<{ error: { message: string } | null }>;
+        };
+      })
+        .from("user_project_prefs")
+        .upsert(
+          { user_id: uid, project_id: projectId, selected_agent: selectedAgent },
+          { onConflict: "user_id,project_id" },
+        );
+    })();
+  }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const [paneTab, setPaneTab] = useState<"preview" | "agents">("preview");
   const [messages, setMessages] = useState<

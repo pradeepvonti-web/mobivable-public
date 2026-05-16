@@ -435,6 +435,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_project_prefs: {
+        Row: {
+          id: string
+          project_id: string
+          selected_agent: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          selected_agent: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          selected_agent?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
