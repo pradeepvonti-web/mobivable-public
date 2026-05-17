@@ -316,6 +316,8 @@ function ProjectPage() {
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
@@ -987,6 +989,7 @@ function ProjectPage() {
         <div className="ml-auto flex items-center gap-1.5 lg:gap-2">
           <button
             type="button"
+            onClick={() => { if (!isPro) setUpgradeOpen(true); else toast.info("You're already on Pro!"); }}
             className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full bg-primary text-primary-foreground text-xs lg:text-sm font-medium hover:opacity-90 transition-opacity"
           >
             <Crown className="h-3.5 w-3.5" />
@@ -994,6 +997,7 @@ function ProjectPage() {
           </button>
           <button
             type="button"
+            onClick={() => setShareOpen(true)}
             className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
           >
             <Share2 className="h-3.5 w-3.5" />
@@ -1001,6 +1005,7 @@ function ProjectPage() {
           </button>
           <button
             type="button"
+            onClick={() => setPublishOpen(true)}
             className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
           >
             <Upload className="h-3.5 w-3.5" />
@@ -1008,6 +1013,7 @@ function ProjectPage() {
           </button>
           <button
             type="button"
+            onClick={() => setPaneTab("export")}
             className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
@@ -2100,6 +2106,139 @@ function ProjectPage() {
               >
                 Upgrade to Pro
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Share Modal ─── */}
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4" onClick={() => setShareOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center">
+                <Share2 className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg">Share Project</h2>
+                <p className="text-[10px] text-muted-foreground">Invite collaborators or share a preview link</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Project Link</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={typeof window !== "undefined" ? window.location.href : ""}
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-muted-foreground"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success("Link copied to clipboard!");
+                  }}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <h4 className="text-xs font-semibold mb-2">Share via</h4>
+              <div className="flex gap-2">
+                {["Email", "Slack", "Teams"].map(channel => (
+                  <button
+                    key={channel}
+                    type="button"
+                    onClick={() => toast.info(`${channel} sharing coming soon!`)}
+                    className="flex-1 rounded-lg border border-border p-2.5 text-center text-xs font-medium hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  >
+                    {channel}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setShareOpen(false)} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Publish Modal ─── */}
+      {publishOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4" onClick={() => setPublishOpen(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-emerald-500/15 grid place-items-center">
+                <Upload className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg">Publish App</h2>
+                <p className="text-[10px] text-muted-foreground">Build & deploy to app stores</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground font-mono uppercase tracking-widest">Pre-Publish Checklist</h4>
+              {[
+                { label: "App Name", done: !!(project?.name), detail: project?.name ?? "Not set" },
+                { label: "App Icon", done: !!appAssets.icon, detail: appAssets.icon ? "Uploaded" : "Not set" },
+                { label: "Splash Screen", done: !!appAssets.splash, detail: appAssets.splash ? "Uploaded" : "Not set" },
+                { label: "Backend Connected", done: !!(projectIntegration.supabase_url), detail: projectIntegration.supabase_url ? "Connected" : "Not connected" },
+                { label: "App Schema", done: !!(project?.result), detail: project?.result ? "Generated" : "Not generated" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-4 py-3">
+                  <div className={`h-5 w-5 rounded-full grid place-items-center text-[10px] font-bold ${item.done ? "bg-emerald-500/20 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
+                    {item.done ? "✓" : "—"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">{item.label}</span>
+                  </div>
+                  <span className={`text-[10px] font-mono ${item.done ? "text-emerald-500" : "text-muted-foreground"}`}>{item.detail}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+              <h4 className="text-xs font-semibold text-amber-600">Build Targets</h4>
+              <div className="flex gap-2">
+                {[
+                  { name: "iOS", icon: "🍎" },
+                  { name: "Android", icon: "🤖" },
+                  { name: "Both", icon: "📱" },
+                ].map(t => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    onClick={() => toast.info(`${t.name} build via EAS coming soon!`)}
+                    className="flex-1 rounded-lg border border-border p-3 text-center hover:border-primary/30 hover:bg-primary/5 transition-all"
+                  >
+                    <span className="text-lg block mb-1">{t.icon}</span>
+                    <span className="text-[10px] font-medium">{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setPublishOpen(false)} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { toast.info("EAS Build integration coming soon! Use Export to download the Expo project for now."); setPublishOpen(false); }}
+                className="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                Start Build
+              </button>
             </div>
           </div>
         </div>
