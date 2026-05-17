@@ -83,7 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Describe your app. Mobivable ships it to the App Store and Google Play in minutes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@Mobivable" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: brandMark },
