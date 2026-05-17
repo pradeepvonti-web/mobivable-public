@@ -49,6 +49,9 @@ import {
   ChevronRight,
   Terminal,
   DollarSign,
+  Brain,
+  BookOpen as BookOpenIcon,
+  Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,6 +74,9 @@ import { AIProviderSettings } from "@/components/AIProviderSettings";
 import { CodeEditorPanel } from "@/components/CodeEditorPanel";
 import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
 import { MonetizationPanel } from "@/components/MonetizationPanel";
+import { AIStudioPanel } from "@/components/AIStudioPanel";
+import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -181,12 +187,15 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
+  { icon: Brain, label: "AI Studio" },
   { icon: Code2, label: "Code" },
   { icon: Terminal, label: "Console" },
   { icon: Database, label: "Backend" },
   { icon: DollarSign, label: "Monetization" },
   { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
+  { icon: BookOpenIcon, label: "Knowledge" },
+  { icon: Rocket, label: "Deployments" },
   { icon: History, label: "Ver. History" },
   { icon: LifeBuoy, label: "Get Support" },
   { icon: Settings, label: "Settings" },
@@ -311,7 +320,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1169,12 +1178,15 @@ function ProjectPage() {
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
+              (label === "AI Studio" && sidePanel === "aistudio") ||
               (label === "Code" && sidePanel === "code") ||
               (label === "Console" && sidePanel === "console") ||
               (label === "Backend" && sidePanel === "backend") ||
               (label === "Monetization" && sidePanel === "monetization") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets") ||
+              (label === "Knowledge" && sidePanel === "knowledge") ||
+              (label === "Deployments" && sidePanel === "deployments") ||
               (label === "Ver. History" && sidePanel === "history") ||
               (label === "Get Support" && sidePanel === "support") ||
               (label === "Settings" && sidePanel === "settings");
@@ -1187,6 +1199,8 @@ function ProjectPage() {
                   if (label === "Backend") {
                     if (!isPro) setUpgradeOpen(true);
                     else setSidePanel("backend");
+                  } else if (label === "AI Studio") {
+                    setSidePanel("aistudio");
                   } else if (label === "AI & Env Keys") {
                     setSidePanel("env");
                   } else if (label === "Assets") {
@@ -1197,6 +1211,10 @@ function ProjectPage() {
                     setSidePanel("console");
                   } else if (label === "Monetization") {
                     setSidePanel("monetization");
+                  } else if (label === "Knowledge") {
+                    setSidePanel("knowledge");
+                  } else if (label === "Deployments") {
+                    setSidePanel("deployments");
                   } else if (label === "Ver. History") {
                     setSidePanel("history");
                   } else if (label === "Get Support") {
@@ -2075,6 +2093,34 @@ function ProjectPage() {
               </button>
             </div>
           </div>
+        </section>
+      )}
+
+      {sidePanel === "aistudio" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <AIStudioPanel
+            projectId={projectId}
+            projectName={project?.name ?? ""}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
+      )}
+
+      {sidePanel === "knowledge" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <KnowledgeBasePanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
+      )}
+
+      {sidePanel === "deployments" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <DeploymentsPanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
         </section>
       )}
 
