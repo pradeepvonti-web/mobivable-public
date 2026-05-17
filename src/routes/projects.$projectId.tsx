@@ -382,6 +382,7 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  const [restarting, setRestarting] = useState(false);
   const [demoApp, setDemoApp] = useState<string>("fittrack");
   const [newClassInput, setNewClassInput] = useState("");
   type PendingAttachment = {
@@ -1989,11 +1990,18 @@ function ProjectPage() {
             </div>
             <button
               type="button"
-              onClick={() => setPreviewKey((k) => k + 1)}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors"
+              onClick={() => {
+                setRestarting(true);
+                setTimeout(() => {
+                  setPreviewKey((k) => k + 1);
+                  setTimeout(() => setRestarting(false), 800);
+                }, 2000);
+              }}
+              disabled={restarting}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Restart
+              <RefreshCw className={`h-3.5 w-3.5 ${restarting ? "animate-spin" : ""}`} />
+              {restarting ? "Restarting..." : "Restart"}
             </button>
             <button
               type="button"
@@ -2628,6 +2636,48 @@ function ProjectPage() {
                 }}
               >
                 {(() => {
+                  if (restarting) {
+                    return (
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', width: '100%',
+                        background: 'linear-gradient(160deg, #7c5dd6 0%, #a78bfa 35%, #c4b5fd 60%, #8b5cf6 100%)',
+                        fontFamily: 'system-ui, -apple-system, sans-serif', color: '#fff',
+                      }}>
+                        {/* Logo */}
+                        <div style={{
+                          width: 80, height: 80, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #3b4fa8 0%, #5b6abf 40%, #fff 60%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                          marginBottom: 28,
+                          animation: 'restartPulse 2s ease-in-out infinite',
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: '#1a1a2e', border: '3px solid #fff',
+                          }} />
+                        </div>
+                        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 8 }}>
+                          Setting things up…
+                        </div>
+                        <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 32 }}>
+                          Please wait while we build your app
+                        </div>
+                        {/* Spinner */}
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          border: '2.5px solid rgba(255,255,255,0.25)',
+                          borderTopColor: '#fff',
+                          animation: 'restartSpin 0.8s linear infinite',
+                        }} />
+                        <style>{`
+                          @keyframes restartSpin { to { transform: rotate(360deg); } }
+                          @keyframes restartPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+                        `}</style>
+                      </div>
+                    );
+                  }
                   const schema = project?.result ? parseAppSchema(project.result) : null;
                   return <MobileAppRenderer key={previewKey} schema={schema ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK} />;
                 })()}
