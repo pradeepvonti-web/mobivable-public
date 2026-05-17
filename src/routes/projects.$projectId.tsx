@@ -279,6 +279,7 @@ function ProjectPage() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
   const [userPlan, setUserPlan] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       setUserEmail(data.user?.email ?? "");
@@ -297,11 +298,20 @@ function ProjectPage() {
           .eq("id", data.user.id)
           .maybeSingle();
         setUserPlan(prof?.plan ?? null);
+
+        // Check if user is an admin — admins get all features
+        const { data: adminRow } = await (supabase as any)
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (adminRow) setIsAdmin(true);
       }
     });
   }, []);
-  const isPro = userPlan === "pro";
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization">(null);
+  const isPro = userPlan === "pro" || isAdmin;
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1158,7 +1168,10 @@ function ProjectPage() {
               (label === "Backend" && sidePanel === "backend") ||
               (label === "Monetization" && sidePanel === "monetization") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
-              (label === "Assets" && sidePanel === "assets");
+              (label === "Assets" && sidePanel === "assets") ||
+              (label === "Ver. History" && sidePanel === "history") ||
+              (label === "Get Support" && sidePanel === "support") ||
+              (label === "Settings" && sidePanel === "settings");
             const locked = label === "Backend" && !isPro;
             return (
               <button
@@ -1178,6 +1191,12 @@ function ProjectPage() {
                     setSidePanel("console");
                   } else if (label === "Monetization") {
                     setSidePanel("monetization");
+                  } else if (label === "Ver. History") {
+                    setSidePanel("history");
+                  } else if (label === "Get Support") {
+                    setSidePanel("support");
+                  } else if (label === "Settings") {
+                    setSidePanel("settings");
                   } else if (label === "Chat") setSidePanel(null);
                 }}
                 title={locked ? "Backend is a Pro feature" : undefined}
@@ -1892,6 +1911,165 @@ function ProjectPage() {
           projectId={projectId}
           onClose={() => setSidePanel(null)}
         />
+      )}
+
+      {/* ─── Version History Panel ─── */}
+      {sidePanel === "history" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <History className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Version History</h2>
+                <p className="text-[10px] text-muted-foreground truncate">Track changes & rollback</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Close</button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-semibold text-foreground">Current Version</span>
+                <span className="text-[9px] font-mono text-muted-foreground ml-auto">{new Date().toLocaleDateString()}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Latest build with all agent modifications</p>
+            </div>
+            {[
+              { label: "Initial Build", time: "Created", desc: "First generation from prompt" },
+              { label: "Schema Generated", time: "Auto", desc: "App schema generated by AI agents" },
+            ].map((v, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card/60 p-4 space-y-1 opacity-70">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                  <span className="text-xs font-medium text-foreground">{v.label}</span>
+                  <span className="text-[9px] font-mono text-muted-foreground ml-auto">{v.time}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{v.desc}</p>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground text-center pt-4 italic">Full version history with diff viewing coming soon</p>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Get Support Panel ─── */}
+      {sidePanel === "support" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-emerald-500/15 grid place-items-center shrink-0">
+                <LifeBuoy className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Get Support</h2>
+                <p className="text-[10px] text-muted-foreground truncate">Help, docs & community</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Close</button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {[
+              { icon: "📖", title: "Documentation", desc: "Learn how to build amazing apps", url: "#" },
+              { icon: "💬", title: "Community Forum", desc: "Ask questions and share ideas", url: "#" },
+              { icon: "🐛", title: "Report a Bug", desc: "Help us improve Mobivable", url: "#" },
+              { icon: "📧", title: "Contact Support", desc: "Get help from our team", url: "mailto:support@mobivable.com" },
+              { icon: "🎓", title: "Tutorials", desc: "Step-by-step app building guides", url: "#" },
+              { icon: "📋", title: "Changelog", desc: "See what's new in Mobivable", url: "#" },
+            ].map((item, i) => (
+              <a
+                key={i}
+                href={item.url}
+                target={item.url.startsWith("http") ? "_blank" : undefined}
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-4 hover:border-primary/30 hover:bg-primary/5 transition-all group"
+              >
+                <span className="text-xl">{item.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-foreground block group-hover:text-primary transition-colors">{item.title}</span>
+                  <span className="text-[10px] text-muted-foreground">{item.desc}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Settings Panel ─── */}
+      {sidePanel === "settings" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-muted/30 grid place-items-center shrink-0">
+                <Settings className="h-4 w-4 text-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Settings</h2>
+                <p className="text-[10px] text-muted-foreground truncate">Project configuration</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Close</button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            {/* Project Info */}
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Project Name</label>
+              <div className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground">{project?.name ?? "Untitled"}</div>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Project ID</label>
+              <div className="rounded-xl border border-border bg-background px-3 py-2.5 text-[11px] font-mono text-muted-foreground select-all">{projectId}</div>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Plan</label>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full border ${isPro ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                  {isPro ? "Pro" : "Free"}
+                </span>
+                {isAdmin && <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500">Admin</span>}
+              </div>
+            </div>
+
+            {/* Theme */}
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Theme</label>
+              <div className="flex gap-2">
+                {(["light", "dark", "system"] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTheme(t)}
+                    className={`flex-1 rounded-xl border p-3 text-center text-xs font-medium capitalize transition-all ${
+                      theme === t ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-destructive">Danger Zone</h4>
+              <p className="text-[10px] text-muted-foreground">Irreversible actions for this project.</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm("Are you sure you want to delete this project? This cannot be undone.")) return;
+                  await supabase.from("projects").delete().eq("id", projectId);
+                  window.location.href = "/";
+                }}
+                className="w-full h-9 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors"
+              >
+                Delete Project
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
       {upgradeOpen && (
