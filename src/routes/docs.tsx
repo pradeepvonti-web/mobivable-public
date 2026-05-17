@@ -20,7 +20,7 @@ const sections = [
     code: "01", title: "Quickstart", icon: Zap,
     body: "Spin up your first AI-generated app in under 5 minutes. Auth, database, and a publishable build — all from one prompt.",
     content: [
-      { heading: "1. Create a Project", text: "From the Dashboard, click "+ New Project". Give your app a name and describe what it does in plain English. The AI will interpret your intent and scaffold the full project." },
+      { heading: "1. Create a Project", text: "From the Dashboard, click '+ New Project'. Give your app a name and describe what it does in plain English. The AI will interpret your intent and scaffold the full project." },
       { heading: "2. Chat with Agents", text: "The Product Manager agent will generate requirements, personas, and a feature list. Review and refine by chatting back. Each agent handles a different phase of development." },
       { heading: "3. Preview & Iterate", text: "Watch your app render in real-time in the phone preview. Click any agent in the sidebar to modify screens, logic, or styling. Changes apply instantly." },
       { heading: "4. Export or Publish", text: "Hit Export to download a complete Expo project (App.tsx, package.json, etc.). Run 'npx expo start' to launch on your device, or use Publish to build binaries for the App Store." },
