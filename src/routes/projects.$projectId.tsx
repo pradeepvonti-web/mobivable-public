@@ -48,6 +48,7 @@ import {
   Paperclip,
   ChevronRight,
   Terminal,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,7 @@ import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 import { AIProviderSettings } from "@/components/AIProviderSettings";
 import { CodeEditorPanel } from "@/components/CodeEditorPanel";
 import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
+import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -182,6 +184,7 @@ const SIDE_ITEMS = [
   { icon: Code2, label: "Code" },
   { icon: Terminal, label: "Console" },
   { icon: Database, label: "Backend" },
+  { icon: DollarSign, label: "Monetization" },
   { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
   { icon: History, label: "Ver. History" },
@@ -298,7 +301,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro";
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1152,6 +1155,7 @@ function ProjectPage() {
               (label === "Code" && sidePanel === "code") ||
               (label === "Console" && sidePanel === "console") ||
               (label === "Backend" && sidePanel === "backend") ||
+              (label === "Monetization" && sidePanel === "monetization") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets");
             const locked = label === "Backend" && !isPro;
@@ -1171,6 +1175,8 @@ function ProjectPage() {
                     setSidePanel("code");
                   } else if (label === "Console") {
                     setSidePanel("console");
+                  } else if (label === "Monetization") {
+                    setSidePanel("monetization");
                   } else if (label === "Chat") setSidePanel(null);
                 }}
                 title={locked ? "Backend is a Pro feature" : undefined}
@@ -1878,6 +1884,13 @@ function ProjectPage() {
             <ErrorConsolePanel entries={consoleEntries} onClear={clearConsole} onClose={() => setSidePanel(null)} />
           </div>
         </section>
+      )}
+
+      {sidePanel === "monetization" && (
+        <MonetizationPanel
+          projectId={projectId}
+          onClose={() => setSidePanel(null)}
+        />
       )}
 
       {upgradeOpen && (

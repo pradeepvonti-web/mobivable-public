@@ -160,7 +160,7 @@ ${navItems.map(item => {
 }
 
 // ─── Generate package.json ──────────────────────────────────────
-function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean): string {
+function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean, monetizationProvider?: string): string {
   const name = schema.name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
   const deps: Record<string, string> = {
     "expo": "~51.0.0",
@@ -180,6 +180,13 @@ function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean): str
     deps["@react-native-async-storage/async-storage"] = "1.23.1";
     deps["react-native-url-polyfill"] = "^2.0.0";
   }
+  if (monetizationProvider === "adapty") {
+    deps["react-native-adapty"] = "^2.11.0";
+  } else if (monetizationProvider === "revenuecat") {
+    deps["react-native-purchases"] = "^7.29.0";
+  } else if (monetizationProvider === "stripe") {
+    deps["@stripe/stripe-react-native"] = "^0.38.0";
+  }
   return JSON.stringify({
     name,
     version: "1.0.0",
@@ -198,6 +205,108 @@ function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean): str
     },
     private: true,
   }, null, 2);
+}
+
+// ─── Generate monetization lib ──────────────────────────────────
+function generateMonetizationLib(provider: string, keys: Record<string, string>): string {
+  switch (provider) {
+    case "adapty":
+      return `import { adapty } from 'react-native-adapty';
+
+// Initialize Adapty — call this in App.tsx useEffect
+export async function initMonetization() {
+  await adapty.activate('${keys.adapty_api_key || "YOUR_API_KEY"}');
+}
+
+// Show paywall
+export async function showPaywall() {
+  const paywall = await adapty.getPaywall('${keys.adapty_placement_id || "placement_id"}');
+  return paywall;
+}
+
+// Check if user has premium access
+export async function checkPremium(): Promise<boolean> {
+  const profile = await adapty.getProfile();
+  return profile.accessLevels['premium']?.isActive ?? false;
+}
+
+// Purchase a product
+export async function purchase(productId: string) {
+  const paywall = await adapty.getPaywall('${keys.adapty_placement_id || "placement_id"}');
+  const products = await adapty.getPaywallProducts(paywall);
+  const product = products.find(p => p.vendorProductId === productId);
+  if (!product) throw new Error('Product not found');
+  return adapty.makePurchase(product);
+}
+
+// Restore purchases
+export async function restorePurchases() {
+  return adapty.restorePurchases();
+}
+`;
+    case "revenuecat":
+      return `import Purchases from 'react-native-purchases';
+
+// Initialize RevenueCat — call this in App.tsx useEffect
+export async function initMonetization() {
+  Purchases.configure({ apiKey: '${keys.revenuecat_api_key || "YOUR_API_KEY"}' });
+}
+
+// Get available offerings
+export async function getOfferings() {
+  const offerings = await Purchases.getOfferings();
+  return offerings.current;
+}
+
+// Check if user has premium entitlement
+export async function checkPremium(): Promise<boolean> {
+  const info = await Purchases.getCustomerInfo();
+  return info.entitlements.active['${keys.revenuecat_entitlement_id || "premium"}'] !== undefined;
+}
+
+// Purchase a package
+export async function purchase(pkg: any) {
+  const { customerInfo } = await Purchases.purchasePackage(pkg);
+  return customerInfo.entitlements.active['${keys.revenuecat_entitlement_id || "premium"}'] !== undefined;
+}
+
+// Restore purchases
+export async function restorePurchases() {
+  const info = await Purchases.restorePurchases();
+  return info.entitlements.active['${keys.revenuecat_entitlement_id || "premium"}'] !== undefined;
+}
+`;
+    case "stripe":
+      return `import { initStripe, presentPaymentSheet } from '@stripe/stripe-react-native';
+
+// Initialize Stripe — call this in App.tsx useEffect
+export async function initMonetization() {
+  await initStripe({
+    publishableKey: '${keys.stripe_publishable_key || "pk_live_..."}',
+  });
+}
+
+// Create a checkout session (requires your own backend)
+export async function createCheckout(priceId: string = '${keys.stripe_price_id || "price_..."}') {
+  // TODO: Replace with your actual backend URL
+  const res = await fetch('YOUR_BACKEND_URL/api/create-checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ priceId }),
+  });
+  return res.json();
+}
+
+// Present the payment sheet
+export async function showPaywall(clientSecret: string) {
+  const { error } = await presentPaymentSheet({ clientSecret });
+  if (error) throw new Error(error.message);
+  return true;
+}
+`;
+    default:
+      return `// No monetization provider configured\nexport async function initMonetization() {}\nexport async function checkPremium() { return false; }\n`;
+  }
 }
 
 // ─── Generate app.json ──────────────────────────────────────────
@@ -589,16 +698,19 @@ export type ExportedFile = { path: string; content: string };
 export interface ExportOptions {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
+  monetizationProvider?: string;
+  monetizationKeys?: Record<string, string>;
 }
 
 /** Convert a MobileAppSchema into a complete set of Expo project files. */
 export function exportToExpo(schema: MobileAppSchema, options?: ExportOptions): ExportedFile[] {
   const hasSupabase = !!(options?.supabaseUrl && options?.supabaseAnonKey);
+  const hasMonetization = !!(options?.monetizationProvider && options?.monetizationKeys);
   const colors = themeToRNColors(schema.theme);
 
   const files: ExportedFile[] = [
     { path: hasSupabase ? "App.tsx" : "App.tsx", content: hasSupabase ? generateAppTsxWithAuth(schema) : generateAppTsx(schema) },
-    { path: "package.json", content: generatePackageJson(schema, hasSupabase) },
+    { path: "package.json", content: generatePackageJson(schema, hasSupabase, options?.monetizationProvider) },
     { path: "app.json", content: generateAppJson(schema) },
     { path: "tsconfig.json", content: generateTsConfig() },
     { path: "babel.config.js", content: `module.exports = function(api) {\n  api.cache(true);\n  return { presets: ['babel-preset-expo'] };\n};\n` },
@@ -615,10 +727,16 @@ export function exportToExpo(schema: MobileAppSchema, options?: ExportOptions): 
     );
   }
 
+  if (hasMonetization) {
+    files.push(
+      { path: "lib/monetization.ts", content: generateMonetizationLib(options!.monetizationProvider!, options!.monetizationKeys!) },
+    );
+  }
+
   // README always last
   files.push({
     path: "README.md",
-    content: `# ${schema.name}\n\nGenerated by **Mobivable AI App Studio**.\n\n## Getting Started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n\nScan the QR code with the **Expo Go** app on your phone.\n${hasSupabase ? `\n## Supabase Backend\n\nThis app is connected to Supabase. Environment variables are in \`.env\`.\n\n### Available Hooks\n\n- \`useAuth()\` — Login, signup, logout, current user\n- \`useTable('table_name')\` — Fetch data from any table\n- \`useInsert('table_name')\` — Insert rows into any table\n- \`useRealtime('table_name', callback)\` — Subscribe to live changes\n` : ""}`,
+    content: `# ${schema.name}\n\nGenerated by **Mobivable AI App Studio**.\n\n## Getting Started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n\nScan the QR code with the **Expo Go** app on your phone.\n${hasSupabase ? `\n## Supabase Backend\n\nThis app is connected to Supabase. Environment variables are in \`.env\`.\n\n### Available Hooks\n\n- \`useAuth()\` — Login, signup, logout, current user\n- \`useTable('table_name')\` — Fetch data from any table\n- \`useInsert('table_name')\` — Insert rows into any table\n- \`useRealtime('table_name', callback)\` — Subscribe to live changes\n` : ""}${hasMonetization ? `\n## Monetization (${options!.monetizationProvider})\n\nIn-app purchases and subscriptions are configured in \`lib/monetization.ts\`.\n\n### Available Functions\n\n- \`initMonetization()\` — Initialize the payment SDK\n- \`showPaywall()\` — Display the paywall to the user\n- \`checkPremium()\` — Check if user has an active subscription\n` : ""}`,
   });
 
   return files;
