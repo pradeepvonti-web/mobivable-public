@@ -78,7 +78,7 @@ export function MobileBottomNav({
       height: 56, borderTop: "1px solid var(--m-border)",
       background: "var(--m-bg)", flexShrink: 0,
     }}>
-      {items.map((item) => {
+      {(items ?? []).map((item) => {
         const active = item.screen === activeId;
         return (
           <button
@@ -157,7 +157,7 @@ export function StatRow({ stats }: {
       display: "flex", justifyContent: "space-around", gap: 8,
       padding: "12px 0",
     }}>
-      {stats.map((s, i) => (
+      {(stats ?? []).map((s, i) => (
         <div key={i} style={{
           display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
         }}>
@@ -209,12 +209,13 @@ export function MobileButton({
 
 /* ─── Activity Feed ──────────────────────────────────── */
 export function ActivityFeed({
-  title, items, emptyText,
+  title, items: rawItems, emptyText,
 }: {
   title?: string;
   items: Array<{ icon: MIconName | string; label: string; detail?: string; time?: string; color?: string }>;
   emptyText?: string;
 }) {
+  const items = rawItems ?? [];
   return (
     <div style={{ padding: "8px 0" }}>
       {title && <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--m-text)", marginBottom: 12 }}>{title}</h3>}
@@ -228,7 +229,7 @@ export function ActivityFeed({
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {items.map((item, i) => (
+          {(items ?? []).map((item, i) => (
             <div key={i} style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: "10px 12px", borderRadius: 10,
@@ -295,7 +296,7 @@ export function MobileList({ items, dividers = true }: {
 }) {
   return (
     <div style={{ borderRadius: 12, overflow: "hidden", background: "var(--m-card)", border: "1px solid var(--m-border)" }}>
-      {items.map((item, i) => (
+      {(items ?? []).map((item, i) => (
         <div key={i} style={{
           display: "flex", alignItems: "center", gap: 12,
           padding: "12px 14px",
@@ -338,7 +339,7 @@ export function DonutChart({ segments, centerLabel, centerValue, size = 120 }: {
     <div style={{ position: "relative", width: size, height: size, margin: "0 auto" }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--m-border)" strokeWidth={stroke} />
-        {segments.map((seg, i) => {
+        {(segments ?? []).map((seg, i) => {
           const len = (seg.value / total) * circ;
           const el = (
             <circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none"
@@ -366,10 +367,10 @@ export function BarChartComponent({ bars, maxValue, height = 120 }: {
   bars: Array<{ label: string; value: number; color?: string }>;
   maxValue?: number; height?: number;
 }) {
-  const mx = maxValue ?? Math.max(...bars.map(b => b.value), 1);
+  const mx = maxValue ?? Math.max(...(bars ?? []).map(b => b.value), 1);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height, padding: "0 4px" }}>
-      {bars.map((bar, i) => (
+      {(bars ?? []).map((bar, i) => (
         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div style={{
             width: "100%", maxWidth: 28, borderRadius: 4,
@@ -424,7 +425,7 @@ export function MobileCarousel({ items, height = 140 }: {
 }) {
   return (
     <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-      {items.map((item, i) => (
+      {(items ?? []).map((item, i) => (
         <div key={i} style={{
           minWidth: 200, height, borderRadius: 14, padding: 16,
           background: item.gradient ?? `linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))`,
@@ -458,7 +459,7 @@ export function MobileRating({ value, max = 5, label, size = "md" }: { value: nu
 export function MobileChipGroup({ chips }: { chips: Array<{ label: string; active?: boolean; icon?: string; color?: string }> }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {chips.map((c, i) => (
+      {(chips ?? []).map((c, i) => (
         <span key={i} style={{
           display: "inline-flex", alignItems: "center", gap: 4,
           padding: "6px 12px", borderRadius: 20, fontSize: 11, fontWeight: 500,
@@ -512,10 +513,11 @@ export function PriceTag({ price, originalPrice, label, badge, currency = "$" }:
 }
 
 /* ─── Step Indicator ─────────────────────────────────── */
-export function StepIndicator({ steps }: { steps: Array<{ label: string; completed?: boolean; active?: boolean }> }) {
+export function StepIndicator({ steps: rawSteps }: { steps: Array<{ label: string; completed?: boolean; active?: boolean }> }) {
+  const steps = rawSteps ?? [];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-      {steps.map((s, i) => (
+      {(steps ?? []).map((s, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? 1 : "none" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <div style={{
@@ -561,7 +563,7 @@ export function GridCards({ columns = 2, items }: {
 }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 8 }}>
-      {items.map((item, i) => (
+      {(items ?? []).map((item, i) => (
         <div key={i} style={{ background: "var(--m-card)", borderRadius: 14, padding: 14, border: "1px solid var(--m-border)", position: "relative" }}>
           {item.badge && <span style={{ position: "absolute", top: 8, right: 8, fontSize: 8, fontWeight: 600, padding: "2px 6px", borderRadius: 6, background: "var(--m-primary)" + "22", color: "var(--m-primary)" }}>{item.badge}</span>}
           {item.icon && (

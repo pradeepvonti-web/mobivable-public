@@ -85,7 +85,7 @@ function RenderElement({ el }: { el: MElement }) {
         <div style={{ padding: "4px 0" }}>
           <SectionHeader title={el.props.title} action={el.props.action} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {el.props.children.map((child, i) => <RenderElement key={i} el={child} />)}
+            {(el.props.children ?? []).map((child, i) => <RenderElement key={i} el={child} />)}
           </div>
         </div>
       );
@@ -176,7 +176,7 @@ function RenderElement({ el }: { el: MElement }) {
     case "tab-bar":
       return (
         <div style={{ display: "flex", gap: 4, background: "var(--m-card)", borderRadius: 10, padding: 3 }}>
-          {el.props.tabs.map((tab, i) => (
+          {(el.props.tabs ?? []).map((tab, i) => (
             <button key={i} type="button" style={{
               flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
               background: tab.active ? "var(--m-primary)" : "transparent",
@@ -216,7 +216,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      {screen.elements.map((el, i) => (
+      {(screen.elements ?? []).map((el, i) => (
         <RenderElement key={el.id ?? i} el={el} />
       ))}
     </div>
