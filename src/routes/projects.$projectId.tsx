@@ -3590,7 +3590,7 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
                   rel="noreferrer"
                   className="ml-auto text-xs text-primary hover:underline"
                 >
-                  Open Supabase ↗
+                  Open Supabase →
                 </a>
               </div>
             </>
