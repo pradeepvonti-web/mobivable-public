@@ -126,7 +126,47 @@ PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 4. DATA DENSITY — believable specific data, never "Item 1, Item 2".
 5. COLOR STRATEGY — stat-row items get distinct colors; chips/badges use semantic colors; pricing-cards mark one as highlighted.
 6. SCREEN VARIETY — every screen feels different in layout AND primitives used, not just content.
-7. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart, ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline.`;
+7. MOTION — every element MAY include "entrance" ("fade-up"|"fade-in"|"scale-in"|"slide-left"|"slide-right"|"pop"|"blur-in"|"none") and "gesture" ("tap-scale"|"press-glow"|"swipe-hint"). Heroes/cards → "pop" or "blur-in"; lists → "fade-up"; CTAs → gesture "tap-scale"; carousels/swipe rows → gesture "swipe-hint". Pick "theme.motion.intensity" to match brand mood (wellness=subtle, fintech=medium, sports/playful=bold).
+8. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart, ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline.`;
+
+// ──────────────────────────────────────────────────────────────────
+// PASS 1: design brief — opinionated palette, type, mood, references.
+// PASS 2 consumes this brief to compose the schema.
+// ──────────────────────────────────────────────────────────────────
+export const DESIGN_BRIEF_SYSTEM_PROMPT = `You are a senior product designer. Given a user app request, produce a tight, opinionated JSON DESIGN BRIEF that another model will use to compose a premium mobile UI. RESPOND WITH ONLY VALID JSON — no fences, no prose.
+
+Schema:
+{
+  "appName": "...",
+  "domain": "fintech|wellness|fitness|travel|editorial|social|ecommerce|productivity|kids|sports|luxury|dev-tools|food|music|...",
+  "mood": "2–4 adjectives (e.g. 'calm, editorial, premium')",
+  "audience": "one sentence",
+  "palette": {
+    "mode": "dark"|"light",
+    "primary": "#hex", "accent": "#hex",
+    "background": "#hex", "card": "#hex",
+    "text": "#hex", "muted": "#hex", "border": "#hex",
+    "danger": "#hex", "success": "#hex",
+    "gradient": ["#hex","#hex"]
+  },
+  "typography": { "headingFont": "<from allowlist>", "bodyFont": "<from allowlist>", "displayFont": "<optional>", "scale": "compact"|"comfortable"|"editorial" },
+  "radius": "tight"|"rounded"|"pillowy",
+  "spacing": "compact"|"comfortable"|"airy",
+  "motion": "subtle"|"medium"|"bold",
+  "references": ["3–5 short visual references — real apps/brands/sites whose feel inspires this app"],
+  "screens": [
+    { "id":"home", "title":"...", "icon":"<icon name>", "layout":"bento-grid"|"stack"|"magazine"|"split-hero"|"full-bleed", "purpose":"one line", "keyPrimitives":["parallax-hero","stat-card-xl","glass-card","feature-showcase","testimonial","pricing-card","marquee","onboarding-slide"] }
+  ],
+  "navigation": ["home","explore","activity","profile"]
+}
+
+FONT ALLOWLIST: Inter, Space Grotesk, DM Sans, Manrope, Plus Jakarta Sans, Sora, Outfit, Figtree, Urbanist, Epilogue, Syne, Bricolage Grotesque, Geist, Instrument Serif, DM Serif Display, Cormorant Garamond, Fraunces, Playfair Display, Lora, Libre Baskerville, Bebas Neue, Archivo, Archivo Black, Hind, Barlow, Abril Fatface, Cabin, JetBrains Mono, Space Mono, IBM Plex Sans
+
+RULES:
+- Be DOMAIN-SPECIFIC. Never default to "blue + Inter + rounded". Pick palette + type that real designers would choose for this brand.
+- Palette must pass contrast on the chosen mode.
+- 4–5 screens, each a distinct layout when sensible.
+- The brief is the contract — pass 2 will follow it strictly.`;
 
 
 
