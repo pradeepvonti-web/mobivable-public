@@ -1,10 +1,15 @@
 import { useState } from "react";
 import {
   Wand2, Search, Globe, FileCode, Brain, Image as ImageIcon,
-  Lightbulb, Rocket, Copy, CheckCheck, Loader2, X, ChevronRight,
-  Zap, BookOpen, Bug, Palette, Shield, BarChart3
+  Lightbulb, Rocket, Copy, CheckCheck, Loader2, ChevronRight,
+  Zap, BookOpen, Bug, Palette, Shield, BarChart3, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  aiGenerate, aiResearch, aiCodeReview, aiDebug, aiPalette, aiOptimize,
+  type ReviewResult, type PaletteResult,
+} from "@/lib/ai-studio.functions";
 
 type Tool = "generate" | "research" | "review" | "debug" | "design" | "optimize";
 
@@ -35,17 +40,25 @@ const RESEARCH_TEMPLATES = [
   "Expo SDK 51 new features",
 ];
 
-const REVIEW_CHECKS = [
-  { label: "Type Safety", status: "pass" as const, detail: "All components properly typed" },
-  { label: "Error Handling", status: "warn" as const, detail: "3 async calls missing try/catch" },
-  { label: "Accessibility", status: "pass" as const, detail: "All interactive elements have labels" },
-  { label: "Performance", status: "pass" as const, detail: "No unnecessary re-renders detected" },
-  { label: "Security", status: "warn" as const, detail: "API keys should use env variables" },
-  { label: "Best Practices", status: "pass" as const, detail: "Following React Native conventions" },
-];
+function ResultBlock({ text, accent = "violet" }: { text: string; accent?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className={`rounded-xl border border-${accent}-500/20 bg-${accent}-500/5 p-4 relative group`}>
+      <button
+        type="button"
+        onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+        aria-label="Copy result"
+      >
+        {copied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+      <pre className="whitespace-pre-wrap text-[12px] leading-relaxed text-foreground/90 font-sans">{text}</pre>
+    </div>
+  );
+}
 
 export function AIStudioPanel({
-  projectId,
+  projectId: _projectId,
   projectName,
   onClose,
   onSendPrompt,
@@ -62,31 +75,73 @@ export function AIStudioPanel({
   const [researchQuery, setResearchQuery] = useState("");
   const [debugInput, setDebugInput] = useState("");
 
+  // Results state
+  const [generateResult, setGenerateResult] = useState<string | null>(null);
+  const [researchResult, setResearchResult] = useState<string | null>(null);
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [debugResult, setDebugResult] = useState<string | null>(null);
+  const [paletteResult, setPaletteResult] = useState<PaletteResult | null>(null);
+  const [optimizeResult, setOptimizeResult] = useState<string | null>(null);
+
+  const fnGenerate = useServerFn(aiGenerate);
+  const fnResearch = useServerFn(aiResearch);
+  const fnReview = useServerFn(aiCodeReview);
+  const fnDebug = useServerFn(aiDebug);
+  const fnPalette = useServerFn(aiPalette);
+  const fnOptimize = useServerFn(aiOptimize);
+
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const handleGenerate = () => {
+  async function withLoading<T>(fn: () => Promise<T>): Promise<T | null> {
+    setLoading(true);
+    try { return await fn(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "AI request failed"); return null; }
+    finally { setLoading(false); }
+  }
+
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    if (onSendPrompt) {
-      onSendPrompt(prompt);
-      toast.success("Prompt sent to AI agents!");
-    } else {
-      toast.info("Generating... This will be sent to the agent pipeline.");
-    }
-    setPrompt("");
+    if (onSendPrompt) { onSendPrompt(prompt); toast.success("Prompt sent to AI agents!"); setPrompt(""); return; }
+    const res = await withLoading(() => fnGenerate({ data: { prompt, projectName } }));
+    if (res) { setGenerateResult(res.text); toast.success("Plan generated"); }
   };
 
-  const handleResearch = () => {
+  const handleResearch = async () => {
     if (!researchQuery.trim()) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Research complete! Results added to project context.");
-    }, 2000);
+    const res = await withLoading(() => fnResearch({ data: { query: researchQuery } }));
+    if (res) { setResearchResult(res.text); toast.success("Research complete"); }
   };
+
+  const handleReview = async () => {
+    const res = await withLoading(() => fnReview({ data: { projectName } }));
+    if (res) { setReviewResult(res); toast.success("Review complete"); }
+  };
+
+  const handleDebug = async () => {
+    if (!debugInput.trim()) return;
+    const res = await withLoading(() => fnDebug({ data: { input: debugInput, projectName } }));
+    if (res) { setDebugResult(res.text); toast.success("Diagnosis ready"); }
+  };
+
+  const handlePalette = async () => {
+    const res = await withLoading(() => fnPalette({ data: { projectName } }));
+    if (res) { setPaletteResult(res); toast.success("Palette generated"); }
+  };
+
+  const handleOptimize = async () => {
+    const res = await withLoading(() => fnOptimize({ data: { projectName, focus: "all" } }));
+    if (res) { setOptimizeResult(res.text); toast.success("Recommendations ready"); }
+  };
+
+  const displayPalettes = paletteResult?.palettes ?? [
+    { name: "Primary", colors: ["#8B5CF6", "#7C3AED", "#6D28D9", "#5B21B6"] },
+    { name: "Neutral", colors: ["#F8FAFC", "#94A3B8", "#475569", "#1E293B"] },
+    { name: "Accent", colors: ["#F59E0B", "#EF4444", "#10B981", "#3B82F6"] },
+  ];
 
   return (
     <div className="flex flex-col h-full">
@@ -142,13 +197,15 @@ export function AIStudioPanel({
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={!prompt.trim()}
-                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+                disabled={!prompt.trim() || loading}
+                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
               >
-                <Wand2 className="h-3.5 w-3.5 inline mr-1.5" />
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                 Generate with AI
               </button>
             </div>
+
+            {generateResult && <ResultBlock text={generateResult} accent="violet" />}
 
             <div>
               <h4 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Quick Actions</h4>
@@ -176,7 +233,7 @@ export function AIStudioPanel({
                 <h4 className="text-xs font-semibold text-violet-400">Pro Tip</h4>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Be specific about screens, data models, and interactions. The more detail you provide, the better the AI generates your app. Include design preferences like "dark theme", "minimalist", or "playful".
+                Be specific about screens, data models, and interactions. The more detail you provide, the better the AI generates your app.
               </p>
             </div>
           </>
@@ -210,6 +267,8 @@ export function AIStudioPanel({
               </div>
             </div>
 
+            {researchResult && <ResultBlock text={researchResult} accent="blue" />}
+
             <div>
               <h4 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Suggested Topics</h4>
               <div className="space-y-1.5">
@@ -242,28 +301,36 @@ export function AIStudioPanel({
               </div>
             </div>
 
-            <div className="space-y-2">
-              {REVIEW_CHECKS.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <div className={`h-2.5 w-2.5 rounded-full ${c.status === "pass" ? "bg-emerald-500" : "bg-amber-500"}`} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium">{c.label}</span>
-                    <p className="text-[10px] text-muted-foreground">{c.detail}</p>
-                  </div>
-                  <span className={`text-[9px] font-mono uppercase tracking-widest ${c.status === "pass" ? "text-emerald-500" : "text-amber-500"}`}>
-                    {c.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-
             <button
               type="button"
-              onClick={() => toast.success("Full review report generated!")}
-              className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              onClick={handleReview}
+              disabled={loading}
+              className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              Run Full Review
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileCode className="h-3.5 w-3.5" />}
+              Run Review
             </button>
+
+            {reviewResult && (
+              <>
+                <div className="space-y-2">
+                  {reviewResult.checks.map((c, i) => {
+                    const color = c.status === "pass" ? "emerald" : c.status === "warn" ? "amber" : "red";
+                    return (
+                      <div key={i} className="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
+                        <div className={`h-2.5 w-2.5 rounded-full mt-1.5 bg-${color}-500`} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium">{c.label}</span>
+                          <p className="text-[10px] text-muted-foreground">{c.detail}</p>
+                        </div>
+                        <span className={`text-[9px] font-mono uppercase tracking-widest text-${color}-500`}>{c.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {reviewResult.summary && <ResultBlock text={reviewResult.summary} accent="emerald" />}
+              </>
+            )}
           </>
         )}
 
@@ -275,22 +342,26 @@ export function AIStudioPanel({
               <textarea
                 value={debugInput}
                 onChange={(e) => setDebugInput(e.target.value)}
-                placeholder="TypeError: Cannot read property 'map' of undefined&#10;&#10;or describe: 'The list screen shows blank after navigating back'"
+                placeholder="TypeError: Cannot read property 'map' of undefined&#10;&#10;or: 'The list screen shows blank after navigating back'"
                 className="w-full rounded-xl border border-border bg-card/50 px-4 py-3 text-sm font-mono min-h-[120px] resize-none outline-none focus:border-red-400/40 transition-colors placeholder:text-muted-foreground/50"
               />
               <button
                 type="button"
-                onClick={() => { if (debugInput.trim()) { toast.success("Diagnosing... AI is analyzing the issue."); setDebugInput(""); } }}
-                disabled={!debugInput.trim()}
-                className="mt-2 w-full rounded-xl bg-red-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-40"
+                onClick={handleDebug}
+                disabled={!debugInput.trim() || loading}
+                className="mt-2 w-full rounded-xl bg-red-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
               >
-                <Bug className="h-3.5 w-3.5 inline mr-1.5" />
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bug className="h-3.5 w-3.5" />}
                 Diagnose & Fix
               </button>
             </div>
 
-            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-3">
-              <h4 className="text-xs font-semibold text-red-400">Common Issues</h4>
+            {debugResult && <ResultBlock text={debugResult} accent="red" />}
+
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-2">
+              <h4 className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
+                <AlertTriangle className="h-3 w-3" /> Common Issues
+              </h4>
               {["Navigation stack reset", "State not persisting", "API calls failing", "Layout overflow on small screens"].map((issue, i) => (
                 <button
                   key={i}
@@ -308,13 +379,19 @@ export function AIStudioPanel({
         {/* ─── Design System ─── */}
         {activeTool === "design" && (
           <>
+            <button
+              type="button"
+              onClick={handlePalette}
+              disabled={loading}
+              className="w-full rounded-xl border border-pink-500/30 bg-pink-500/10 px-4 py-2.5 text-sm font-medium text-pink-400 hover:bg-pink-500/20 transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Palette className="h-3.5 w-3.5" />}
+              Generate Custom Palette
+            </button>
+
             <div className="space-y-3">
-              <h4 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Color Palette Generator</h4>
-              {[
-                { name: "Primary", colors: ["#8B5CF6", "#7C3AED", "#6D28D9", "#5B21B6"] },
-                { name: "Neutral", colors: ["#F8FAFC", "#94A3B8", "#475569", "#1E293B"] },
-                { name: "Accent", colors: ["#F59E0B", "#EF4444", "#10B981", "#3B82F6"] },
-              ].map((palette) => (
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Color Palette</h4>
+              {displayPalettes.map((palette) => (
                 <div key={palette.name} className="rounded-lg border border-border p-3">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{palette.name}</span>
                   <div className="flex gap-1.5 mt-2">
@@ -336,79 +413,34 @@ export function AIStudioPanel({
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => toast.success("Custom palette generated from your app's content!")}
-              className="w-full rounded-xl border border-pink-500/30 bg-pink-500/10 px-4 py-2.5 text-sm font-medium text-pink-400 hover:bg-pink-500/20 transition-colors"
-            >
-              <Palette className="h-3.5 w-3.5 inline mr-1.5" />
-              Generate Custom Palette
-            </button>
-
-            <div>
-              <h4 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Typography Scale</h4>
-              <div className="space-y-2 rounded-lg border border-border p-4">
-                {[
-                  { size: "32px", weight: "Bold", name: "Heading 1" },
-                  { size: "24px", weight: "Semibold", name: "Heading 2" },
-                  { size: "18px", weight: "Medium", name: "Heading 3" },
-                  { size: "16px", weight: "Regular", name: "Body" },
-                  { size: "14px", weight: "Regular", name: "Caption" },
-                  { size: "12px", weight: "Medium", name: "Overline" },
-                ].map((t) => (
-                  <div key={t.name} className="flex items-baseline justify-between">
-                    <span style={{ fontSize: t.size, fontWeight: t.weight === "Bold" ? 700 : t.weight === "Semibold" ? 600 : t.weight === "Medium" ? 500 : 400 }}>
-                      {t.name}
-                    </span>
-                    <span className="text-[9px] font-mono text-muted-foreground">{t.size} · {t.weight}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {paletteResult?.rationale && <ResultBlock text={paletteResult.rationale} accent="pink" />}
           </>
         )}
 
         {/* ─── Optimize ─── */}
         {activeTool === "optimize" && (
           <>
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-amber-400">Performance Score</h4>
-                <span className="text-2xl font-display text-amber-400">87</span>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-amber-500/20 grid place-items-center shrink-0">
+                <BarChart3 className="h-5 w-5 text-amber-400" />
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-500" style={{ width: "87%" }} />
+              <div>
+                <h4 className="text-sm font-semibold">Optimization Audit</h4>
+                <p className="text-[10px] text-muted-foreground">Performance, accessibility, bundle size, best practices</p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              {[
-                { label: "Bundle Size", value: "2.1 MB", status: "good", tip: "Under 5MB threshold" },
-                { label: "Cold Start", value: "380ms", status: "good", tip: "Under 500ms target" },
-                { label: "Memory Usage", value: "45 MB", status: "good", tip: "Well within limits" },
-                { label: "Image Assets", value: "3 unoptimized", status: "warn", tip: "Compress to save 340KB" },
-                { label: "Unused Imports", value: "2 found", status: "warn", tip: "Remove to reduce bundle" },
-              ].map((m, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <div className={`h-2.5 w-2.5 rounded-full ${m.status === "good" ? "bg-emerald-500" : "bg-amber-500"}`} />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{m.label}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{m.value}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">{m.tip}</p>
-                  </div>
-                </div>
-              ))}
             </div>
 
             <button
               type="button"
-              onClick={() => toast.success("Optimization applied! Score improved to 94.")}
-              className="w-full rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90"
+              onClick={handleOptimize}
+              disabled={loading}
+              className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 hover:bg-amber-500/20 transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              Auto-Optimize
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
+              Run Optimization Audit
             </button>
+
+            {optimizeResult && <ResultBlock text={optimizeResult} accent="amber" />}
           </>
         )}
       </div>

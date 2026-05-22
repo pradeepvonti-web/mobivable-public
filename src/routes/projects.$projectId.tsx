@@ -499,7 +499,7 @@ function ProjectPage() {
     setLoading(false);
     // Also load Supabase integration config for export
     try {
-      const { data: u } = await sb.auth.getUser();
+      const { data: u } = await supabase.auth.getUser();
       if (u?.user?.id) {
         const { data: integ } = await (sb as any)
           .from("project_integrations")
@@ -2072,7 +2072,7 @@ function ProjectPage() {
             <div>
               <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Theme</label>
               <div className="flex gap-2">
-                {(["light", "dark", "system"] as const).map(t => (
+                {(["light", "dark"] as const).map(t => (
                   <button
                     key={t}
                     type="button"
