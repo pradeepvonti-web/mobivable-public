@@ -258,12 +258,38 @@ export const runAgentTask = createServerFn({ method: "POST" })
       .update({ status: "completed", output: r.text, error_text: null })
       .eq("id", task.id);
 
+    // Find the next agent in this run so this one can @mention them.
+    const { data: nextRows } = await supabase
+      .from("agent_tasks")
+      .select("role")
+      .eq("run_id", task.run_id)
+      .gt("ordinal", task.ordinal)
+      .order("ordinal", { ascending: true })
+      .limit(1);
+    const nextRole = (nextRows?.[0]?.role as AgentRole | undefined) ?? null;
+    const nextName = nextRole ? AGENTS[nextRole]?.name ?? nextRole : null;
+
+    // Generate a substantive team-chat message that feels like a real teammate.
+    const teamSys =
+      `You are ${def.name} on a mobile-app build team chat. Write a short message (3-5 sentences, first person, plain prose) that: ` +
+      `(1) summarizes the concrete decisions you just made, ` +
+      `(2) calls out 1-2 key tradeoffs or assumptions, ` +
+      (nextName
+        ? `(3) ends with "@${nextName}" plus one specific, actionable ask for them. `
+        : `(3) wraps the build with a quick green-light. `) +
+      `Be concrete. No headings, bullets, or code fences.`;
+    const teamUser = `App: ${project?.name ?? ""}\n\nMy output just now:\n${r.text.slice(0, 2500)}`;
+    const chat = await callAI(teamSys, teamUser);
+    const chatContent = chat.ok && chat.text.trim()
+      ? chat.text.trim()
+      : `${def.name} finished${nextName ? `. @${nextName} — you're up.` : "."}`;
+
     await supabase.from("agent_messages").insert({
       run_id: task.run_id,
       project_id: task.project_id,
       user_id: userId,
       role,
-      content: `${def.name} completed: ${def.tasks[0] ?? "task"}.`,
+      content: chatContent,
     });
 
     return { ok: true as const, output: r.text };
