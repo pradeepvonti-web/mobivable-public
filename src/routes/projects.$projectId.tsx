@@ -1677,9 +1677,8 @@ function ProjectPage() {
               )}
             </>
           )}
-            </>
-          )}
         </div>
+
 
         {/* Composer */}
         <form
