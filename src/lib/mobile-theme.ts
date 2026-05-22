@@ -26,6 +26,12 @@ export type MobileMotion = {
   duration: number;            // ms
   easing: string;              // cubic-bezier
   intensity: "subtle" | "medium" | "bold";
+  /** Optional named spring presets the AI/renderer can reference. */
+  springs?: {
+    snappy?:   { duration: number; easing: string };
+    gentle?:   { duration: number; easing: string };
+    bouncy?:   { duration: number; easing: string };
+  };
 };
 
 export type MobileTheme = {
