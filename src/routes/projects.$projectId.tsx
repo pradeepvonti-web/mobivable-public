@@ -342,6 +342,7 @@ function ProjectPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
+  const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
