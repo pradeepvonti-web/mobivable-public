@@ -85,12 +85,34 @@ Examples:
 Keep total prompts per app ≤ 8 (used hero banners, key carousel slides, featured cards). Do not request an image for every list row.
 
 AVAILABLE ELEMENT TYPES:
-- greeting, progress-ring, stat-row, button, activity-feed, card, text, input, image, list,
+- Core: greeting, progress-ring, stat-row, button, activity-feed, card, text, input, image, list,
   donut-chart, bar-chart, toggle, search-bar, section, header, avatar, badge, slider, tab-bar,
   carousel, divider, spacer, rating, chip-group, notification, price-tag, step-indicator,
   countdown, grid-cards, hero-banner
+- Premium primitives (USE THESE LIBERALLY for premium feel):
+  • glass-card        — frosted blurred card. props: { title?, subtitle?, tint?: "light"|"dark"|"primary"|"accent", image?, prompt?, children? }
+  • gradient-mesh-bg  — wrapper with animated blurred color blobs. props: { colors?: string[], intensity?: "subtle"|"medium"|"bold", height?, children? }
+  • parallax-hero     — large editorial hero. props: { title, subtitle?, eyebrow?, image?, prompt?, height?, buttonLabel?, align? }
+  • marquee           — scrolling text strip. props: { items: string[], speed?, separator?, variant? }
+  • stat-card-xl      — large KPI card with delta + sparkline. props: { label, value, delta?, deltaDirection?: "up"|"down"|"flat", sparkline?: number[], icon?, accent? }
+  • feature-showcase  — image + title + description row. props: { title, description, image?, prompt?, icon?, layout?: "image-left"|"image-right"|"image-top", buttonLabel? }
+  • testimonial       — quote + author + rating. props: { quote, name, role?, rating? }
+  • pricing-card      — pricing tier. props: { name, price, period?, description?, features: string[], buttonLabel?, highlighted?, badge? }
+  • onboarding-slide  — full slide with illustration. props: { title, body, image?, prompt?, icon?, step?, totalSteps?, buttonLabel? }
 
-(Element prop shapes match the existing schema — see MobileAppSchema. Add the optional "prompt" field to image-bearing elements as described above.)
+SCREEN LAYOUT TEMPLATES — set "layout" on each screen to compose elements:
+- "stack"       (default) — vertical scroll with padding. Good for forms, settings, feeds.
+- "split-hero"  — first element renders edge-to-edge as a hero; rest stacked below with padding. Use when screen starts with parallax-hero / hero-banner / image.
+- "bento-grid"  — 2-column asymmetric grid. Set "span": 2 on any element to make it full-width. Best for dashboards, home screens, stat overviews.
+- "magazine"    — first element featured large, remaining elements in 2-col grid. Best for content/discovery screens.
+- "full-bleed"  — zero padding, elements touch edges. Best for onboarding-slide screens or full-bleed media.
+
+PICK A LAYOUT PER SCREEN BASED ON CONTENT:
+- Home / dashboard → "bento-grid" with mixed stat-card-xl, glass-card, feature-showcase
+- Discovery / explore → "magazine" with parallax-hero feature + grid of cards
+- Onboarding → "full-bleed" with onboarding-slide
+- Profile / settings → "stack"
+- Product detail → "split-hero" starting with parallax-hero
 
 AVAILABLE ICONS: home, search, user, settings, bell, heart, star, plus, minus, check, x, chevron-right, chevron-left, arrow-up, arrow-down, calendar, clock, map-pin, camera, image, mic, play, pause, skip-forward, volume, wifi, battery, sun, moon, cloud, umbrella, zap, flame, target, trophy, gift, tag, bookmark, message, mail, phone, video, file, folder, edit, trash, download, upload, share, lock, unlock, eye, eye-off, refresh, filter, list, grid, bar-chart, pie-chart, activity, trending-up, trending-down, dollar-sign, credit-card, shopping-cart, shopping-bag, package, truck, map, compass, navigation, globe, coffee, utensils, dumbbell, bike, footprints, waves, leaf, sparkles, wand, robot
 
@@ -98,12 +120,14 @@ AVAILABLE ICONS: home, search, user, settings, bell, heart, star, plus, minus, c
 PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 ═══════════════════════════════════════════════
 
-1. SCREEN STRUCTURE — header/greeting → hero (banner/carousel/image with prompt) → data sections (cards) → CTA.
-2. VISUAL LAYERING — nest elements inside cards and sections; never produce a flat list of text.
-3. DATA DENSITY — believable specific data, never "Item 1, Item 2".
-4. COLOR STRATEGY — stat-row items get distinct colors; chips/badges use semantic colors.
-5. SCREEN VARIETY — every screen feels different in layout, not just content.
-6. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart, ≥1 hero or carousel WITH a prompt, ≥1 grid-cards.`;
+1. ALWAYS PICK A LAYOUT per screen (not just "stack"). Use bento-grid, magazine, split-hero, full-bleed where appropriate.
+2. USE PREMIUM PRIMITIVES — every app should use at least 3 of: glass-card, parallax-hero, stat-card-xl, feature-showcase, testimonial, pricing-card, marquee.
+3. VISUAL LAYERING — wrap hero areas in gradient-mesh-bg or glass-card; never produce a flat list of text.
+4. DATA DENSITY — believable specific data, never "Item 1, Item 2".
+5. COLOR STRATEGY — stat-row items get distinct colors; chips/badges use semantic colors; pricing-cards mark one as highlighted.
+6. SCREEN VARIETY — every screen feels different in layout AND primitives used, not just content.
+7. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart, ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline.`;
+
 
 
 

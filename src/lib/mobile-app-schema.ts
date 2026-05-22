@@ -55,9 +55,19 @@ export type MElement =
   | MStepIndicator
   | MCountdown
   | MGridCards
-  | MHeroBanner;
+  | MHeroBanner
+  | MGlassCard
+  | MGradientMeshBg
+  | MParallaxHero
+  | MMarquee
+  | MStatCardXL
+  | MFeatureShowcase
+  | MTestimonial
+  | MPricingCard
+  | MOnboardingSlide;
 
-type BaseElement = { id?: string };
+type BaseElement = { id?: string; /** Optional grid span in bento-grid layouts: 1 (default) or 2 (full row). */ span?: 1 | 2 };
+
 
 export type MGreeting = BaseElement & {
   type: "greeting";
@@ -311,6 +321,13 @@ export type MCarousel = BaseElement & {
 
 
 // ─── Screen ─────────────────────────────────────────────────────
+export type MScreenLayout =
+  | "stack"        // default vertical scroll
+  | "split-hero"   // first element full-bleed hero, rest stacked
+  | "bento-grid"   // asymmetric grid honoring element.span
+  | "magazine"     // first element featured large, remainder in 2-col grid
+  | "full-bleed";  // no horizontal padding; edge-to-edge
+
 export type MScreen = {
   id: string;
   title: string;
@@ -318,7 +335,10 @@ export type MScreen = {
   elements: MElement[];
   scrollable?: boolean;
   headerStyle?: "default" | "large" | "transparent";
+  /** Composition template for the screen body. Defaults to "stack". */
+  layout?: MScreenLayout;
 };
+
 
 // ─── Navigation ─────────────────────────────────────────────────
 export type MNavItem = {
@@ -408,6 +428,121 @@ export type MHeroBanner = BaseElement & {
     prompt?: string;
   };
 };
+
+// ─── Premium primitives ─────────────────────────────────────────
+
+export type MGlassCard = BaseElement & {
+  type: "glass-card";
+  props: {
+    title?: string;
+    subtitle?: string;
+    tint?: "light" | "dark" | "primary" | "accent";
+    children?: MElement[];
+    image?: string;
+    prompt?: string;
+  };
+};
+
+export type MGradientMeshBg = BaseElement & {
+  type: "gradient-mesh-bg";
+  props: {
+    colors?: string[];
+    intensity?: "subtle" | "medium" | "bold";
+    height?: number;
+    children?: MElement[];
+  };
+};
+
+export type MParallaxHero = BaseElement & {
+  type: "parallax-hero";
+  props: {
+    title: string;
+    subtitle?: string;
+    eyebrow?: string;
+    image?: string;
+    prompt?: string;
+    height?: number;
+    buttonLabel?: string;
+    align?: "left" | "center";
+  };
+};
+
+export type MMarquee = BaseElement & {
+  type: "marquee";
+  props: {
+    items: string[];
+    speed?: "slow" | "medium" | "fast";
+    separator?: string;
+    variant?: "primary" | "muted" | "accent";
+  };
+};
+
+export type MStatCardXL = BaseElement & {
+  type: "stat-card-xl";
+  props: {
+    label: string;
+    value: string | number;
+    delta?: string;
+    deltaDirection?: "up" | "down" | "flat";
+    sparkline?: number[];
+    icon?: MIconName;
+    accent?: string;
+  };
+};
+
+export type MFeatureShowcase = BaseElement & {
+  type: "feature-showcase";
+  props: {
+    title: string;
+    description: string;
+    image?: string;
+    prompt?: string;
+    icon?: MIconName;
+    layout?: "image-left" | "image-right" | "image-top";
+    buttonLabel?: string;
+  };
+};
+
+export type MTestimonial = BaseElement & {
+  type: "testimonial";
+  props: {
+    quote: string;
+    name: string;
+    role?: string;
+    avatar?: string;
+    rating?: number;
+  };
+};
+
+export type MPricingCard = BaseElement & {
+  type: "pricing-card";
+  props: {
+    name: string;
+    price: string;
+    period?: string;
+    description?: string;
+    features: string[];
+    buttonLabel?: string;
+    highlighted?: boolean;
+    badge?: string;
+  };
+};
+
+export type MOnboardingSlide = BaseElement & {
+  type: "onboarding-slide";
+  props: {
+    title: string;
+    body: string;
+    image?: string;
+    prompt?: string;
+    icon?: MIconName;
+    step?: number;
+    totalSteps?: number;
+    buttonLabel?: string;
+  };
+};
+
+
 
 
 // ─── Backend (per-project Supabase) ─────────────────────────────

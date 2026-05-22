@@ -23,7 +23,7 @@ function walkPrompts(schema: MobileAppSchema, sites: PromptSite[]) {
       if (!p) continue;
       if (el.type === "image" && typeof p.prompt === "string" && !p.src) {
         sites.push({ prompt: p.prompt, apply: (u) => { p.src = u; } });
-      } else if (el.type === "hero-banner" && typeof p.prompt === "string" && !p.image) {
+      } else if ((el.type === "hero-banner" || el.type === "parallax-hero" || el.type === "feature-showcase" || el.type === "onboarding-slide" || el.type === "glass-card") && typeof p.prompt === "string" && !p.image) {
         sites.push({ prompt: p.prompt, apply: (u) => { p.image = u; } });
       } else if (el.type === "carousel" && Array.isArray(p.items)) {
         for (const it of p.items as Array<Record<string, unknown>>) {
@@ -38,6 +38,7 @@ function walkPrompts(schema: MobileAppSchema, sites: PromptSite[]) {
           }
         }
       }
+
       // Recurse into card/section children
       const children = (p as { children?: MElement[] }).children;
       if (Array.isArray(children)) visit(children);

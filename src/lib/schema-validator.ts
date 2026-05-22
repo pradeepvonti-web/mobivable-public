@@ -18,7 +18,16 @@ const VALID_ELEMENT_TYPES = new Set([
   "avatar", "badge", "slider", "tab-bar", "bottom-sheet", "carousel",
   "rating", "chip-group", "notification", "price-tag", "step-indicator",
   "countdown", "grid-cards", "hero-banner",
+  // Premium primitives
+  "glass-card", "gradient-mesh-bg", "parallax-hero", "marquee",
+  "stat-card-xl", "feature-showcase", "testimonial", "pricing-card",
+  "onboarding-slide",
 ]);
+
+const VALID_SCREEN_LAYOUTS = new Set([
+  "stack", "split-hero", "bento-grid", "magazine", "full-bleed",
+]);
+
 
 /** Validate and auto-fix an element */
 function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElement | null {
@@ -47,8 +56,8 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     e.props = {};
   }
 
-  // Fix nested children in card/section
-  if (e.type === "card" || e.type === "section") {
+  // Fix nested children in card/section/glass-card/gradient-mesh-bg
+  if (e.type === "card" || e.type === "section" || e.type === "glass-card" || e.type === "gradient-mesh-bg") {
     const props = (e.props ?? {}) as Record<string, unknown>;
     if (Array.isArray(props.children)) {
       props.children = (props.children as unknown[])
@@ -56,6 +65,7 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
         .filter(Boolean);
     }
   }
+
 
   // Fix common prop issues
   const props = (e.props ?? {}) as Record<string, unknown>;
@@ -121,6 +131,20 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     issues.push({ severity: "info", path, message: "Added default greeting name", autoFixed: true });
   }
 
+  // New primitives — ensure required arrays/strings
+  if (e.type === "marquee" && !Array.isArray(props.items)) {
+    props.items = []; issues.push({ severity: "warning", path, message: "marquee missing items", autoFixed: true });
+  }
+  if (e.type === "pricing-card" && !Array.isArray(props.features)) {
+    props.features = []; issues.push({ severity: "warning", path, message: "pricing-card missing features", autoFixed: true });
+  }
+  if (e.type === "testimonial" && typeof props.quote !== "string") {
+    props.quote = String(props.quote ?? ""); issues.push({ severity: "info", path, message: "Coerced testimonial quote", autoFixed: true });
+  }
+  if (e.type === "stat-card-xl" && props.sparkline && !Array.isArray(props.sparkline)) {
+    props.sparkline = []; issues.push({ severity: "warning", path, message: "stat-card-xl sparkline reset", autoFixed: true });
+  }
+
   return el as MElement;
 }
 
@@ -132,6 +156,7 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
   }
 
   const s = screen as Record<string, unknown>;
+
 
   // Ensure id
   if (!s.id || typeof s.id !== "string") {
@@ -151,6 +176,12 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
     issues.push({ severity: "info", path, message: "Screen missing icon, defaulting to home", autoFixed: true });
   }
 
+  // Validate layout
+  if (s.layout && (typeof s.layout !== "string" || !VALID_SCREEN_LAYOUTS.has(s.layout as string))) {
+    issues.push({ severity: "warning", path, message: `Unknown screen layout "${String(s.layout)}", using "stack"`, autoFixed: true });
+    s.layout = "stack";
+  }
+
   // Fix elements
   if (!Array.isArray(s.elements)) {
     issues.push({ severity: "warning", path, message: "Screen missing elements array", autoFixed: true });
@@ -163,6 +194,7 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
 
   return s as unknown as MScreen;
 }
+
 
 /** Validate and auto-fix a full app schema */
 export function validateAndFixSchema(

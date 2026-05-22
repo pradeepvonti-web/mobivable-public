@@ -10,7 +10,10 @@ import {
   BarChartComponent, SectionHeader, MobileToggle, MobileCarousel, MIcon,
   MobileRating, MobileChipGroup, NotificationCard, PriceTag,
   StepIndicator, CountdownTimer, GridCards, HeroBanner,
+  GlassCard, GradientMeshBg, ParallaxHero, Marquee, StatCardXL,
+  FeatureShowcase, Testimonial, PricingCard, OnboardingSlide,
 } from "./MobileComponents";
+
 
 /** Renders a single element from the schema */
 function RenderElement({ el }: { el: MElement }) {
@@ -78,7 +81,7 @@ function RenderElement({ el }: { el: MElement }) {
         }}>
           {el.props.title && <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--m-text)", marginBottom: 8 }}>{el.props.title}</h3>}
           {el.props.subtitle && <p style={{ fontSize: 11, color: "var(--m-muted)", marginBottom: 8 }}>{el.props.subtitle}</p>}
-          {el.props.children?.map((child, i) => <RenderElement key={i} el={child} />)}
+          {el.props.children?.map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
         </div>
       );
     case "section":
@@ -86,7 +89,7 @@ function RenderElement({ el }: { el: MElement }) {
         <div style={{ padding: "4px 0" }}>
           <SectionHeader title={el.props.title} action={el.props.action} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(el.props.children ?? []).map((child, i) => <RenderElement key={i} el={child} />)}
+            {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
           </div>
         </div>
       );
@@ -177,7 +180,7 @@ function RenderElement({ el }: { el: MElement }) {
     case "tab-bar":
       return (
         <div style={{ display: "flex", gap: 4, background: "var(--m-card)", borderRadius: 10, padding: 3 }}>
-          {(el.props.tabs ?? []).map((tab, i) => (
+          {(el.props.tabs ?? []).map((tab: { label: string; active?: boolean }, i: number) => (
             <button key={i} type="button" style={{
               flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
               background: tab.active ? "var(--m-primary)" : "transparent",
@@ -205,24 +208,101 @@ function RenderElement({ el }: { el: MElement }) {
       return <GridCards {...el.props} />;
     case "hero-banner":
       return <HeroBanner {...el.props} />;
+    case "glass-card":
+      return (
+        <GlassCard {...el.props}>
+          {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
+        </GlassCard>
+      );
+    case "gradient-mesh-bg":
+      return (
+        <GradientMeshBg {...el.props}>
+          {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
+        </GradientMeshBg>
+      );
+    case "parallax-hero":
+      return <ParallaxHero {...el.props} />;
+    case "marquee":
+      return <Marquee {...el.props} />;
+    case "stat-card-xl":
+      return <StatCardXL {...el.props} />;
+    case "feature-showcase":
+      return <FeatureShowcase {...el.props} />;
+    case "testimonial":
+      return <Testimonial {...el.props} />;
+    case "pricing-card":
+      return <PricingCard {...el.props} />;
+    case "onboarding-slide":
+      return <OnboardingSlide {...el.props} />;
     default:
       return null;
   }
 }
 
-/** Renders a full screen */
+
+/** Renders a full screen using the chosen composition template. */
 function RenderScreen({ screen }: { screen: MScreen }) {
+  const elements = screen.elements ?? [];
+  const layout = screen.layout ?? "stack";
+
+  if (layout === "full-bleed") {
+    return (
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0 }}>
+        {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+      </div>
+    );
+  }
+
+  if (layout === "split-hero") {
+    const [hero, ...rest] = elements;
+    return (
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        {hero && <div style={{ padding: 0 }}><RenderElement el={hero} /></div>}
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "magazine") {
+    const [feature, ...rest] = elements;
+    return (
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {feature && <RenderElement el={feature} />}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "bento-grid") {
+    return (
+      <div style={{
+        flex: 1, overflowY: "auto", padding: "12px 16px",
+        display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
+      }}>
+        {elements.map((el, i) => (
+          <div key={el.id ?? i} style={{ gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}>
+            <RenderElement el={el} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // default: stack
   return (
     <div style={{
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      {(screen.elements ?? []).map((el, i) => (
-        <RenderElement key={el.id ?? i} el={el} />
-      ))}
+      {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
     </div>
   );
 }
+
 
 /** Main mobile app renderer — drop-in replacement for phone frame content */
 export function MobileAppRenderer({

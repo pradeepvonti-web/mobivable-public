@@ -54,7 +54,8 @@ function elementToRN(el: MElement, indent = 4): string {
     case "button":
       return `${pad}<TouchableOpacity style={{ backgroundColor: ${el.props.variant === "outline" ? "'transparent'" : "colors.primary"}, padding: 14, borderRadius: 14, alignItems: 'center'${el.props.variant === "outline" ? ", borderWidth: 1, borderColor: colors.primary" : ""} }}>\n${pad}  <Text style={{ color: ${el.props.variant === "outline" ? "colors.primary" : "'#fff'"}, fontSize: 14, fontWeight: '600' }}>${el.props.label}</Text>\n${pad}</TouchableOpacity>`;
     case "card":
-      return `${pad}<View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>\n${el.props.title ? `${pad}  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 }}>${el.props.title}</Text>\n` : ""}${(el.props.children ?? []).map(c => elementToRN(c, indent + 2)).join("\n")}\n${pad}</View>`;
+      return `${pad}<View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>\n${el.props.title ? `${pad}  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 }}>${el.props.title}</Text>\n` : ""}${(el.props.children ?? []).map((c: MElement) => elementToRN(c, indent + 2)).join("\n")}\n${pad}</View>`;
+
     case "divider":
       return `${pad}<View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />`;
     case "spacer":
@@ -64,13 +65,14 @@ function elementToRN(el: MElement, indent = 4): string {
     case "search-bar":
       return `${pad}<View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: colors.border }}>\n${pad}  <MaterialIcons name="search" size={16} color={colors.muted} />\n${pad}  <Text style={{ marginLeft: 8, fontSize: 13, color: colors.muted }}>${el.props.placeholder ?? "Search..."}</Text>\n${pad}</View>`;
     case "list":
-      return (el.props.items ?? []).map(item =>
+      return (el.props.items ?? []).map((item: { icon?: string; title: string; subtitle?: string; trailing?: string }) =>
         `${pad}<View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: colors.card, borderRadius: 10, marginBottom: 4, borderWidth: 1, borderColor: colors.border }}>\n${item.icon ? `${pad}  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' }}>\n${pad}    <MaterialIcons name="${expoIcon(item.icon)}" size={14} color={colors.primary} />\n${pad}  </View>\n` : ""}${pad}  <View style={{ flex: 1, marginLeft: 12 }}>\n${pad}    <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text }}>${item.title}</Text>\n${item.subtitle ? `${pad}    <Text style={{ fontSize: 10, color: colors.muted }}>${item.subtitle}</Text>\n` : ""}${pad}  </View>\n${item.trailing ? `${pad}  <Text style={{ fontSize: 12, color: colors.muted }}>${item.trailing}</Text>\n` : ""}${pad}</View>`
       ).join("\n");
     case "stat-row":
-      return `${pad}<View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12 }}>\n${(el.props.stats ?? []).map(s =>
+      return `${pad}<View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12 }}>\n${(el.props.stats ?? []).map((s: { icon: string; value: string | number; label: string; color?: string }) =>
         `${pad}  <View style={{ alignItems: 'center' }}>\n${pad}    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '${s.color ?? "#6366f1"}22', alignItems: 'center', justifyContent: 'center' }}>\n${pad}      <MaterialIcons name="${expoIcon(s.icon)}" size={16} color="${s.color ?? "#6366f1"}" />\n${pad}    </View>\n${pad}    <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 6 }}>${s.value}</Text>\n${pad}    <Text style={{ fontSize: 9, color: colors.muted }}>${s.label}</Text>\n${pad}  </View>`
       ).join("\n")}\n${pad}</View>`;
+
     case "hero-banner":
       return `${pad}<View style={{ height: ${el.props.height ?? 160}, borderRadius: 16, padding: 20, justifyContent: 'flex-end', overflow: 'hidden' }}>\n${pad}  <LinearGradient colors={['${el.props.gradient?.includes("#") ? el.props.gradient.match(/#[0-9a-fA-F]{6}/g)?.[0] ?? "#6366f1" : "#6366f1"}', '${el.props.gradient?.includes("#") ? el.props.gradient.match(/#[0-9a-fA-F]{6}/g)?.[1] ?? "#4f46e5" : "#4f46e5"}']} style={StyleSheet.absoluteFillObject} />\n${pad}  <Text style={{ fontSize: 20, fontWeight: '700', color: '#fff' }}>${el.props.title}</Text>\n${el.props.subtitle ? `${pad}  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 4 }}>${el.props.subtitle}</Text>\n` : ""}${pad}</View>`;
     case "notification":
@@ -78,7 +80,8 @@ function elementToRN(el: MElement, indent = 4): string {
     case "rating":
       return `${pad}<View style={{ flexDirection: 'row', alignItems: 'center' }}>\n${Array.from({ length: el.props.max ?? 5 }, (_, i) => `${pad}  <Text style={{ fontSize: 18, color: ${i < Math.round(el.props.value) ? "'#f59e0b'" : "colors.border"} }}>★</Text>`).join("\n")}\n${el.props.label ? `${pad}  <Text style={{ fontSize: 11, color: colors.muted, marginLeft: 6 }}>${el.props.label}</Text>\n` : ""}${pad}</View>`;
     case "grid-cards":
-      return `${pad}<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>\n${(el.props.items ?? []).map(item => `${pad}  <View style={{ width: '${el.props.columns === 3 ? "30" : "48"}%', backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>\n${item.icon ? `${pad}    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '${item.color ?? "#6366f1"}18', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>\n${pad}      <MaterialIcons name="${expoIcon(item.icon)}" size={16} color="${item.color ?? "#6366f1"}" />\n${pad}    </View>\n` : ""}${pad}    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>${item.title}</Text>\n${item.subtitle ? `${pad}    <Text style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>${item.subtitle}</Text>\n` : ""}${pad}  </View>`).join("\n")}\n${pad}</View>`;
+      return `${pad}<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>\n${(el.props.items ?? []).map((item: { icon?: string; title: string; subtitle?: string; color?: string }) => `${pad}  <View style={{ width: '${el.props.columns === 3 ? "30" : "48"}%', backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>\n${item.icon ? `${pad}    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '${item.color ?? "#6366f1"}18', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>\n${pad}      <MaterialIcons name="${expoIcon(item.icon)}" size={16} color="${item.color ?? "#6366f1"}" />\n${pad}    </View>\n` : ""}${pad}    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>${item.title}</Text>\n${item.subtitle ? `${pad}    <Text style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>${item.subtitle}</Text>\n` : ""}${pad}  </View>`).join("\n")}\n${pad}</View>`;
+
     default:
       return `${pad}{/* ${el.type} */}`;
   }
