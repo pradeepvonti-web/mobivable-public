@@ -78,6 +78,7 @@ import { ExportPanel } from "@/components/ExportPanel";
 import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 import { AIProviderSettings } from "@/components/AIProviderSettings";
 import { CodeEditorPanel } from "@/components/CodeEditorPanel";
+import { AgentsMdPanel } from "@/components/AgentsMdPanel";
 import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
 import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { AIStudioPanel } from "@/components/AIStudioPanel";
