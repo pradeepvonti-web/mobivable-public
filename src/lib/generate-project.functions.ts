@@ -31,7 +31,16 @@ export const generateProject = createServerFn({ method: "POST" })
     }
 
     try {
-      const r = await callAI(SYSTEM_PROMPT, project.prompt, project.model);
+      // ── PASS 1: design brief (palette, typography, mood, references, layouts) ──
+      const briefRes = await callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model);
+      const brief = briefRes.ok ? briefRes.text.trim() : "";
+
+      // ── PASS 2: compose full schema, following the brief strictly ──
+      const userPrompt = brief
+        ? `USER REQUEST:\n${project.prompt}\n\nDESIGN BRIEF (follow strictly — derive theme.palette/typography/radius/spacing/motion from it; use each screen's "layout" and include its "keyPrimitives"; carry the mood into entrance + gesture choices):\n${brief}`
+        : project.prompt;
+
+      const r = await callAI(SYSTEM_PROMPT, userPrompt, project.model);
 
       if (!r.ok) {
         await supabase
