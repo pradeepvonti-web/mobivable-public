@@ -580,25 +580,33 @@ export function GridCards({ columns = 2, items }: {
 }
 
 /* ─── Hero Banner ────────────────────────────────────── */
-export function HeroBanner({ title, subtitle, gradient, height = 160, icon, buttonLabel }: {
-  title: string; subtitle?: string; gradient?: string; height?: number; icon?: string; buttonLabel?: string;
+export function HeroBanner({ title, subtitle, gradient, height = 160, icon, buttonLabel, image }: {
+  title: string; subtitle?: string; gradient?: string; height?: number; icon?: string; buttonLabel?: string; image?: string;
 }) {
   return (
     <div style={{
-      height, borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", justifyContent: "flex-end",
+      height, borderRadius: "var(--m-radius-lg, 16px)", padding: 20, display: "flex", flexDirection: "column", justifyContent: "flex-end",
       background: gradient ?? "linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))",
       color: "#fff", position: "relative", overflow: "hidden",
+      boxShadow: "var(--m-shadow-md)",
     }}>
-      {icon && <div style={{ position: "absolute", top: 16, right: 16, opacity: 0.2 }}><MIcon name={icon as MIconName} size={48} /></div>}
-      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.2 }}>{title}</div>
-      {subtitle && <div style={{ fontSize: 11, opacity: 0.85, marginTop: 4 }}>{subtitle}</div>}
+      {image && (
+        <>
+          <img src={image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.65) 100%)" }} />
+        </>
+      )}
+      {!image && icon && <div style={{ position: "absolute", top: 16, right: 16, opacity: 0.2 }}><MIcon name={icon as MIconName} size={48} /></div>}
+      <div style={{ position: "relative", fontSize: 22, fontWeight: 700, lineHeight: 1.2, fontFamily: "var(--m-font-heading)" }}>{title}</div>
+      {subtitle && <div style={{ position: "relative", fontSize: 11, opacity: 0.9, marginTop: 4 }}>{subtitle}</div>}
       {buttonLabel && (
         <button type="button" style={{
-          marginTop: 12, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)",
-          background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", width: "fit-content",
+          position: "relative", marginTop: 12, padding: "8px 16px", borderRadius: "var(--m-radius-md, 10px)", border: "1px solid rgba(255,255,255,0.3)",
+          background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", width: "fit-content",
         }}>{buttonLabel}</button>
       )}
     </div>
   );
 }
+
 
