@@ -90,7 +90,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       team = [data.agentRole];
     } else if (routing.agents.length > 0) {
       team = routing.agents.slice(0, 3);
-    } else if (currentPhase !== 'completed' && currentPhase in SDLC_PHASES) {
+    } else if (currentPhase in SDLC_PHASES) {
       team = SDLC_PHASES[currentPhase].agents.slice(0, 2);
     } else {
       team = [];
