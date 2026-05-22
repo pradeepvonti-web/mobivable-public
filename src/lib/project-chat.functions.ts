@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
 import { callAI, callAIStreaming, type AIMessage } from "./ai-provider";
+import { routeMessageToAgents, advancePhase, initProjectPhases, SDLC_PHASES, type SDLCPhase } from './sdlc.functions';
 
 const DEFAULT_SYSTEM =
   "You are a senior mobile product designer + engineer collaborating with the user " +
@@ -50,7 +51,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     const { data: project, error: pErr } = await supabase
       .from("projects")
-      .select("id, prompt, model, user_id, result")
+      .select("id, prompt, model, user_id, result, current_phase")
       .eq("id", data.projectId)
       .maybeSingle();
     if (pErr) {
@@ -65,6 +66,14 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       yield { type: "error" as const, error: "Forbidden" };
       return;
     }
+
+    // Auto-initialize SDLC phases if not set
+    if (!project.current_phase) {
+      try {
+        await initProjectPhases({ data: { projectId: project.id } });
+      } catch { /* non-fatal */ }
+    }
+
 
     const { data: history } = await supabase
       .from("project_messages")
@@ -83,9 +92,31 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       return;
     }
 
-    const agent = data.agentRole ? AGENTS[data.agentRole] : null;
+    // Route message to relevant agent(s) based on current phase
+    const currentPhase = (project.current_phase as SDLCPhase) ?? 'requirements';
+    const routing = routeMessageToAgents(data.content, currentPhase);
+
+    // If phase advance requested
+    if (routing.shouldAdvance) {
+      try {
+        const advResult = await advancePhase({ data: { projectId: project.id } });
+        if (advResult.ok) {
+          yield { type: 'phase_advanced' as const, phase: advResult.phase };
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // Determine which agent to respond as
+    const respondingAgent = routing.agents.length > 0
+      ? AGENTS[routing.agents[0]]
+      : null;
+    const respondingRole = routing.agents[0] ?? null;
+
+    // Use explicitly selected agent, or routed agent, or default
+    const agent = data.agentRole ? AGENTS[data.agentRole] : respondingAgent;
+    const activeRole = data.agentRole ?? respondingRole;
     const systemPrompt = agent
-      ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project. Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful.`
+      ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project (SDLC Phase: ${SDLC_PHASES[currentPhase]?.label ?? currentPhase}). Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful. Reference the current phase context.`
       : DEFAULT_SYSTEM;
     const messages: AIMessage[] = [
       { role: "system", content: systemPrompt },
@@ -129,11 +160,15 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       return;
     } finally {
       if (buffer.trim().length > 0) {
+        // Prefix with agent badge if an agent responded
+        const agentPrefix = activeRole && agent
+          ? `**🤖 ${agent.name}** *(${SDLC_PHASES[currentPhase]?.label ?? currentPhase})*\n\n`
+          : '';
         await supabase.from("project_messages").insert({
           project_id: project.id,
           user_id: userId,
           role: "assistant",
-          content: buffer,
+          content: agentPrefix + buffer,
         });
       }
     }

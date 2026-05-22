@@ -11,6 +11,7 @@ import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "@/lib/age
 import { recommendAgents, startAgentRun, runAgentTask, finalizeAgentRun } from "@/lib/agent-run.functions";
 import { generateMockupImage } from "@/lib/generate-mockup.functions";
 import { extractThemeFromDesigner } from "@/lib/extract-theme.functions";
+import { SDLCProgressBar } from "./SDLCProgressBar";
 
 type Run = { id: string; status: string; selected_roles: string[]; created_at: string };
 type Task = { id: string; role: string; ordinal: number; status: "waiting" | "working" | "completed" | "failed"; output: string | null; error_text: string | null; created_at?: string; updated_at?: string };
@@ -432,7 +433,9 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
   // ═══════ NO RUN: Agent Selection ═══════
   if (!run) {
     return (
-      <div className="absolute inset-0 overflow-y-auto bg-background/95 backdrop-blur p-6">
+      <div className="absolute inset-0 overflow-y-auto bg-background/95 backdrop-blur flex flex-col">
+        <SDLCProgressBar projectId={projectId} />
+        <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-6">
           <header className="space-y-1">
             <div className="flex items-center gap-2 text-primary">
@@ -498,6 +501,7 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
           </div>
         </div>
       </div>
+      </div>
     );
   }
 
@@ -507,6 +511,8 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background/95 backdrop-blur flex flex-col">
+      {/* SDLC Phase Progress */}
+      <SDLCProgressBar projectId={projectId} />
       {/* Header */}
       <header className="shrink-0 p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between gap-3">
