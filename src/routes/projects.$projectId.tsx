@@ -2927,6 +2927,10 @@ function ProjectPage() {
                   }
                 }}
                 onDragOverCapture={(e) => {
+                  // Palette drag-and-drop: let the inner drop zone handle it.
+                  if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("application/x-mobile-element")) {
+                    return;
+                  }
                   const src = dragSrcRef.current;
                   if (!src) return;
                   const t = e.target as HTMLElement;
@@ -3143,16 +3147,34 @@ function ProjectPage() {
                       /* ignore malformed payload */
                     }
                   };
+                  const hasPaletteType = (dt: DataTransfer) => {
+                    try {
+                      const types = Array.from(dt.types || []);
+                      return types.includes("application/x-mobile-element");
+                    } catch { return false; }
+                  };
                   return (
                     <div
                       style={{ position: "relative", height: "100%", width: "100%" }}
-                      onDragOver={(e) => {
-                        if (e.dataTransfer.types.includes("application/x-mobile-element")) {
+                      onDragEnter={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
                           e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
+                          e.preventDefault();
+                          e.stopPropagation();
                           e.dataTransfer.dropEffect = "copy";
                         }
                       }}
-                      onDrop={handleDrop}
+                      onDrop={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
+                          e.stopPropagation();
+                        }
+                        handleDrop(e);
+                      }}
                     >
                       <MobileAppRenderer
                         key={previewKey}
