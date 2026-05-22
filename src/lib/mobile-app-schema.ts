@@ -154,8 +154,11 @@ export type MImage = BaseElement & {
     rounded?: "none" | "sm" | "md" | "lg" | "full";
     aspectRatio?: "square" | "video" | "wide";
     gradient?: boolean;
+    /** AI image-generation prompt; renderer fills `src` from this. */
+    prompt?: string;
   };
 };
+
 
 export type MList = BaseElement & {
   type: "list";
@@ -300,10 +303,12 @@ export type MCarousel = BaseElement & {
       title: string;
       subtitle?: string;
       gradient?: string;
+      prompt?: string;
     }>;
     height?: number;
   };
 };
+
 
 // ─── Screen ─────────────────────────────────────────────────────
 export type MScreen = {
@@ -384,6 +389,8 @@ export type MGridCards = BaseElement & {
       subtitle?: string;
       color?: string;
       badge?: string;
+      image?: string;
+      prompt?: string;
     }>;
   };
 };
@@ -397,8 +404,11 @@ export type MHeroBanner = BaseElement & {
     height?: number;
     icon?: MIconName;
     buttonLabel?: string;
+    image?: string;
+    prompt?: string;
   };
 };
+
 
 // ─── Backend (per-project Supabase) ─────────────────────────────
 export type MColumnType =

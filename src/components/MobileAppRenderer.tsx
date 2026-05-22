@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MobileAppSchema, MElement, MScreen } from "@/lib/mobile-app-schema";
-import { resolveTheme, themeToCSSVars } from "@/lib/mobile-theme";
+import { resolveTheme, themeToCSSVars, themeFontHref } from "@/lib/mobile-theme";
+
 import { MobileErrorBoundary } from "./MobileErrorBoundary";
 import { validateAndFixSchema, formatIssuesSummary } from "@/lib/schema-validator";
 import {
@@ -267,24 +268,40 @@ export function MobileAppRenderer({
 
   const theme = resolveTheme(fixedSchema.theme);
   const cssVars = themeToCSSVars(theme);
+  const fontHref = themeFontHref(theme);
   const current = activeScreen || fixedSchema.screens[0]?.id || "";
   const screen = fixedSchema.screens.find((s) => s.id === current) ?? fixedSchema.screens[0];
   const nav = fixedSchema.navigation;
 
+  // Inject Google Fonts <link> for the chosen typography (idempotent).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = `m-font-${btoa(fontHref).slice(0, 24)}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = fontHref;
+    document.head.appendChild(link);
+  }, [fontHref]);
+
   return (
     <MobileErrorBoundary fallbackTitle="Preview Crashed">
       <div
-        className={className}
+        className={`m-preview ${className ?? ""}`.trim()}
+
         style={{
           ...cssVars,
           height: "100%", width: "100%",
           display: "flex", flexDirection: "column",
           background: "var(--m-bg)", color: "var(--m-text)",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: "var(--m-font-body)",
+
           overflow: "hidden", position: "relative",
         } as React.CSSProperties}
       >
-        {/* Validation issues banner */}
+        <style>{`.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}`}</style>
+
         {issueCount > 0 && (
           <div style={{
             padding: "4px 12px", fontSize: 9, fontFamily: "monospace",

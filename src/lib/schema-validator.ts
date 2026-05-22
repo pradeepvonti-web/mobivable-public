@@ -183,11 +183,20 @@ export function validateAndFixSchema(
     issues.push({ severity: "info", path: "name", message: "Missing app name, using default", autoFixed: true });
   }
 
-  // Ensure theme
+  // Ensure theme (string preset name OR full custom theme object)
   if (!obj.theme) {
     obj.theme = "dark_fitness";
     issues.push({ severity: "info", path: "theme", message: "Missing theme, using dark_fitness", autoFixed: true });
+  } else if (typeof obj.theme === "object") {
+    const t = obj.theme as Record<string, unknown>;
+    const required = ["mode", "primary", "accent", "background", "card", "text", "muted", "border"];
+    const missing = required.filter((k) => typeof t[k] !== "string");
+    if (missing.length > 0) {
+      obj.theme = "dark_fitness";
+      issues.push({ severity: "warning", path: "theme", message: `Custom theme missing ${missing.join(", ")}, fell back to dark_fitness`, autoFixed: true });
+    }
   }
+
 
   // Fix screens
   if (!Array.isArray(obj.screens) || obj.screens.length === 0) {
