@@ -3,6 +3,7 @@ import {
   Wand2, Search, Globe, FileCode, Brain, Image as ImageIcon,
   Lightbulb, Rocket, Copy, CheckCheck, Loader2, ChevronRight,
   Zap, BookOpen, Bug, Palette, Shield, BarChart3, AlertTriangle,
+  Sparkles, Scissors, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -10,8 +11,11 @@ import {
   aiGenerate, aiResearch, aiCodeReview, aiDebug, aiPalette, aiOptimize,
   type ReviewResult, type PaletteResult,
 } from "@/lib/ai-studio.functions";
+import {
+  pixlabGenerate, pixlabBgRemove, pixlabFilter,
+} from "@/lib/pixlab.functions";
 
-type Tool = "generate" | "research" | "review" | "debug" | "design" | "optimize";
+type Tool = "generate" | "research" | "review" | "debug" | "design" | "optimize" | "pixlab";
 
 const TOOLS: { id: Tool; icon: any; label: string; desc: string; color: string }[] = [
   { id: "generate", icon: Wand2, label: "AI Generate", desc: "Generate code, screens, components from text", color: "text-violet-400" },
@@ -20,6 +24,7 @@ const TOOLS: { id: Tool; icon: any; label: string; desc: string; color: string }
   { id: "debug", icon: Bug, label: "Smart Debug", desc: "Diagnose errors, find fixes automatically", color: "text-red-400" },
   { id: "design", icon: Palette, label: "Design System", desc: "Generate colors, typography, components", color: "text-pink-400" },
   { id: "optimize", icon: BarChart3, label: "Optimize", desc: "Performance, accessibility, best practices", color: "text-amber-400" },
+  { id: "pixlab", icon: Sparkles, label: "PixLab", desc: "Image gen, bg removal, filters for UI design", color: "text-cyan-400" },
 ];
 
 const QUICK_ACTIONS = [
