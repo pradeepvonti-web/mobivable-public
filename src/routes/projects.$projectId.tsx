@@ -80,6 +80,7 @@ import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { FigmaImportPanel } from "@/components/FigmaImportPanel";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
+import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -3595,8 +3596,217 @@ function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () =
             </>
           )}
         </div>
+
+        <BackendDataModelSection projectId={projectId} projectRef={projectRef} />
       </div>
     </section>
+  );
+}
+
+function BackendDataModelSection({
+  projectId,
+  projectRef,
+}: {
+  projectId: string;
+  projectRef: string;
+}) {
+  type Col = { name: string; type: string; nullable?: boolean };
+  type Tbl = { name: string; columns: Col[]; rls?: string };
+  const [tables, setTables] = useState<Tbl[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [inferring, setInferring] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [pat, setPat] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const inferFn = useServerFn(inferBackendSpec);
+  const applyFn = useServerFn(applyBackendSchema);
+  const getFn = useServerFn(getBackendSpec);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await getFn({ data: { projectId } });
+        if (r.ok && r.backend?.tables) setTables(r.backend.tables as Tbl[]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [projectId, getFn]);
+
+  async function handleInfer() {
+    setInferring(true);
+    setResult(null);
+    try {
+      const r = await inferFn({ data: { projectId } });
+      if (r.ok) {
+        setTables((r.backend.tables ?? []) as Tbl[]);
+        toast.success(`Inferred ${r.backend.tables?.length ?? 0} tables`);
+      } else {
+        toast.error(r.error);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setInferring(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!pat.trim() || !projectRef.trim()) {
+      toast.error("Need Management PAT and Project Ref");
+      return;
+    }
+    setApplying(true);
+    setResult(null);
+    try {
+      const r = await applyFn({
+        data: {
+          projectId,
+          managementToken: pat.trim(),
+          projectRef: projectRef.trim(),
+        },
+      });
+      if (r.ok) {
+        setResult({ ok: true, text: "Schema applied successfully" });
+        toast.success("Schema applied to your Supabase");
+      } else {
+        setResult({ ok: false, text: r.error });
+        toast.error(r.error);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setResult({ ok: false, text: msg });
+      toast.error(msg);
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <div className="p-5 border-t border-border space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-display text-sm">Data Model</h3>
+          <p className="text-[11px] text-muted-foreground">
+            AI-inferred tables for this app
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleInfer}
+          disabled={inferring}
+          className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-muted/50 disabled:opacity-40 flex items-center gap-1.5"
+        >
+          {inferring ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Sparkles className="h-3 w-3" />
+          )}
+          {tables.length > 0 ? "Re-infer" : "Generate"}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading…</p>
+      ) : tables.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          No tables yet. Click Generate to have AI infer the schema from your app.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {tables.map((t) => (
+            <div
+              key={t.name}
+              className="rounded-lg border border-border bg-background/60 p-3"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-semibold">{t.name}</span>
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                  RLS: {t.rls ?? "owner"}
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {t.columns.map((c) => (
+                  <div
+                    key={c.name}
+                    className="flex items-center justify-between text-[10px] font-mono text-muted-foreground"
+                  >
+                    <span>{c.name}</span>
+                    <span>
+                      {c.type}
+                      {c.nullable === false ? " NOT NULL" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tables.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-border">
+          <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Supabase Management PAT
+          </label>
+          <input
+            type="password"
+            value={pat}
+            onChange={(e) => setPat(e.target.value)}
+            placeholder="sbp_…"
+            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:border-primary"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Create at{" "}
+            <a
+              href="https://supabase.com/dashboard/account/tokens"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              supabase.com/dashboard/account/tokens
+            </a>
+            . Not stored — used only for this operation.
+          </p>
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={applying || !pat.trim() || !projectRef.trim()}
+            className="w-full px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {applying ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Applying schema…
+              </>
+            ) : (
+              <>
+                <Database className="h-3.5 w-3.5" />
+                Apply schema to your Supabase
+              </>
+            )}
+          </button>
+          {!projectRef.trim() && (
+            <p className="text-[10px] text-amber-500">
+              Set Project Ref above first.
+            </p>
+          )}
+          {result && (
+            <div
+              className={`rounded-md p-2 text-[11px] font-mono ${
+                result.ok
+                  ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                  : "bg-destructive/10 text-destructive border border-destructive/20"
+              }`}
+            >
+              {result.text}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
