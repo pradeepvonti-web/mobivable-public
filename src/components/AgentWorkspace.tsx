@@ -49,6 +49,8 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const [mockupLoading, setMockupLoading] = useState(false);
   const [mockupError, setMockupError] = useState<string | null>(null);
   const generateMockupFn = useServerFn(generateMockupImage);
+  const extractThemeFn = useServerFn(extractThemeFromDesigner);
+  const themeAppliedRef = useRef(false);
   const def = AGENTS[task.role as AgentRole];
   const time = task.updated_at || task.created_at;
   const isDesigner = task.role === "ui_ux_designer";
