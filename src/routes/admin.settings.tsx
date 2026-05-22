@@ -207,6 +207,9 @@ function AdminSettingsPage() {
           </div>
         </Card>
 
+        <AgentsBibleCard />
+
+
         <div className="flex items-center gap-3">
           <button
             onClick={handleSave}
