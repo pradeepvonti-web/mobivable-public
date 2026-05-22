@@ -417,7 +417,32 @@ export function MobileAppRenderer({
           overflow: "hidden", position: "relative",
         } as React.CSSProperties}
       >
-        <style>{`.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}`}</style>
+        <style>{`
+.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}
+.m-preview .m-el{animation-duration:var(--m-duration);animation-timing-function:var(--m-ease);animation-fill-mode:both;}
+.m-preview .m-anim-none{animation:none!important;}
+.m-preview .m-anim-fade-up{animation-name:m-fade-up;}
+.m-preview .m-anim-fade-in{animation-name:m-fade-in;}
+.m-preview .m-anim-scale-in{animation-name:m-scale-in;}
+.m-preview .m-anim-slide-left{animation-name:m-slide-left;}
+.m-preview .m-anim-slide-right{animation-name:m-slide-right;}
+.m-preview .m-anim-pop{animation-name:m-pop;animation-duration:var(--m-spring-bouncy-d);animation-timing-function:var(--m-spring-bouncy-e);}
+.m-preview .m-anim-blur-in{animation-name:m-blur-in;animation-duration:var(--m-spring-gentle-d);animation-timing-function:var(--m-spring-gentle-e);}
+.m-preview .m-g-tap-scale{transition:transform var(--m-spring-snappy-d) var(--m-spring-snappy-e);cursor:pointer;}
+.m-preview .m-g-tap-scale:active{transform:scale(.96);}
+.m-preview .m-g-press-glow{transition:box-shadow var(--m-duration) var(--m-ease);}
+.m-preview .m-g-press-glow:active{box-shadow:0 0 0 4px color-mix(in srgb, var(--m-primary) 35%, transparent);}
+.m-preview .m-g-swipe-hint{animation:m-swipe 1.8s var(--m-spring-gentle-e) infinite;}
+@keyframes m-fade-up{from{opacity:0;transform:translateY(var(--m-motion-distance));}to{opacity:1;transform:translateY(0);}}
+@keyframes m-fade-in{from{opacity:0;}to{opacity:1;}}
+@keyframes m-scale-in{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+@keyframes m-slide-left{from{opacity:0;transform:translateX(var(--m-motion-distance));}to{opacity:1;transform:translateX(0);}}
+@keyframes m-slide-right{from{opacity:0;transform:translateX(calc(-1 * var(--m-motion-distance)));}to{opacity:1;transform:translateX(0);}}
+@keyframes m-pop{0%{opacity:0;transform:scale(.7);}60%{transform:scale(1.04);}100%{opacity:1;transform:scale(1);}}
+@keyframes m-blur-in{from{opacity:0;filter:blur(10px);}to{opacity:1;filter:blur(0);}}
+@keyframes m-swipe{0%,100%{transform:translateX(0);}50%{transform:translateX(6px);}}
+@media (prefers-reduced-motion:reduce){.m-preview .m-el,.m-preview .m-g-swipe-hint{animation:none!important;}}
+`}</style>
 
         {issueCount > 0 && (
           <div style={{
