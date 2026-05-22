@@ -52,7 +52,6 @@ import {
   Brain,
   BookOpen as BookOpenIcon,
   Rocket,
-  Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -78,7 +77,6 @@ import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { AIStudioPanel } from "@/components/AIStudioPanel";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
-import { AgentOrchestrator } from "@/components/AgentOrchestrator";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -190,7 +188,6 @@ export const Route = createFileRoute("/projects/$projectId")({
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
   { icon: Brain, label: "AI Studio" },
-  { icon: Bot, label: "Agent Swarm" },
   { icon: Code2, label: "Code" },
   { icon: Terminal, label: "Console" },
   { icon: Database, label: "Backend" },
@@ -323,7 +320,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "agents">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1182,7 +1179,6 @@ function ProjectPage() {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
               (label === "AI Studio" && sidePanel === "aistudio") ||
-              (label === "Agent Swarm" && sidePanel === "agents") ||
               (label === "Code" && sidePanel === "code") ||
               (label === "Console" && sidePanel === "console") ||
               (label === "Backend" && sidePanel === "backend") ||
@@ -1205,8 +1201,6 @@ function ProjectPage() {
                     else setSidePanel("backend");
                   } else if (label === "AI Studio") {
                     setSidePanel("aistudio");
-                  } else if (label === "Agent Swarm") {
-                    setSidePanel("agents");
                   } else if (label === "AI & Env Keys") {
                     setSidePanel("env");
                   } else if (label === "Assets") {
@@ -2127,12 +2121,6 @@ function ProjectPage() {
             projectId={projectId}
             onClose={() => setSidePanel(null)}
           />
-        </section>
-      )}
-
-      {sidePanel === "agents" && (
-        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col overflow-hidden">
-          <AgentOrchestrator projectId={projectId} />
         </section>
       )}
 
