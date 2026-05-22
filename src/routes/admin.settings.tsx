@@ -10,6 +10,7 @@ import {
   savePreviewConfig,
   type PreviewConfig,
 } from "@/lib/preview-config";
+import { getAgentsBible, saveAgentsBible } from "@/lib/agents-md.functions";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettingsPage,
@@ -206,6 +207,9 @@ function AdminSettingsPage() {
           </div>
         </Card>
 
+        <AgentsBibleCard />
+
+
         <div className="flex items-center gap-3">
           <button
             onClick={handleSave}
@@ -289,3 +293,118 @@ function Field({
     </label>
   );
 }
+
+function AgentsBibleCard() {
+  const getFn = useServerFn(getAgentsBible);
+  const saveFn = useServerFn(saveAgentsBible);
+  const [content, setContent] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await getFn();
+        if (r.ok) {
+          setContent(r.content);
+          setFileName(r.fileName);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [getFn]);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 1_000_000) {
+      setMsg({ kind: "err", text: "File too large (max 1MB). For PDFs, paste the text below." });
+      return;
+    }
+    const text = await f.text();
+    setContent(text);
+    setFileName(f.name);
+    setMsg(null);
+  }
+
+  async function handleSave() {
+    if (!content.trim()) {
+      setMsg({ kind: "err", text: "Bible content is empty." });
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    try {
+      const r = await saveFn({ data: { content, fileName } });
+      setMsg(
+        r.ok
+          ? { kind: "ok", text: "Bible saved. New projects will use it." }
+          : { kind: "err", text: r.error },
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-6">
+      <h2 className="font-display text-xl">Agents Bible</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        The global guide used to generate <code>Agents.md</code> for every new project.
+        Upload a <code>.txt</code> or <code>.md</code> file, or paste text directly. For
+        PDFs, copy the text and paste below.
+      </p>
+
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            accept=".txt,.md,text/plain,text/markdown"
+            onChange={handleFile}
+            className="text-xs"
+          />
+          {fileName && (
+            <span className="text-xs text-muted-foreground">
+              Last file: <code>{fileName}</code>
+            </span>
+          )}
+        </div>
+
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={14}
+          placeholder={loading ? "Loading…" : "Paste the bible content here…"}
+          disabled={loading}
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono leading-relaxed disabled:opacity-60"
+        />
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Bible"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {content.length.toLocaleString()} characters
+          </span>
+          {msg && (
+            <span
+              className={
+                "text-sm " + (msg.kind === "ok" ? "text-primary" : "text-destructive")
+              }
+            >
+              {msg.text}
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+

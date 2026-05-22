@@ -78,6 +78,7 @@ import { ExportPanel } from "@/components/ExportPanel";
 import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 import { AIProviderSettings } from "@/components/AIProviderSettings";
 import { CodeEditorPanel } from "@/components/CodeEditorPanel";
+import { AgentsMdPanel } from "@/components/AgentsMdPanel";
 import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
 import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { AIStudioPanel } from "@/components/AIStudioPanel";
@@ -340,6 +341,7 @@ function ProjectPage() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [agentsMdOpen, setAgentsMdOpen] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
@@ -1067,6 +1069,15 @@ function ProjectPage() {
           >
             <Share2 className="h-3.5 w-3.5" />
             Share
+          </button>
+          <button
+            type="button"
+            onClick={() => setAgentsMdOpen(true)}
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
+            title="View Agents.md"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Agents.md
           </button>
           <button
             type="button"
@@ -2227,6 +2238,12 @@ function ProjectPage() {
           />
         </section>
       )}
+
+      <AgentsMdPanel
+        projectId={projectId}
+        open={agentsMdOpen}
+        onClose={() => setAgentsMdOpen(false)}
+      />
 
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4">

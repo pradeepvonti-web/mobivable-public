@@ -572,6 +572,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          agents_md: string | null
           attachments: Json
           backend_spec: Json
           created_at: string
@@ -587,6 +588,7 @@ export type Database = {
           visual_edits: Json
         }
         Insert: {
+          agents_md?: string | null
           attachments?: Json
           backend_spec?: Json
           created_at?: string
@@ -602,6 +604,7 @@ export type Database = {
           visual_edits?: Json
         }
         Update: {
+          agents_md?: string | null
           attachments?: Json
           backend_spec?: Json
           created_at?: string
