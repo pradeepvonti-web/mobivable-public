@@ -99,8 +99,56 @@ const GROUPS: Array<{ id: PaletteItem["group"]; label: string }> = [
   { id: "data", label: "Data" },
 ];
 
-export function ComponentPalette({ className }: { className?: string }) {
+export function ComponentPalette({
+  className,
+  variant = "compact",
+}: {
+  className?: string;
+  variant?: "compact" | "panel";
+}) {
   const [open, setOpen] = useState(true);
+  const isPanel = variant === "panel";
+
+  if (isPanel) {
+    return (
+      <div className={`text-foreground space-y-5 ${className ?? ""}`}>
+        <p className="text-xs text-muted-foreground leading-snug">
+          Drag any component onto the phone preview to add it to the current screen.
+        </p>
+        {GROUPS.map((group) => {
+          const items = ITEMS.filter((i) => i.group === group.id);
+          return (
+            <div key={group.id}>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                {group.label}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {items.map((item) => (
+                  <div
+                    key={item.type}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "copy";
+                      e.dataTransfer.setData(
+                        "application/x-mobile-element",
+                        JSON.stringify(item.build()),
+                      );
+                      e.dataTransfer.setData("text/plain", item.type);
+                    }}
+                    className="group flex flex-col gap-2 rounded-lg border border-border bg-background/60 hover:bg-accent hover:text-accent-foreground hover:border-primary/50 p-3 cursor-grab active:cursor-grabbing transition-colors"
+                    title={`Drag to add ${item.label}`}
+                  >
+                    <item.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                    <span className="text-xs font-medium leading-tight">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -141,7 +189,6 @@ export function ComponentPalette({ className }: { className?: string }) {
                           "application/x-mobile-element",
                           JSON.stringify(item.build()),
                         );
-                        // Plain-text fallback so Safari etc. fire onDrop reliably.
                         e.dataTransfer.setData("text/plain", item.type);
                       }}
                       className="group flex flex-col items-start gap-1 rounded-md border border-border bg-background/60 hover:bg-accent hover:text-accent-foreground hover:border-primary/50 px-2 py-1.5 cursor-grab active:cursor-grabbing transition-colors"
