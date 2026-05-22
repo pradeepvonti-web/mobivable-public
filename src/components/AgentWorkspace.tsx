@@ -542,7 +542,7 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
         <div className="flex items-center gap-1 rounded-full border border-border bg-card p-0.5 w-fit">
           {(["timeline", "feed"] as const).map(v => (
             <button key={v} onClick={() => setViewMode(v)} className={`rounded-full px-3 py-1 text-[10px] font-mono uppercase tracking-widest transition-colors ${viewMode === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              {v === "timeline" ? "Timeline" : "Feed"}
+              {v === "timeline" ? "Status" : "Team Chat"}
             </button>
           ))}
         </div>
