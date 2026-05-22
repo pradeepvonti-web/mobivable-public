@@ -79,9 +79,12 @@ Generate the full source code now:`;
     }
 
     try {
-      const response = await fetch(`https://llm.pixlab.io/coder?key=${encodeURIComponent(apiKey)}`, {
+      const response = await fetch("https://llm.pixlab.io/coder", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": apiKey,
+        },
         body: JSON.stringify({
           messages: [{ role: "user", content: prompt }],
           format: "markdown",
