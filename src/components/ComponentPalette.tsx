@@ -50,7 +50,7 @@ const ITEMS: PaletteItem[] = [
   } as MElement) },
   { type: "marquee", label: "Marquee", group: "primitive", icon: Megaphone, build: () => ({
     type: "marquee",
-    props: { items: ["NEW DROP", "FREE SHIPPING", "LIMITED EDITION"], speed: 40 },
+    props: { items: ["NEW DROP", "FREE SHIPPING", "LIMITED EDITION"], speed: "medium" },
   } as MElement) },
   { type: "hero-banner", label: "Hero Banner", group: "primitive", icon: ImageIcon, build: () => ({
     type: "hero-banner",
