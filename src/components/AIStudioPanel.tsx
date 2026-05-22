@@ -88,12 +88,22 @@ export function AIStudioPanel({
   const [paletteResult, setPaletteResult] = useState<PaletteResult | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<string | null>(null);
 
+  // PixLab state
+  const [pixMode, setPixMode] = useState<"gen" | "bgremove" | "filter">("gen");
+  const [pixPrompt, setPixPrompt] = useState("");
+  const [pixImageUrl, setPixImageUrl] = useState("");
+  const [pixFilter, setPixFilter] = useState<"blur" | "grayscale" | "oilpaint" | "sepia" | "sharpen" | "edge" | "emboss" | "invert">("oilpaint");
+  const [pixResult, setPixResult] = useState<string | null>(null);
+
   const fnGenerate = useServerFn(aiGenerate);
   const fnResearch = useServerFn(aiResearch);
   const fnReview = useServerFn(aiCodeReview);
   const fnDebug = useServerFn(aiDebug);
   const fnPalette = useServerFn(aiPalette);
   const fnOptimize = useServerFn(aiOptimize);
+  const fnPixGen = useServerFn(pixlabGenerate);
+  const fnPixBg = useServerFn(pixlabBgRemove);
+  const fnPixFilter = useServerFn(pixlabFilter);
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
