@@ -1216,6 +1216,11 @@ function ProjectPage() {
             );
           })}
         </div>
+        {isReady && (
+          <div className="shrink-0 border-t border-border p-2">
+            <ComponentPalette />
+          </div>
+        )}
       </aside>
 
       {/* Chat thread */}
