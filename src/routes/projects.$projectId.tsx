@@ -372,8 +372,9 @@ function ProjectPage() {
     });
   };
   const [messages, setMessages] = useState<
-    { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
+    { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string }[]
   >([]);
+  const [teamBanner, setTeamBanner] = useState<{ phaseLabel: string; agents: { role: AgentRole; name: string }[] } | null>(null);
   const [input, setInput] = useState("");
   const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
   const [plusOpen, setPlusOpen] = useState(false);
