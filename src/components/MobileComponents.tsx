@@ -420,25 +420,33 @@ export function MobileToggle({ label, checked, subtitle }: { label: string; chec
 
 /* ─── Carousel ───────────────────────────────────────── */
 export function MobileCarousel({ items, height = 140 }: {
-  items: Array<{ title: string; subtitle?: string; gradient?: string }>;
+  items: Array<{ title: string; subtitle?: string; gradient?: string; image?: string }>;
   height?: number;
 }) {
   return (
     <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
       {(items ?? []).map((item, i) => (
         <div key={i} style={{
-          minWidth: 200, height, borderRadius: 14, padding: 16,
+          minWidth: 220, height, borderRadius: "var(--m-radius-lg, 14px)", padding: 16,
           background: item.gradient ?? `linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))`,
           display: "flex", flexDirection: "column", justifyContent: "flex-end",
-          flexShrink: 0, color: "#fff",
+          flexShrink: 0, color: "#fff", position: "relative", overflow: "hidden",
+          boxShadow: "var(--m-shadow-md)",
         }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</div>
-          {item.subtitle && <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{item.subtitle}</div>}
+          {item.image && (
+            <>
+              <img src={item.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.7) 100%)" }} />
+            </>
+          )}
+          <div style={{ position: "relative", fontSize: 15, fontWeight: 700, fontFamily: "var(--m-font-heading)" }}>{item.title}</div>
+          {item.subtitle && <div style={{ position: "relative", fontSize: 10, opacity: 0.9, marginTop: 2 }}>{item.subtitle}</div>}
         </div>
       ))}
     </div>
   );
 }
+
 
 /* ─── Rating Stars ───────────────────────────────────── */
 export function MobileRating({ value, max = 5, label, size = "md" }: { value: number; max?: number; label?: string; size?: "sm" | "md" | "lg" }) {
