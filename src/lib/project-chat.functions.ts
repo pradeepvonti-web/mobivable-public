@@ -8,9 +8,7 @@ import { routeMessageToAgents, advancePhase, initProjectPhases, SDLC_PHASES, typ
 const DEFAULT_SYSTEM =
   "You are a senior mobile product designer + engineer collaborating with the user " +
   "to iteratively design and build a mobile application. Respond in concise, " +
-  "actionable markdown. When the user asks for changes, describe the next screens, " +
-  "components, data, and UI tweaks you would make. Keep replies tight (under ~250 words) " +
-  "and use bullet lists, short headers, and code only when truly helpful.";
+  "actionable markdown.";
 
 function parseSSE(chunk: string, leftover: { buf: string }): string[] {
   const deltas: string[] = [];
@@ -29,7 +27,7 @@ function parseSSE(chunk: string, leftover: { buf: string }): string[] {
       const piece = json.choices?.[0]?.delta?.content;
       if (piece) deltas.push(piece);
     } catch {
-      /* ignore malformed line */
+      /* ignore */
     }
   }
   return deltas;
@@ -54,26 +52,13 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       .select("id, prompt, model, user_id, result, current_phase")
       .eq("id", data.projectId)
       .maybeSingle();
-    if (pErr) {
-      yield { type: "error" as const, error: pErr.message };
-      return;
-    }
-    if (!project) {
-      yield { type: "error" as const, error: "Project not found" };
-      return;
-    }
-    if (project.user_id !== userId) {
-      yield { type: "error" as const, error: "Forbidden" };
-      return;
-    }
+    if (pErr) { yield { type: "error" as const, error: pErr.message }; return; }
+    if (!project) { yield { type: "error" as const, error: "Project not found" }; return; }
+    if (project.user_id !== userId) { yield { type: "error" as const, error: "Forbidden" }; return; }
 
-    // Auto-initialize SDLC phases if not set
     if (!project.current_phase) {
-      try {
-        await initProjectPhases({ data: { projectId: project.id } });
-      } catch { /* non-fatal */ }
+      try { await initProjectPhases({ data: { projectId: project.id } }); } catch { /* */ }
     }
-
 
     const { data: history } = await supabase
       .from("project_messages")
@@ -87,138 +72,152 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       role: "user",
       content: data.content,
     });
-    if (insErr) {
-      yield { type: "error" as const, error: insErr.message };
-      return;
-    }
+    if (insErr) { yield { type: "error" as const, error: insErr.message }; return; }
 
-    // Route message to relevant agent(s) based on current phase
     const currentPhase = (project.current_phase as SDLCPhase) ?? 'requirements';
     const routing = routeMessageToAgents(data.content, currentPhase);
 
-    // If phase advance requested
     if (routing.shouldAdvance) {
       try {
         const advResult = await advancePhase({ data: { projectId: project.id } });
-        if (advResult.ok) {
-          yield { type: 'phase_advanced' as const, phase: advResult.phase };
-        }
-      } catch { /* non-fatal */ }
+        if (advResult.ok) yield { type: 'phase_advanced' as const, phase: advResult.phase };
+      } catch { /* */ }
     }
 
-    // Determine which agent to respond as
-    const respondingAgent = routing.agents.length > 0
-      ? AGENTS[routing.agents[0]]
-      : null;
-    const respondingRole = routing.agents[0] ?? null;
+    // Decide the team: explicit pick → routed → phase lead(s)
+    let team: AgentRole[];
+    if (data.agentRole) {
+      team = [data.agentRole];
+    } else if (routing.agents.length > 0) {
+      team = routing.agents.slice(0, 3);
+    } else if (currentPhase !== 'completed' && currentPhase in SDLC_PHASES) {
+      team = SDLC_PHASES[currentPhase].agents.slice(0, 2);
+    } else {
+      team = [];
+    }
 
-    // Use explicitly selected agent, or routed agent, or default
-    const agent = data.agentRole ? AGENTS[data.agentRole] : respondingAgent;
-    const activeRole = data.agentRole ?? respondingRole;
-    const systemPrompt = agent
-      ? `${agent.system}\n\nYou are speaking as the "${agent.name}" agent on this project (SDLC Phase: ${SDLC_PHASES[currentPhase]?.label ?? currentPhase}). Stay in role. Be concise (under ~250 words), markdown, bullets, and code only when truly helpful. Reference the current phase context.`
-      : DEFAULT_SYSTEM;
-    const messages: AIMessage[] = [
-      { role: "system", content: systemPrompt },
-      {
-        role: "system",
-        content: `App idea: ${project.prompt}${project.result ? `\n\nInitial plan:\n${project.result}` : ""}`,
-      },
-      ...(history ?? []).map((m) => ({ role: m.role as AIMessage["role"], content: m.content })),
-      { role: "user", content: data.content },
-    ];
+    yield {
+      type: 'team_assembled' as const,
+      phase: currentPhase,
+      phaseLabel: SDLC_PHASES[currentPhase]?.label ?? String(currentPhase),
+      agents: team.map((r) => ({ role: r, name: AGENTS[r].name })),
+    };
 
-    let buffer = "";
-    let upstream: Response | null = null;
-    try {
-      const streamResult = await callAIStreaming(messages, project.model);
-      if (!streamResult.ok) {
-        yield { type: "error" as const, error: streamResult.error };
-        return;
-      }
-      upstream = streamResult.response;
+    const baseHistory: AIMessage[] = (history ?? []).map((m) => ({
+      role: m.role as AIMessage["role"],
+      content: m.content,
+    }));
 
-      if (!upstream.body) {
-        yield { type: "error" as const, error: "No response body from AI provider" };
-        return;
-      }
+    // Collect each agent's reply so the next agent sees teammates' thoughts.
+    const teamReplies: { role: AgentRole; name: string; content: string }[] = [];
 
-      const leftover = { buf: "" };
-      for await (const chunk of upstream.body.pipeThrough(
-        new TextDecoderStream(),
-      )) {
-        for (const delta of parseSSE(chunk, leftover)) {
-          buffer += delta;
-          yield { type: "delta" as const, delta };
-        }
-      }
-    } catch (e) {
+    const runAgent = async function* (role: AgentRole | null) {
+      const agent = role ? AGENTS[role] : null;
+      const phaseLabel = SDLC_PHASES[currentPhase]?.label ?? currentPhase;
+
+      const teamContext = teamReplies.length
+        ? `\n\nYour teammates already responded in this turn:\n${teamReplies
+            .map((t) => `### ${t.name}\n${t.content}`)
+            .join("\n\n")}\n\nBuild on their points without repeating them. Stay strictly in your own role.`
+        : "";
+
+      const systemPrompt = agent
+        ? `${agent.system}\n\nYou are the "${agent.name}" agent collaborating with the rest of the team on this mobile project (current SDLC phase: ${phaseLabel}). Speak in first person. Be concise (under ~180 words), use markdown bullets, and end with a one-line handoff if another teammate should act next.${teamContext}`
+        : DEFAULT_SYSTEM;
+
+      const messages: AIMessage[] = [
+        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: `App idea: ${project.prompt}${project.result ? `\n\nCurrent plan:\n${project.result}` : ""}`,
+        },
+        ...baseHistory,
+        { role: "user", content: data.content },
+      ];
+
       yield {
-        type: "error" as const,
-        error: e instanceof Error ? e.message : "Stream failed",
+        type: 'agent_start' as const,
+        role: role ?? 'summary_agent',
+        name: agent?.name ?? 'Assistant',
+        phase: currentPhase,
       };
-      return;
-    } finally {
-      if (buffer.trim().length > 0) {
-        // Prefix with agent badge if an agent responded
-        const agentPrefix = activeRole && agent
-          ? `**🤖 ${agent.name}** *(${SDLC_PHASES[currentPhase]?.label ?? currentPhase})*\n\n`
-          : '';
-        await supabase.from("project_messages").insert({
-          project_id: project.id,
-          user_id: userId,
-          role: "assistant",
-          content: agentPrefix + buffer,
-        });
+
+      let buffer = "";
+      try {
+        const streamResult = await callAIStreaming(messages, project.model);
+        if (!streamResult.ok) {
+          yield { type: 'agent_error' as const, role: role ?? 'summary_agent', error: streamResult.error };
+          return;
+        }
+        const upstream = streamResult.response;
+        if (!upstream.body) {
+          yield { type: 'agent_error' as const, role: role ?? 'summary_agent', error: 'No response body' };
+          return;
+        }
+        const leftover = { buf: "" };
+        for await (const chunk of upstream.body.pipeThrough(new TextDecoderStream())) {
+          for (const delta of parseSSE(chunk, leftover)) {
+            buffer += delta;
+            yield { type: 'delta' as const, role: role ?? 'summary_agent', delta };
+          }
+        }
+      } catch (e) {
+        yield {
+          type: 'agent_error' as const,
+          role: role ?? 'summary_agent',
+          error: e instanceof Error ? e.message : 'Stream failed',
+        };
+      } finally {
+        const trimmed = buffer.trim();
+        if (trimmed.length > 0) {
+          if (role) teamReplies.push({ role, name: agent?.name ?? role, content: trimmed });
+          const marker = role ? `<!--agent:${role}-->\n` : "";
+          await supabase.from("project_messages").insert({
+            project_id: project.id,
+            user_id: userId,
+            role: "assistant",
+            content: marker + trimmed,
+          });
+        }
+        yield { type: 'agent_done' as const, role: role ?? 'summary_agent' };
+      }
+    };
+
+    // Fan out: each agent responds in sequence, seeing prior teammates.
+    if (team.length === 0) {
+      yield* runAgent(null);
+    } else {
+      for (const role of team) {
+        yield* runAgent(role);
       }
     }
 
-    // Second pass: rewrite the project plan/result to reflect the user's request,
-    // so the preview actually updates after each chat turn.
-    if (buffer.trim().length > 0) {
+    // Plan rewrite uses combined team output so the preview reflects everyone.
+    const combined = teamReplies.map((t) => `### ${t.name}\n${t.content}`).join("\n\n");
+    if (combined.length > 0) {
       try {
-        const codeGenPrompt = await import("@/lib/code-gen").then(m => m.CODE_GEN_SYSTEM_PROMPT);
+        const codeGenPrompt = await import("@/lib/code-gen").then((m) => m.CODE_GEN_SYSTEM_PROMPT);
         const rewritePrompt =
           `App idea: ${project.prompt}\n\n` +
           `Current app JSON:\n${project.result ?? "(none yet)"}\n\n` +
-          `Conversation so far:\n${(history ?? [])
-            .map((m) => `${m.role}: ${m.content}`)
-            .join("\n\n")}\n\n` +
           `Latest user request:\n${data.content}\n\n` +
-          `Assistant reply:\n${buffer}\n\n` +
-          `Now generate the COMPLETE updated mobile app as a JSON object. Include ALL screens and elements, reflecting the latest changes.`;
-
+          `Team responses:\n${combined}\n\n` +
+          `Now generate the COMPLETE updated mobile app as a JSON object reflecting the team's decisions.`;
         const rewriteResult = await callAI(codeGenPrompt, rewritePrompt, project.model);
-
-        if (!rewriteResult.ok) {
-          console.error("[project-chat] plan rewrite failed", {
-            projectId: project.id,
-            error: rewriteResult.error,
-          });
-        } else {
-          const nextResult = rewriteResult.text.length >= 50 ? rewriteResult.text : buffer.trim();
-
-          const { error: updateErr } = await supabase
-            .from("projects")
-            .update({ result: nextResult, status: "ready", error_text: null })
-            .eq("id", project.id);
-
-          if (updateErr) {
-            console.error("[project-chat] failed to persist updated plan", {
-              projectId: project.id,
-              error: updateErr.message,
-            });
-          } else {
-            yield { type: "project_updated" as const };
+        if (rewriteResult.ok) {
+          const nextResult = rewriteResult.text.length >= 50 ? rewriteResult.text : project.result;
+          if (nextResult && nextResult !== project.result) {
+            const { error: updateErr } = await supabase
+              .from("projects")
+              .update({ result: nextResult, status: "ready", error_text: null })
+              .eq("id", project.id);
+            if (!updateErr) yield { type: "project_updated" as const };
           }
         }
       } catch (error) {
-        console.error("[project-chat] unexpected rewrite error", {
-          projectId: project.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        console.error("[project-chat] rewrite error", error);
       }
     }
 
-    yield { type: "done" as const, content: buffer };
+    yield { type: "done" as const };
   });
