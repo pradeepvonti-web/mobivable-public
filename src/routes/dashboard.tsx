@@ -11,6 +11,12 @@ import {
   changeSubscriptionPlan,
 } from "@/utils/payments.functions";
 import { AppPromptComposer } from "@/components/AppPromptComposer";
+import {
+  Smartphone, Zap, MessageSquare, BarChart3, Search, Filter,
+  MoreHorizontal, Trash2, Copy, Star, StarOff, Sparkles,
+  ShoppingCart, Users, Dumbbell, UtensilsCrossed, Briefcase, Palette,
+} from "lucide-react";
+import { toast } from "sonner";
 
 type Sub = {
   status: string;
@@ -64,6 +70,12 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "building" | "ready" | "error">("all");
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("fav-projects") ?? "[]")); } catch { return new Set(); }
+  });
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const portal = useServerFn(openCustomerPortal);
   const changePlan = useServerFn(changeSubscriptionPlan);
@@ -135,6 +147,49 @@ function DashboardPage() {
     ? new Date(sub.current_period_end).toLocaleDateString()
     : null;
 
+  const toggleFav = (id: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem("fav-projects", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const duplicateProject = async (p: ProjectRow) => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const { data } = await supabase.from("projects").insert({
+      user_id: u.user.id, name: `${p.name} (copy)`, prompt: p.prompt, model: p.model, status: "draft",
+    }).select("id").single();
+    if (data) { toast.success("Project duplicated!"); void load(); }
+  };
+
+  const deleteProject = async (id: string) => {
+    await supabase.from("projects").delete().eq("id", id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+    toast("Project deleted");
+  };
+
+  const filteredProjects = projects
+    .filter(p => statusFilter === "all" || p.status === statusFilter)
+    .filter(p => !search.trim() || p.name.toLowerCase().includes(search.toLowerCase()) || p.prompt.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const aFav = favorites.has(a.id) ? 1 : 0;
+      const bFav = favorites.has(b.id) ? 1 : 0;
+      return bFav - aFav;
+    });
+
+  const statusCounts = {
+    all: projects.length,
+    building: projects.filter(p => p.status === "building").length,
+    ready: projects.filter(p => p.status === "ready" || p.status === "done").length,
+    error: projects.filter(p => p.status === "error").length,
+  };
+
+  const planQuotaNum = profile?.plan === "pro" ? Infinity : profile?.plan === "starter" ? 5 : 1;
+  const publishedCount = projects.filter(p => p.status === "ready" || p.status === "done").length;
+
   const tierOptions: { id: string; label: string }[] = [
     { id: "starter_monthly", label: "Starter · Monthly · $29" },
     { id: "starter_yearly", label: "Starter · Yearly · $276" },
@@ -151,51 +206,138 @@ function DashboardPage() {
       <div className="space-y-12 max-w-4xl mx-auto">
         <AppPromptComposer />
 
-        <section className="border border-border p-8">
-          <div className="flex items-baseline justify-between mb-6">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Your apps
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {projects.length} total
-            </p>
+        {/* ─── Quick Stats Bar ─── */}
+        {!loading && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { icon: Smartphone, label: "Total Apps", value: projects.length, color: "text-primary" },
+              { icon: Zap, label: "Building", value: statusCounts.building, color: "text-amber-500" },
+              { icon: BarChart3, label: "Published", value: publishedCount, color: "text-emerald-500" },
+              { icon: MessageSquare, label: "Plan Usage", value: planQuotaNum === Infinity ? "∞" : `${publishedCount}/${planQuotaNum}`, color: "text-violet-500" },
+            ].map(s => (
+              <div key={s.label} className="border border-border p-5 flex items-center gap-4">
+                <div className={`h-10 w-10 rounded-lg bg-foreground/5 grid place-items-center ${s.color}`}>
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-display text-2xl">{s.value}</p>
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{s.label}</p>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* ─── Your Apps with Search & Filter ─── */}
+        <section className="border border-border p-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Your apps · {filteredProjects.length} of {projects.length}
+            </p>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 border border-border px-3 py-2 flex-1 sm:flex-initial sm:w-52">
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search apps..." className="bg-transparent text-xs outline-none w-full" />
+              </div>
+              <div className="flex border border-border">
+                {(["all", "building", "ready", "error"] as const).map(f => (
+                  <button key={f} type="button" onClick={() => setStatusFilter(f)}
+                    className={`px-3 py-2 text-[9px] font-mono uppercase tracking-widest transition-colors ${statusFilter === f ? "bg-primary text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                    {f}{statusCounts[f] > 0 ? ` (${statusCounts[f]})` : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {loading ? (
-            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
-              [···] Loading
-            </p>
-          ) : projects.length === 0 ? (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              No apps yet. Describe one above to get started.
-            </p>
+            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">[···] Loading</p>
+          ) : filteredProjects.length === 0 && projects.length === 0 ? (
+            /* ─── Empty State ─── */
+            <div className="text-center py-12">
+              <div className="text-5xl mb-4">📱</div>
+              <h3 className="font-display text-2xl uppercase tracking-tight mb-2">No apps yet</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">Describe your app idea above, or start from a template below to get building in seconds.</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No apps match your search.</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
-              {projects.map((p) => (
-                <Link
-                  key={p.id}
-                  to="/projects/$projectId"
-                  params={{ projectId: p.id }}
-                  className="block border border-border p-5 hover:border-primary transition-colors group"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-display text-lg uppercase tracking-tight group-hover:text-primary truncate">
-                      {p.name || "Untitled"}
-                    </h3>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
-                      {p.status}
-                    </span>
+              {filteredProjects.map(p => {
+                const isFav = favorites.has(p.id);
+                const statusColors: Record<string, string> = { building: "bg-amber-500/15 text-amber-500", ready: "bg-emerald-500/15 text-emerald-500", done: "bg-emerald-500/15 text-emerald-500", error: "bg-red-500/15 text-red-500", draft: "bg-muted text-muted-foreground" };
+                const sc = statusColors[p.status] ?? statusColors.draft;
+                return (
+                  <div key={p.id} className="relative border border-border hover:border-primary transition-colors group">
+                    <Link to="/projects/$projectId" params={{ projectId: p.id }} className="block p-5">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 grid place-items-center shrink-0">
+                            <Smartphone className="h-4 w-4 text-primary" />
+                          </div>
+                          <h3 className="font-display text-lg uppercase tracking-tight group-hover:text-primary truncate">{p.name || "Untitled"}</h3>
+                        </div>
+                        <span className={`font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0 ${sc}`}>{p.status}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">{p.prompt}</p>
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {new Date(p.updated_at).toLocaleDateString()} · {p.model}
+                      </p>
+                    </Link>
+                    {/* Action buttons */}
+                    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="button" onClick={e => { e.preventDefault(); toggleFav(p.id); }} className="h-7 w-7 grid place-items-center rounded hover:bg-primary/10" title={isFav ? "Unpin" : "Pin"}>
+                        {isFav ? <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /> : <StarOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </button>
+                      <div className="relative">
+                        <button type="button" onClick={e => { e.preventDefault(); setOpenMenu(openMenu === p.id ? null : p.id); }} className="h-7 w-7 grid place-items-center rounded hover:bg-primary/10">
+                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        {openMenu === p.id && (
+                          <div className="absolute right-0 top-8 w-36 rounded-lg border border-border bg-card shadow-lg z-20 overflow-hidden">
+                            <button type="button" onClick={e => { e.preventDefault(); void duplicateProject(p); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-primary/10"><Copy className="h-3 w-3" /> Duplicate</button>
+                            <button type="button" onClick={e => { e.preventDefault(); void deleteProject(p.id); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /> Delete</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
-                    {p.prompt}
-                  </p>
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {new Date(p.updated_at).toLocaleDateString()} · {p.model}
-                  </p>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
+
+        {/* ─── App Templates ─── */}
+        {!loading && projects.length < 3 && (
+          <section className="border border-border p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Quick Start</p>
+                <h3 className="font-display text-xl uppercase tracking-tight">Start from a Template</h3>
+              </div>
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { icon: ShoppingCart, label: "E-Commerce", prompt: "Build a modern e-commerce app with product catalog, cart, checkout, user accounts, and order tracking. Use a clean minimal design with a dark theme.", color: "text-emerald-500" },
+                { icon: Users, label: "Social Network", prompt: "Create a social networking app with user profiles, a news feed, post creation with images, likes, comments, and direct messaging. Modern design with blue accents.", color: "text-blue-500" },
+                { icon: Dumbbell, label: "Fitness Tracker", prompt: "Build a fitness tracker app with workout logging, progress charts, calorie counting, exercise library, and weekly goal tracking. Athletic design with green accents.", color: "text-lime-500" },
+                { icon: UtensilsCrossed, label: "Food Delivery", prompt: "Create a food delivery app with restaurant browsing, menu viewing, cart management, order tracking with map, and payment. Warm colors with orange accents.", color: "text-orange-500" },
+                { icon: Briefcase, label: "Task Manager", prompt: "Build a project task manager app with kanban boards, task creation, due dates, labels, team assignments, and progress tracking. Professional design with violet theme.", color: "text-violet-500" },
+                { icon: Palette, label: "Portfolio", prompt: "Create a creative portfolio app to showcase design work, photography, and projects. With galleries, about section, contact form, and client testimonials. Minimal dark theme.", color: "text-pink-500" },
+              ].map(t => (
+                <button key={t.label} type="button"
+                  onClick={() => { const el = document.querySelector("textarea"); if (el) { (el as HTMLTextAreaElement).value = t.prompt; el.dispatchEvent(new Event("input", { bubbles: true })); } }}
+                  className="border border-border p-5 text-left hover:border-primary transition-colors group">
+                  <t.icon className={`h-5 w-5 ${t.color} mb-3`} />
+                  <p className="font-display text-sm uppercase tracking-tight group-hover:text-primary">{t.label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{t.prompt.slice(0, 60)}...</p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {isPastDue && (
           <div className="border border-destructive/50 bg-destructive/10 p-5">
