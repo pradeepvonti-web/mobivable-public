@@ -59,6 +59,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { generateProject } from "@/lib/generate-project.functions";
+import { generateAppImages } from "@/lib/app-images.functions";
+
 import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
@@ -517,6 +519,8 @@ function ProjectPage() {
 
 
 
+  const generateImagesFn = useServerFn(generateAppImages);
+
   async function runGeneration() {
     if (generating) return;
     setGenerating(true);
@@ -528,8 +532,13 @@ function ProjectPage() {
     } finally {
       setGenerating(false);
       await reloadProject();
+      // Kick off image generation in the background; reload when done.
+      generateImagesFn({ data: { projectId } })
+        .then(() => reloadProject())
+        .catch((e) => console.error("[appImages]", e));
     }
   }
+
 
   async function loadMessages() {
     const msgSelect = aliasedSelect({
