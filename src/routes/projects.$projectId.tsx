@@ -446,6 +446,28 @@ function ProjectPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
+  const exportExpoFn = useServerFn(exportExpoProject);
+
+  const handleExportExpo = async () => {
+    setExportingExpo(true);
+    try {
+      const res = await exportExpoFn({ data: { projectId } });
+      if (res.ok) {
+        const a = document.createElement("a");
+        a.href = res.url;
+        a.download = res.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        alert(`Export failed: ${res.error}`);
+      }
+    } catch (e) {
+      alert(`Export failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setExportingExpo(false);
+    }
+  };
   const triggeredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef(false);
