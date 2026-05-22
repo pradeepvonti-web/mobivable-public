@@ -55,9 +55,19 @@ export type MElement =
   | MStepIndicator
   | MCountdown
   | MGridCards
-  | MHeroBanner;
+  | MHeroBanner
+  | MGlassCard
+  | MGradientMeshBg
+  | MParallaxHero
+  | MMarquee
+  | MStatCardXL
+  | MFeatureShowcase
+  | MTestimonial
+  | MPricingCard
+  | MOnboardingSlide;
 
-type BaseElement = { id?: string };
+type BaseElement = { id?: string; /** Optional grid span in bento-grid layouts: 1 (default) or 2 (full row). */ span?: 1 | 2 };
+
 
 export type MGreeting = BaseElement & {
   type: "greeting";
@@ -311,6 +321,13 @@ export type MCarousel = BaseElement & {
 
 
 // ─── Screen ─────────────────────────────────────────────────────
+export type MScreenLayout =
+  | "stack"        // default vertical scroll
+  | "split-hero"   // first element full-bleed hero, rest stacked
+  | "bento-grid"   // asymmetric grid honoring element.span
+  | "magazine"     // first element featured large, remainder in 2-col grid
+  | "full-bleed";  // no horizontal padding; edge-to-edge
+
 export type MScreen = {
   id: string;
   title: string;
@@ -318,7 +335,10 @@ export type MScreen = {
   elements: MElement[];
   scrollable?: boolean;
   headerStyle?: "default" | "large" | "transparent";
+  /** Composition template for the screen body. Defaults to "stack". */
+  layout?: MScreenLayout;
 };
+
 
 // ─── Navigation ─────────────────────────────────────────────────
 export type MNavItem = {
