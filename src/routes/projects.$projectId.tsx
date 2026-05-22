@@ -3087,8 +3087,64 @@ function ProjectPage() {
                       </div>
                     );
                   }
-                  const schema = project?.result ? parseAppSchema(project.result) : null;
-                  return <MobileAppRenderer key={previewKey} schema={schema ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK} />;
+                  const parsed = project?.result ? parseAppSchema(project.result) : null;
+                  // Reset live edits when the underlying generated result changes.
+                  if (project?.result && project.result !== liveSchemaResultId) {
+                    queueMicrotask(() => {
+                      setLiveSchemaResultId(project.result);
+                      setLiveSchema(null);
+                    });
+                  }
+                  const baseSchema = liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+                  const handleDrop = (e: React.DragEvent) => {
+                    e.preventDefault();
+                    const raw = e.dataTransfer.getData("application/x-mobile-element");
+                    if (!raw) return;
+                    try {
+                      const el = JSON.parse(raw) as MElement;
+                      const screenId = activeScreenId || baseSchema.screens[0]?.id;
+                      const next: MobileAppSchema = {
+                        ...baseSchema,
+                        screens: baseSchema.screens.map((s) =>
+                          s.id === screenId ? { ...s, elements: [...s.elements, el] } : s,
+                        ),
+                      };
+                      setLiveSchema(next);
+                      setDropFlash(true);
+                      setTimeout(() => setDropFlash(false), 350);
+                    } catch {
+                      /* ignore malformed payload */
+                    }
+                  };
+                  return (
+                    <div
+                      style={{ position: "relative", height: "100%", width: "100%" }}
+                      onDragOver={(e) => {
+                        if (e.dataTransfer.types.includes("application/x-mobile-element")) {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "copy";
+                        }
+                      }}
+                      onDrop={handleDrop}
+                    >
+                      <MobileAppRenderer
+                        key={previewKey}
+                        schema={baseSchema}
+                        onScreenChange={setActiveScreenId}
+                      />
+                      {dropFlash && (
+                        <div
+                          style={{
+                            position: "absolute", inset: 0, pointerEvents: "none",
+                            border: "3px solid hsl(var(--primary))",
+                            borderRadius: 18,
+                            animation: "dropFlashAnim 350ms ease-out",
+                          }}
+                        />
+                      )}
+                      <style>{`@keyframes dropFlashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }`}</style>
+                    </div>
+                  );
                 })()}
               </div>
             )}
