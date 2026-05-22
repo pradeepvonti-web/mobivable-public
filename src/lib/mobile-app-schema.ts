@@ -400,10 +400,40 @@ export type MHeroBanner = BaseElement & {
   };
 };
 
+// ─── Backend (per-project Supabase) ─────────────────────────────
+export type MColumnType =
+  | "text" | "int" | "float" | "bool" | "timestamp" | "jsonb" | "uuid";
+
+export type MColumn = {
+  name: string;
+  type: MColumnType;
+  nullable?: boolean;
+  default?: string;
+};
+
+export type MTableRls = "owner" | "public_read" | "none";
+
+export type MTable = {
+  name: string;
+  columns: MColumn[];
+  rls?: MTableRls;
+};
+
+export type MBackend = {
+  tables?: MTable[];
+  auth?: {
+    providers?: Array<"email" | "google" | "apple">;
+    requireEmailConfirm?: boolean;
+  };
+  storage?: Array<{ bucket: string; public?: boolean }>;
+  push?: boolean;
+};
+
 // ─── Full App Schema ────────────────────────────────────────────
 export type MobileAppSchema = {
   name: string;
   theme: string | import("./mobile-theme").MobileTheme;
   screens: MScreen[];
   navigation: MNavigation;
+  backend?: MBackend;
 };
