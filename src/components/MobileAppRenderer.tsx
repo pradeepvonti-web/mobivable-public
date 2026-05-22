@@ -240,19 +240,69 @@ function RenderElement({ el }: { el: MElement }) {
 }
 
 
-/** Renders a full screen */
+/** Renders a full screen using the chosen composition template. */
 function RenderScreen({ screen }: { screen: MScreen }) {
+  const elements = screen.elements ?? [];
+  const layout = screen.layout ?? "stack";
+
+  if (layout === "full-bleed") {
+    return (
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0 }}>
+        {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+      </div>
+    );
+  }
+
+  if (layout === "split-hero") {
+    const [hero, ...rest] = elements;
+    return (
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        {hero && <div style={{ padding: 0 }}><RenderElement el={hero} /></div>}
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "magazine") {
+    const [feature, ...rest] = elements;
+    return (
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {feature && <RenderElement el={feature} />}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "bento-grid") {
+    return (
+      <div style={{
+        flex: 1, overflowY: "auto", padding: "12px 16px",
+        display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
+      }}>
+        {elements.map((el, i) => (
+          <div key={el.id ?? i} style={{ gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}>
+            <RenderElement el={el} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // default: stack
   return (
     <div style={{
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      {(screen.elements ?? []).map((el, i) => (
-        <RenderElement key={el.id ?? i} el={el} />
-      ))}
+      {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
     </div>
   );
 }
+
 
 /** Main mobile app renderer — drop-in replacement for phone frame content */
 export function MobileAppRenderer({
