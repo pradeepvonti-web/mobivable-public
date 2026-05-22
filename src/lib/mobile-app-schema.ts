@@ -66,7 +66,21 @@ export type MElement =
   | MPricingCard
   | MOnboardingSlide;
 
-type BaseElement = { id?: string; /** Optional grid span in bento-grid layouts: 1 (default) or 2 (full row). */ span?: 1 | 2 };
+export type MEntrance =
+  | "none" | "fade-up" | "fade-in" | "scale-in"
+  | "slide-left" | "slide-right" | "pop" | "blur-in";
+
+export type MGesture = "tap-scale" | "press-glow" | "swipe-hint";
+
+type BaseElement = {
+  id?: string;
+  /** Optional grid span in bento-grid layouts: 1 (default) or 2 (full row). */
+  span?: 1 | 2;
+  /** Entrance animation played when the element mounts. Defaults to fade-up. */
+  entrance?: MEntrance;
+  /** Gesture affordance hint (interactive feedback). */
+  gesture?: MGesture;
+};
 
 
 export type MGreeting = BaseElement & {
