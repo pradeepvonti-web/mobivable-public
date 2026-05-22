@@ -1072,6 +1072,15 @@ function ProjectPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAgentsMdOpen(true)}
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
+            title="View Agents.md"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Agents.md
+          </button>
+          <button
+            type="button"
             onClick={() => setPublishOpen(true)}
             className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
           >
