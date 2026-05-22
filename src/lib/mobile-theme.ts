@@ -238,6 +238,14 @@ export function themeToCSSVars(t: MobileTheme): Record<string, string> {
     "--m-shadow-lg": sh.lg,
     "--m-duration": `${m.duration}ms`,
     "--m-ease": m.easing,
+    "--m-stagger": `${m.intensity === "bold" ? 80 : m.intensity === "subtle" ? 30 : 55}ms`,
+    "--m-motion-distance": `${m.intensity === "bold" ? 22 : m.intensity === "subtle" ? 8 : 14}px`,
+    "--m-spring-snappy-d": `${m.springs?.snappy?.duration ?? 180}ms`,
+    "--m-spring-snappy-e": m.springs?.snappy?.easing ?? "cubic-bezier(0.2,0.8,0.2,1)",
+    "--m-spring-gentle-d": `${m.springs?.gentle?.duration ?? 320}ms`,
+    "--m-spring-gentle-e": m.springs?.gentle?.easing ?? "cubic-bezier(0.22,1,0.36,1)",
+    "--m-spring-bouncy-d": `${m.springs?.bouncy?.duration ?? 420}ms`,
+    "--m-spring-bouncy-e": m.springs?.bouncy?.easing ?? "cubic-bezier(0.34,1.56,0.64,1)",
   };
 }
 
