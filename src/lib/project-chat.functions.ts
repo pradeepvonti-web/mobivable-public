@@ -154,9 +154,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           yield { type: 'agent_error' as const, role: role ?? 'summary_agent', error: 'No response body' };
           return;
         }
+        const reader = upstream.body.pipeThrough(new TextDecoderStream()).getReader();
         const leftover = { buf: "" };
-        for await (const chunk of upstream.body.pipeThrough(new TextDecoderStream())) {
-          for (const delta of parseSSE(chunk, leftover)) {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          for (const delta of parseSSE(value, leftover)) {
             buffer += delta;
             yield { type: 'delta' as const, role: role ?? 'summary_agent', delta };
           }
