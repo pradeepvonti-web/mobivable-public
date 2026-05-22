@@ -10,7 +10,10 @@ import {
   BarChartComponent, SectionHeader, MobileToggle, MobileCarousel, MIcon,
   MobileRating, MobileChipGroup, NotificationCard, PriceTag,
   StepIndicator, CountdownTimer, GridCards, HeroBanner,
+  GlassCard, GradientMeshBg, ParallaxHero, Marquee, StatCardXL,
+  FeatureShowcase, Testimonial, PricingCard, OnboardingSlide,
 } from "./MobileComponents";
+
 
 /** Renders a single element from the schema */
 function RenderElement({ el }: { el: MElement }) {
@@ -205,10 +208,37 @@ function RenderElement({ el }: { el: MElement }) {
       return <GridCards {...el.props} />;
     case "hero-banner":
       return <HeroBanner {...el.props} />;
+    case "glass-card":
+      return (
+        <GlassCard {...el.props}>
+          {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
+        </GlassCard>
+      );
+    case "gradient-mesh-bg":
+      return (
+        <GradientMeshBg {...el.props}>
+          {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
+        </GradientMeshBg>
+      );
+    case "parallax-hero":
+      return <ParallaxHero {...el.props} />;
+    case "marquee":
+      return <Marquee {...el.props} />;
+    case "stat-card-xl":
+      return <StatCardXL {...el.props} />;
+    case "feature-showcase":
+      return <FeatureShowcase {...el.props} />;
+    case "testimonial":
+      return <Testimonial {...el.props} />;
+    case "pricing-card":
+      return <PricingCard {...el.props} />;
+    case "onboarding-slide":
+      return <OnboardingSlide {...el.props} />;
     default:
       return null;
   }
 }
+
 
 /** Renders a full screen */
 function RenderScreen({ screen }: { screen: MScreen }) {
