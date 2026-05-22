@@ -577,26 +577,42 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
             {isDone && <BuildSummary tasks={tasks} run={run} />}
           </div>
         ) : (
-          /* Feed view */
-          <div className="max-w-2xl mx-auto space-y-2">
-            <h3 className="font-display text-[11px] uppercase tracking-widest text-muted-foreground mb-3">Collaboration Feed</h3>
+          /* Team Chat view */
+          <div className="max-w-2xl mx-auto space-y-3">
+            <h3 className="font-display text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Team Chat</h3>
             {messages.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No messages yet…</p>
+              <p className="text-xs text-muted-foreground italic">Agents will start chatting here as they finish their work…</p>
             ) : (
-              messages.map(m => (
-                <div key={m.id} className="flex items-start gap-3 rounded-xl border border-border bg-card/60 p-3">
-                  <div className="h-7 w-7 rounded-full bg-primary/15 grid place-items-center text-primary shrink-0 mt-0.5">
-                    <Bot className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-semibold text-primary">{AGENTS[m.role as AgentRole]?.name ?? m.role}</span>
-                      <span className="text-[9px] font-mono text-muted-foreground/50">{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+              messages.map(m => {
+                const def = AGENTS[m.role as AgentRole];
+                // Highlight @Mentions
+                const parts = m.content.split(/(@[A-Z][A-Za-z/ ]+?(?=[.,!?\s]|$))/g);
+                return (
+                  <div key={m.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card/60 p-3 hover:border-primary/30 transition-colors">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 grid place-items-center text-primary shrink-0 mt-0.5 ring-1 ring-primary/20">
+                      <Bot className="h-4 w-4" />
                     </div>
-                    <p className="text-xs text-foreground/80 leading-relaxed">{m.content}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-foreground">{def?.name ?? m.role}</span>
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">{def?.short ? def.short.split(" ").slice(0, 4).join(" ") : "agent"}</span>
+                        <span className="text-[9px] font-mono text-muted-foreground/50 ml-auto">{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                      </div>
+                      <p className="text-[13px] text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                        {parts.map((p, i) =>
+                          p.startsWith("@") ? (
+                            <span key={i} className="inline-flex items-center rounded-md bg-primary/15 text-primary px-1.5 py-0.5 font-medium">
+                              {p}
+                            </span>
+                          ) : (
+                            <span key={i}>{p}</span>
+                          ),
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
