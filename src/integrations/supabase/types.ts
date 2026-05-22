@@ -570,51 +570,12 @@ export type Database = {
         }
         Relationships: []
       }
-      project_phases: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          id: string
-          phase: string
-          project_id: string
-          started_at: string | null
-          status: string
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          phase: string
-          project_id: string
-          started_at?: string | null
-          status?: string
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          phase?: string
-          project_id?: string
-          started_at?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_phases_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       projects: {
         Row: {
           agents_md: string | null
           attachments: Json
           backend_spec: Json
           created_at: string
-          current_phase: string | null
           error_text: string | null
           id: string
           model: string
@@ -631,7 +592,6 @@ export type Database = {
           attachments?: Json
           backend_spec?: Json
           created_at?: string
-          current_phase?: string | null
           error_text?: string | null
           id?: string
           model: string
@@ -648,7 +608,6 @@ export type Database = {
           attachments?: Json
           backend_spec?: Json
           created_at?: string
-          current_phase?: string | null
           error_text?: string | null
           id?: string
           model?: string
