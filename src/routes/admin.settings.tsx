@@ -10,6 +10,7 @@ import {
   savePreviewConfig,
   type PreviewConfig,
 } from "@/lib/preview-config";
+import { getAgentsBible, saveAgentsBible } from "@/lib/agents-md.functions";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettingsPage,
