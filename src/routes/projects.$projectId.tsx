@@ -2239,6 +2239,12 @@ function ProjectPage() {
         </section>
       )}
 
+      <AgentsMdPanel
+        projectId={projectId}
+        open={agentsMdOpen}
+        onClose={() => setAgentsMdOpen(false)}
+      />
+
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-4">
