@@ -2072,7 +2072,7 @@ function ProjectPage() {
             <div>
               <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Theme</label>
               <div className="flex gap-2">
-                {(["light", "dark", "system"] as const).map(t => (
+                {(["light", "dark"] as const).map(t => (
                   <button
                     key={t}
                     type="button"
