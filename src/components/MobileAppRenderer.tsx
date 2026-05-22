@@ -405,6 +405,11 @@ export function MobileAppRenderer({
     document.head.appendChild(link);
   }, [fontHref]);
 
+  // Notify parent of active screen (initial + on tab change).
+  useEffect(() => {
+    onScreenChange?.(current);
+  }, [current, onScreenChange]);
+
   return (
     <MobileErrorBoundary fallbackTitle="Preview Crashed">
       <div
