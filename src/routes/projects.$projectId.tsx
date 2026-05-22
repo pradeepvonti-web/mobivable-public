@@ -499,7 +499,7 @@ function ProjectPage() {
     setLoading(false);
     // Also load Supabase integration config for export
     try {
-      const { data: u } = await sb.auth.getUser();
+      const { data: u } = await supabase.auth.getUser();
       if (u?.user?.id) {
         const { data: integ } = await (sb as any)
           .from("project_integrations")
