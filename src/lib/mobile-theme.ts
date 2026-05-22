@@ -26,6 +26,12 @@ export type MobileMotion = {
   duration: number;            // ms
   easing: string;              // cubic-bezier
   intensity: "subtle" | "medium" | "bold";
+  /** Optional named spring presets the AI/renderer can reference. */
+  springs?: {
+    snappy?:   { duration: number; easing: string };
+    gentle?:   { duration: number; easing: string };
+    bouncy?:   { duration: number; easing: string };
+  };
 };
 
 export type MobileTheme = {
@@ -72,9 +78,14 @@ const DEFAULT_SHADOWS: MobileShadows = {
   lg: "0 20px 50px rgba(0,0,0,0.28)",
 };
 const DEFAULT_MOTION: MobileMotion = {
-  duration: 220,
-  easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+  duration: 260,
+  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
   intensity: "medium",
+  springs: {
+    snappy: { duration: 180, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+    gentle: { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    bouncy: { duration: 420, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+  },
 };
 
 export const MOBILE_THEMES: Record<string, MobileTheme> = {
@@ -227,6 +238,14 @@ export function themeToCSSVars(t: MobileTheme): Record<string, string> {
     "--m-shadow-lg": sh.lg,
     "--m-duration": `${m.duration}ms`,
     "--m-ease": m.easing,
+    "--m-stagger": `${m.intensity === "bold" ? 80 : m.intensity === "subtle" ? 30 : 55}ms`,
+    "--m-motion-distance": `${m.intensity === "bold" ? 22 : m.intensity === "subtle" ? 8 : 14}px`,
+    "--m-spring-snappy-d": `${m.springs?.snappy?.duration ?? 180}ms`,
+    "--m-spring-snappy-e": m.springs?.snappy?.easing ?? "cubic-bezier(0.2,0.8,0.2,1)",
+    "--m-spring-gentle-d": `${m.springs?.gentle?.duration ?? 320}ms`,
+    "--m-spring-gentle-e": m.springs?.gentle?.easing ?? "cubic-bezier(0.22,1,0.36,1)",
+    "--m-spring-bouncy-d": `${m.springs?.bouncy?.duration ?? 420}ms`,
+    "--m-spring-bouncy-e": m.springs?.bouncy?.easing ?? "cubic-bezier(0.34,1.56,0.64,1)",
   };
 }
 

@@ -240,6 +240,36 @@ function RenderElement({ el }: { el: MElement }) {
 }
 
 
+/** Default entrance per element type for sensible motion when not specified. */
+function defaultEntranceFor(type: string): string {
+  if (type === "hero-banner" || type === "parallax-hero" || type === "gradient-mesh-bg") return "blur-in";
+  if (type === "onboarding-slide") return "scale-in";
+  if (type === "marquee") return "fade-in";
+  if (type === "stat-card-xl" || type === "pricing-card" || type === "glass-card") return "pop";
+  return "fade-up";
+}
+
+/** Compute motion class + per-index stagger style for an element. */
+function motionWrapProps(el: MElement, index: number): { className: string; style: React.CSSProperties } {
+  const entrance = el.entrance ?? defaultEntranceFor(el.type);
+  const gesture = el.gesture;
+  const cls = ["m-el", `m-anim-${entrance}`];
+  if (gesture) cls.push(`m-g-${gesture}`);
+  return {
+    className: cls.join(" "),
+    style: { animationDelay: `calc(var(--m-stagger) * ${index})` },
+  };
+}
+
+function MotionItem({ el, index, block }: { el: MElement; index: number; block?: boolean }) {
+  const w = motionWrapProps(el, index);
+  return (
+    <div className={w.className} style={{ ...w.style, ...(block ? { display: "block" } : null) }}>
+      <RenderElement el={el} />
+    </div>
+  );
+}
+
 /** Renders a full screen using the chosen composition template. */
 function RenderScreen({ screen }: { screen: MScreen }) {
   const elements = screen.elements ?? [];
@@ -248,7 +278,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "full-bleed") {
     return (
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0 }}>
-        {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
       </div>
     );
   }
@@ -257,9 +287,9 @@ function RenderScreen({ screen }: { screen: MScreen }) {
     const [hero, ...rest] = elements;
     return (
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-        {hero && <div style={{ padding: 0 }}><RenderElement el={hero} /></div>}
+        {hero && <MotionItem el={hero} index={0} />}
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+          {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
         </div>
       </div>
     );
@@ -269,9 +299,9 @@ function RenderScreen({ screen }: { screen: MScreen }) {
     const [feature, ...rest] = elements;
     return (
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {feature && <RenderElement el={feature} />}
+        {feature && <MotionItem el={feature} index={0} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+          {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
         </div>
       </div>
     );
@@ -283,11 +313,18 @@ function RenderScreen({ screen }: { screen: MScreen }) {
         flex: 1, overflowY: "auto", padding: "12px 16px",
         display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
       }}>
-        {elements.map((el, i) => (
-          <div key={el.id ?? i} style={{ gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}>
-            <RenderElement el={el} />
-          </div>
-        ))}
+        {elements.map((el, i) => {
+          const w = motionWrapProps(el, i);
+          return (
+            <div
+              key={el.id ?? i}
+              className={w.className}
+              style={{ ...w.style, gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}
+            >
+              <RenderElement el={el} />
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -298,7 +335,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+      {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
     </div>
   );
 }
@@ -380,7 +417,32 @@ export function MobileAppRenderer({
           overflow: "hidden", position: "relative",
         } as React.CSSProperties}
       >
-        <style>{`.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}`}</style>
+        <style>{`
+.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}
+.m-preview .m-el{animation-duration:var(--m-duration);animation-timing-function:var(--m-ease);animation-fill-mode:both;}
+.m-preview .m-anim-none{animation:none!important;}
+.m-preview .m-anim-fade-up{animation-name:m-fade-up;}
+.m-preview .m-anim-fade-in{animation-name:m-fade-in;}
+.m-preview .m-anim-scale-in{animation-name:m-scale-in;}
+.m-preview .m-anim-slide-left{animation-name:m-slide-left;}
+.m-preview .m-anim-slide-right{animation-name:m-slide-right;}
+.m-preview .m-anim-pop{animation-name:m-pop;animation-duration:var(--m-spring-bouncy-d);animation-timing-function:var(--m-spring-bouncy-e);}
+.m-preview .m-anim-blur-in{animation-name:m-blur-in;animation-duration:var(--m-spring-gentle-d);animation-timing-function:var(--m-spring-gentle-e);}
+.m-preview .m-g-tap-scale{transition:transform var(--m-spring-snappy-d) var(--m-spring-snappy-e);cursor:pointer;}
+.m-preview .m-g-tap-scale:active{transform:scale(.96);}
+.m-preview .m-g-press-glow{transition:box-shadow var(--m-duration) var(--m-ease);}
+.m-preview .m-g-press-glow:active{box-shadow:0 0 0 4px color-mix(in srgb, var(--m-primary) 35%, transparent);}
+.m-preview .m-g-swipe-hint{animation:m-swipe 1.8s var(--m-spring-gentle-e) infinite;}
+@keyframes m-fade-up{from{opacity:0;transform:translateY(var(--m-motion-distance));}to{opacity:1;transform:translateY(0);}}
+@keyframes m-fade-in{from{opacity:0;}to{opacity:1;}}
+@keyframes m-scale-in{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+@keyframes m-slide-left{from{opacity:0;transform:translateX(var(--m-motion-distance));}to{opacity:1;transform:translateX(0);}}
+@keyframes m-slide-right{from{opacity:0;transform:translateX(calc(-1 * var(--m-motion-distance)));}to{opacity:1;transform:translateX(0);}}
+@keyframes m-pop{0%{opacity:0;transform:scale(.7);}60%{transform:scale(1.04);}100%{opacity:1;transform:scale(1);}}
+@keyframes m-blur-in{from{opacity:0;filter:blur(10px);}to{opacity:1;filter:blur(0);}}
+@keyframes m-swipe{0%,100%{transform:translateX(0);}50%{transform:translateX(6px);}}
+@media (prefers-reduced-motion:reduce){.m-preview .m-el,.m-preview .m-g-swipe-hint{animation:none!important;}}
+`}</style>
 
         {issueCount > 0 && (
           <div style={{

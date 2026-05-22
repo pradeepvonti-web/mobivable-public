@@ -28,6 +28,13 @@ const VALID_SCREEN_LAYOUTS = new Set([
   "stack", "split-hero", "bento-grid", "magazine", "full-bleed",
 ]);
 
+const VALID_ENTRANCES = new Set([
+  "none", "fade-up", "fade-in", "scale-in",
+  "slide-left", "slide-right", "pop", "blur-in",
+]);
+
+const VALID_GESTURES = new Set(["tap-scale", "press-glow", "swipe-hint"]);
+
 
 /** Validate and auto-fix an element */
 function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElement | null {
@@ -54,6 +61,16 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
   if (!e.props && e.type !== "divider" && e.type !== "spacer") {
     issues.push({ severity: "warning", path, message: `Element "${e.type}" missing props, added defaults`, autoFixed: true });
     e.props = {};
+  }
+
+  // Snap entrance + gesture to allowed sets
+  if (e.entrance && !VALID_ENTRANCES.has(e.entrance as string)) {
+    issues.push({ severity: "info", path, message: `Unknown entrance "${String(e.entrance)}", using fade-up`, autoFixed: true });
+    e.entrance = "fade-up";
+  }
+  if (e.gesture && !VALID_GESTURES.has(e.gesture as string)) {
+    issues.push({ severity: "info", path, message: `Unknown gesture "${String(e.gesture)}", removed`, autoFixed: true });
+    delete e.gesture;
   }
 
   // Fix nested children in card/section/glass-card/gradient-mesh-bg
