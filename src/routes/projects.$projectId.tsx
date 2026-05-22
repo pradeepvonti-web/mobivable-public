@@ -1212,9 +1212,62 @@ function ProjectPage() {
             <h1 className="font-display text-lg uppercase tracking-tight truncate">
               {project?.name ?? "Loading…"}
             </h1>
-            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground truncate">
-              Talking to · {AGENTS[selectedAgent].name}
-            </p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary truncate inline-flex items-center gap-1 transition-colors"
+                  title="Switch agent"
+                >
+                  Talking to · <span className="text-primary">{AGENTS[selectedAgent].name}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-72 p-2">
+                <p className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Select an agent
+                </p>
+                <div className="max-h-80 overflow-y-auto space-y-0.5">
+                  {ALL_ROLES.map((role) => {
+                    const a = AGENTS[role];
+                    const active = role === selectedAgent;
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setSelectedAgent(role)}
+                        title={a.short}
+                        className={`w-full text-left px-2 py-2 rounded-md text-sm transition-colors border ${
+                          active
+                            ? "bg-primary/15 text-primary border-primary/40"
+                            : "border-transparent hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            aria-hidden
+                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                              active ? "bg-primary animate-pulse" : "bg-muted-foreground/40"
+                            }`}
+                          />
+                          <span className={`truncate ${active ? "font-semibold" : "font-medium"}`}>
+                            {a.name}
+                          </span>
+                          {active && (
+                            <span className="ml-auto shrink-0 text-[9px] font-mono uppercase tracking-widest text-primary">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 pl-3.5 truncate">
+                          {a.short}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </header>
 
