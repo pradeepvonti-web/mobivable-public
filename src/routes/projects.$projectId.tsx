@@ -3143,16 +3143,34 @@ function ProjectPage() {
                       /* ignore malformed payload */
                     }
                   };
+                  const hasPaletteType = (dt: DataTransfer) => {
+                    try {
+                      const types = Array.from(dt.types || []);
+                      return types.includes("application/x-mobile-element");
+                    } catch { return false; }
+                  };
                   return (
                     <div
                       style={{ position: "relative", height: "100%", width: "100%" }}
-                      onDragOver={(e) => {
-                        if (e.dataTransfer.types.includes("application/x-mobile-element")) {
+                      onDragEnter={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
                           e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
+                          e.preventDefault();
+                          e.stopPropagation();
                           e.dataTransfer.dropEffect = "copy";
                         }
                       }}
-                      onDrop={handleDrop}
+                      onDrop={(e) => {
+                        if (hasPaletteType(e.dataTransfer)) {
+                          e.stopPropagation();
+                        }
+                        handleDrop(e);
+                      }}
                     >
                       <MobileAppRenderer
                         key={previewKey}
