@@ -78,6 +78,19 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
     }
   }, [isDesigner, task.status, task.output, projectId]);
 
+  // Extract a theme from the designer spec and broadcast to the live preview.
+  useEffect(() => {
+    if (!isDesigner || task.status !== "completed" || !task.output || themeAppliedRef.current) return;
+    themeAppliedRef.current = true;
+    extractThemeFn({ data: { designerOutput: task.output, projectName } })
+      .then((r) => {
+        if (r.ok && r.theme) {
+          window.dispatchEvent(new CustomEvent("mobile-theme-extracted", { detail: r.theme }));
+        }
+      })
+      .catch(() => { /* non-fatal: mockup still shows */ });
+  }, [isDesigner, task.status, task.output, projectName]);
+
   const handleRegenerateMockup = () => {
     if (!projectId || !projectPrompt || !task.output) return;
     setMockupUrl(null);
