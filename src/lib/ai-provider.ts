@@ -427,6 +427,36 @@ export async function callAIImage(
   const key = provider.getKey();
   if (!key) return { ok: false, error: `${provider.name} API key missing.` };
 
+  // Lovable AI Gateway (Nano Banana via google/gemini-2.5-flash-image)
+  if (provider.id === "lovable") {
+    try {
+      const res = await fetch(provider.baseUrl, {
+        method: "POST",
+        headers: {
+          ...provider.authHeader(key),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        return { ok: false, error: `Lovable AI Image error (${res.status}): ${body.slice(0, 200)}` };
+      }
+      const json = (await res.json()) as {
+        choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+      };
+      const dataUrl = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!dataUrl?.startsWith("data:image/")) return { ok: false, error: "No image returned" };
+      return { ok: true, dataUrl };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Image generation failed" };
+    }
+  }
+
   // OpenAI image generation
   if (provider.id === "openai") {
     try {
