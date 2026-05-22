@@ -3151,12 +3151,6 @@ function ProjectPage() {
           </div>
         </div>
 
-        {/* Drag-and-drop component palette — floats over the preview pane on desktop */}
-        {isReady && (
-          <div className="hidden lg:block fixed left-4 bottom-4 z-40">
-            <ComponentPalette />
-          </div>
-        )}
       </section>
 
       {/* Mobile bottom action bar */}
