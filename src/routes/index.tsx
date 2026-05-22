@@ -75,9 +75,9 @@ function Index() {
             </p>
             <div className="flex flex-wrap gap-4">
               <div className="flex flex-col gap-1">
-                <button className="px-8 py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all">
+                <Link to="/dashboard" className="px-8 py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all inline-block">
                   Start Generating
-                </button>
+                </Link>
                 <span className="text-[10px] font-mono text-muted-foreground uppercase text-center mt-2">
                   Free during beta
                 </span>
@@ -455,9 +455,9 @@ function Index() {
             <span className="underline decoration-4 underline-offset-8">today</span>.
           </h2>
           <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
-            <button className="px-12 py-6 bg-background text-primary font-display text-2xl uppercase hover:scale-105 transition-transform">
+            <Link to="/dashboard" className="px-12 py-6 bg-background text-primary font-display text-2xl uppercase hover:scale-105 transition-transform inline-block">
               Initialize Build
-            </button>
+            </Link>
             <div className="font-mono text-xs uppercase tracking-widest text-background/80">
               [0] No Credit Card Required <br />
               [1] Unlimited AI Iterations <br />
