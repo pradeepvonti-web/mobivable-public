@@ -104,8 +104,8 @@ export function ComponentPalette({ className }: { className?: string }) {
 
   return (
     <div
-      className={`pointer-events-auto rounded-xl border border-border bg-card/95 backdrop-blur shadow-lg text-foreground ${className ?? ""}`}
-      style={{ width: 220, maxHeight: "70vh", display: "flex", flexDirection: "column" }}
+      className={`rounded-xl border border-border bg-card/95 backdrop-blur shadow-lg text-foreground ${className ?? ""}`}
+      style={{ width: "100%", maxHeight: "70vh", display: "flex", flexDirection: "column" }}
     >
       <button
         type="button"
