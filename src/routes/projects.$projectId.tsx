@@ -811,6 +811,22 @@ function ProjectPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, project?.result]);
 
+  // Realtime: pick up assistant messages inserted from outside this component
+  // (e.g. agent orchestration completion notice).
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const ch = supabase
+      .channel(`project_messages_${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "project_messages", filter: `project_id=eq.${projectId}` },
+        () => { void loadMessages(); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, status]);
+
   // Apply persisted visual edits to the rendered preview
   useEffect(() => {
     const edits = project?.visual_edits?.edits ?? [];

@@ -319,6 +319,34 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
     }
   }, [tasks]);
 
+  // Post an assistant message to the project chat when orchestration finishes.
+  const chatNotifiedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!run) return;
+    if (run.status !== "completed" && run.status !== "failed") return;
+    const key = `${run.id}:${run.status}`;
+    if (chatNotifiedRef.current === key) return;
+    chatNotifiedRef.current = key;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+      const completed = tasks.filter(t => t.status === "completed").length;
+      const failed = tasks.filter(t => t.status === "failed").length;
+      const roleList = tasks.map(t => AGENTS[t.role as AgentRole]?.name ?? t.role).join(", ");
+      const content = run.status === "completed"
+        ? `**Agent orchestration complete.** ${completed} agent${completed === 1 ? "" : "s"} finished${failed ? `, ${failed} failed` : ""}.\n\n_Agents:_ ${roleList}`
+        : `**Agent orchestration failed.** ${completed} completed, ${failed} failed.\n\n_Agents:_ ${roleList}`;
+      await supabase.from("project_messages").insert({
+        project_id: projectId,
+        user_id: uid,
+        role: "assistant",
+        content,
+      });
+    })();
+  }, [run?.id, run?.status, tasks, projectId]);
+
+
   // Load latest run
   useEffect(() => {
     let active = true;
