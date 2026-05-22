@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "@/lib/agents";
 import { recommendAgents, startAgentRun, runAgentTask, finalizeAgentRun } from "@/lib/agent-run.functions";
 import { generateMockupImage } from "@/lib/generate-mockup.functions";
+import { extractThemeFromDesigner } from "@/lib/extract-theme.functions";
 
 type Run = { id: string; status: string; selected_roles: string[]; created_at: string };
 type Task = { id: string; role: string; ordinal: number; status: "waiting" | "working" | "completed" | "failed"; output: string | null; error_text: string | null; created_at?: string; updated_at?: string };
@@ -48,6 +49,8 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const [mockupLoading, setMockupLoading] = useState(false);
   const [mockupError, setMockupError] = useState<string | null>(null);
   const generateMockupFn = useServerFn(generateMockupImage);
+  const extractThemeFn = useServerFn(extractThemeFromDesigner);
+  const themeAppliedRef = useRef(false);
   const def = AGENTS[task.role as AgentRole];
   const time = task.updated_at || task.created_at;
   const isDesigner = task.role === "ui_ux_designer";
@@ -74,6 +77,19 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
       }).finally(() => setMockupLoading(false));
     }
   }, [isDesigner, task.status, task.output, projectId]);
+
+  // Extract a theme from the designer spec and broadcast to the live preview.
+  useEffect(() => {
+    if (!isDesigner || task.status !== "completed" || !task.output || themeAppliedRef.current) return;
+    themeAppliedRef.current = true;
+    extractThemeFn({ data: { designerOutput: task.output, projectName } })
+      .then((r) => {
+        if (r.ok && r.theme) {
+          window.dispatchEvent(new CustomEvent("mobile-theme-extracted", { detail: r.theme }));
+        }
+      })
+      .catch(() => { /* non-fatal: mockup still shows */ });
+  }, [isDesigner, task.status, task.output, projectName]);
 
   const handleRegenerateMockup = () => {
     if (!projectId || !projectPrompt || !task.output) return;
