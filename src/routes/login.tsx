@@ -150,9 +150,7 @@ function LoginPage() {
               {errorHint && <p className="text-xs text-destructive/80">{errorHint}</p>}
               <p className="text-xs">
                 <a
-                  href="https://docs.lovable.dev/features/security#troubleshooting-login"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/docs"
                   className="underline underline-offset-4 hover:no-underline"
                 >
                   Troubleshooting sign-in issues →
@@ -191,22 +189,11 @@ function LoginPage() {
           <button
             type="button"
             disabled={submitting}
-            onClick={async () => {
+            onClick={() => {
+              setEmail("pradeepvonti@aksdataai.com");
+              setPassword("");
               clearError();
-              setSubmitting(true);
-              const adminEmail = "pradeepvonti@aksdataai.com";
-              const { error } = await supabase.auth.signInWithPassword({
-                email: adminEmail,
-                password: "Anushka01@",
-              });
-              setSubmitting(false);
-              if (error) {
-                audit(adminEmail, false, error.message);
-                showAuthError(error.message, "admin");
-              } else {
-                audit(adminEmail, true);
-                navigate({ to: "/admin" });
-              }
+              document.getElementById("password")?.focus();
             }}
             className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
           >

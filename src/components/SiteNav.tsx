@@ -203,9 +203,9 @@ export function SiteNav() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle className="hidden sm:inline-flex" />
-          <button className="hidden sm:inline-block px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
+          <Link to="/dashboard" className="hidden sm:inline-block px-4 py-2 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors">
             Start Building
-          </button>
+          </Link>
           <button
             ref={triggerRef}
             type="button"
@@ -263,12 +263,12 @@ export function SiteNav() {
                 {l.label}
               </Link>
             ))}
-            <button
-              type="button"
-              className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            <Link
+              to="/dashboard"
+              className="mt-4 px-4 py-3 bg-primary text-background font-display text-sm uppercase tracking-wider hover:bg-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background block text-center"
             >
               Start Building
-            </button>
+            </Link>
           </div>
         </div>
       )}

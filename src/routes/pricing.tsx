@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: "How many apps can I publish on each plan?",
-    a: "Free includes 1 published app with a Lovable subdomain. Starter raises the limit to 5 published apps with custom domains. Pro is unlimited published apps, white-label deploys, and priority build infrastructure. Draft and unpublished projects don't count toward the limit on any plan.",
+    a: "Free includes 1 published app with a Mobivable subdomain. Starter raises the limit to 5 published apps with custom domains. Pro is unlimited published apps, white-label deploys, and priority build infrastructure. Draft and unpublished projects don't count toward the limit on any plan.",
   },
   {
     q: "What happens when I upgrade my plan?",
