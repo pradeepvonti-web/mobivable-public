@@ -53,6 +53,7 @@ import {
   BookOpen as BookOpenIcon,
   Rocket,
   Layers,
+  LayoutGrid as Layout,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -332,7 +333,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1148,6 +1149,7 @@ function ProjectPage() {
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
+              (label === "Components" && sidePanel === "components") ||
               (label === "AI Studio" && sidePanel === "aistudio") ||
               (label === "Code" && sidePanel === "code") ||
               (label === "Console" && sidePanel === "console") ||
@@ -1171,6 +1173,8 @@ function ProjectPage() {
                   if (label === "Backend") {
                     if (!isPro) setUpgradeOpen(true);
                     else setSidePanel("backend");
+                  } else if (label === "Components") {
+                    setSidePanel("components");
                   } else if (label === "AI Studio") {
                     setSidePanel("aistudio");
                   } else if (label === "AI & Env Keys") {
@@ -1217,11 +1221,6 @@ function ProjectPage() {
             );
           })}
         </div>
-        {isReady && (
-          <div className="shrink-0 border-t border-border p-2">
-            <ComponentPalette />
-          </div>
-        )}
       </aside>
 
       {/* Chat thread */}
