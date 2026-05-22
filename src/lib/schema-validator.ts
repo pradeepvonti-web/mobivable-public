@@ -131,6 +131,20 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     issues.push({ severity: "info", path, message: "Added default greeting name", autoFixed: true });
   }
 
+  // New primitives — ensure required arrays/strings
+  if (e.type === "marquee" && !Array.isArray(props.items)) {
+    props.items = []; issues.push({ severity: "warning", path, message: "marquee missing items", autoFixed: true });
+  }
+  if (e.type === "pricing-card" && !Array.isArray(props.features)) {
+    props.features = []; issues.push({ severity: "warning", path, message: "pricing-card missing features", autoFixed: true });
+  }
+  if (e.type === "testimonial" && typeof props.quote !== "string") {
+    props.quote = String(props.quote ?? ""); issues.push({ severity: "info", path, message: "Coerced testimonial quote", autoFixed: true });
+  }
+  if (e.type === "stat-card-xl" && props.sparkline && !Array.isArray(props.sparkline)) {
+    props.sparkline = []; issues.push({ severity: "warning", path, message: "stat-card-xl sparkline reset", autoFixed: true });
+  }
+
   return el as MElement;
 }
 
@@ -142,6 +156,7 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
   }
 
   const s = screen as Record<string, unknown>;
+
 
   // Ensure id
   if (!s.id || typeof s.id !== "string") {
