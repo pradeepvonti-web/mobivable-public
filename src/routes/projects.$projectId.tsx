@@ -1395,6 +1395,11 @@ function ProjectPage() {
           </div>
         </header>
 
+        {/* SDLC phase progress — full team pipeline */}
+        <SDLCProgressBar projectId={projectId} />
+
+
+
         {/* Agent brief: functionalities + templates */}
         {(() => {
           const a = AGENTS[selectedAgent];
