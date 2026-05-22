@@ -2927,6 +2927,10 @@ function ProjectPage() {
                   }
                 }}
                 onDragOverCapture={(e) => {
+                  // Palette drag-and-drop: let the inner drop zone handle it.
+                  if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("application/x-mobile-element")) {
+                    return;
+                  }
                   const src = dragSrcRef.current;
                   if (!src) return;
                   const t = e.target as HTMLElement;
