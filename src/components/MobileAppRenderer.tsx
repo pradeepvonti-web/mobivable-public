@@ -78,7 +78,7 @@ function RenderElement({ el }: { el: MElement }) {
         }}>
           {el.props.title && <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--m-text)", marginBottom: 8 }}>{el.props.title}</h3>}
           {el.props.subtitle && <p style={{ fontSize: 11, color: "var(--m-muted)", marginBottom: 8 }}>{el.props.subtitle}</p>}
-          {el.props.children?.map((child, i) => <RenderElement key={i} el={child} />)}
+          {el.props.children?.map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
         </div>
       );
     case "section":
@@ -86,7 +86,7 @@ function RenderElement({ el }: { el: MElement }) {
         <div style={{ padding: "4px 0" }}>
           <SectionHeader title={el.props.title} action={el.props.action} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(el.props.children ?? []).map((child, i) => <RenderElement key={i} el={child} />)}
+            {(el.props.children ?? []).map((child: MElement, i: number) => <RenderElement key={i} el={child} />)}
           </div>
         </div>
       );
@@ -177,7 +177,7 @@ function RenderElement({ el }: { el: MElement }) {
     case "tab-bar":
       return (
         <div style={{ display: "flex", gap: 4, background: "var(--m-card)", borderRadius: 10, padding: 3 }}>
-          {(el.props.tabs ?? []).map((tab, i) => (
+          {(el.props.tabs ?? []).map((tab: { label: string; active?: boolean }, i: number) => (
             <button key={i} type="button" style={{
               flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
               background: tab.active ? "var(--m-primary)" : "transparent",
