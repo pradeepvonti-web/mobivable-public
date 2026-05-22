@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
-import { CODE_GEN_SYSTEM_PROMPT } from "@/lib/code-gen";
+import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT } from "@/lib/code-gen";
 
 const SYSTEM_PROMPT = CODE_GEN_SYSTEM_PROMPT;
 
