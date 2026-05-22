@@ -18,7 +18,16 @@ const VALID_ELEMENT_TYPES = new Set([
   "avatar", "badge", "slider", "tab-bar", "bottom-sheet", "carousel",
   "rating", "chip-group", "notification", "price-tag", "step-indicator",
   "countdown", "grid-cards", "hero-banner",
+  // Premium primitives
+  "glass-card", "gradient-mesh-bg", "parallax-hero", "marquee",
+  "stat-card-xl", "feature-showcase", "testimonial", "pricing-card",
+  "onboarding-slide",
 ]);
+
+const VALID_SCREEN_LAYOUTS = new Set([
+  "stack", "split-hero", "bento-grid", "magazine", "full-bleed",
+]);
+
 
 /** Validate and auto-fix an element */
 function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElement | null {
@@ -47,8 +56,8 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     e.props = {};
   }
 
-  // Fix nested children in card/section
-  if (e.type === "card" || e.type === "section") {
+  // Fix nested children in card/section/glass-card/gradient-mesh-bg
+  if (e.type === "card" || e.type === "section" || e.type === "glass-card" || e.type === "gradient-mesh-bg") {
     const props = (e.props ?? {}) as Record<string, unknown>;
     if (Array.isArray(props.children)) {
       props.children = (props.children as unknown[])
@@ -56,6 +65,7 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
         .filter(Boolean);
     }
   }
+
 
   // Fix common prop issues
   const props = (e.props ?? {}) as Record<string, unknown>;
