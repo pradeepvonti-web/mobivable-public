@@ -63,6 +63,16 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     e.props = {};
   }
 
+  // Snap entrance + gesture to allowed sets
+  if (e.entrance && !VALID_ENTRANCES.has(e.entrance as string)) {
+    issues.push({ severity: "info", path, message: `Unknown entrance "${String(e.entrance)}", using fade-up`, autoFixed: true });
+    e.entrance = "fade-up";
+  }
+  if (e.gesture && !VALID_GESTURES.has(e.gesture as string)) {
+    issues.push({ severity: "info", path, message: `Unknown gesture "${String(e.gesture)}", removed`, autoFixed: true });
+    delete e.gesture;
+  }
+
   // Fix nested children in card/section/glass-card/gradient-mesh-bg
   if (e.type === "card" || e.type === "section" || e.type === "glass-card" || e.type === "gradient-mesh-bg") {
     const props = (e.props ?? {}) as Record<string, unknown>;
