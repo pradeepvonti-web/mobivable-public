@@ -2132,7 +2132,7 @@ function ProjectPage() {
 
       {sidePanel === "agents" && (
         <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col overflow-hidden">
-          <AgentOrchestrator />
+          <AgentOrchestrator projectId={projectId} />
         </section>
       )}
 
