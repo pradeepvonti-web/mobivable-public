@@ -309,3 +309,34 @@ export const COMPLEXITY_PRESETS: Record<string, AgentRole[]> = {
   ],
   enterprise: ALL_ROLES,
 };
+
+// ---------------------------------------------------------------------------
+// Visual badges for team chat (avatar emoji + tailwind tint)
+// ---------------------------------------------------------------------------
+export const AGENT_BADGE: Record<AgentRole, { emoji: string; tint: string }> = {
+  product_manager:    { emoji: "📋", tint: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  business_analyst:   { emoji: "📊", tint: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" },
+  scrum_master:       { emoji: "🏃", tint: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
+  ux_researcher:      { emoji: "🔍", tint: "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30" },
+  ui_ux_designer:     { emoji: "🎨", tint: "bg-pink-500/15 text-pink-400 border-pink-500/30" },
+  frontend_developer: { emoji: "💻", tint: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  backend_developer:  { emoji: "⚙️", tint: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  database_architect: { emoji: "🗄️", tint: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
+  ai_ml:              { emoji: "🧠", tint: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  qa_testing:         { emoji: "🧪", tint: "bg-lime-500/15 text-lime-400 border-lime-500/30" },
+  security:           { emoji: "🛡️", tint: "bg-red-500/15 text-red-400 border-red-500/30" },
+  error_detector:     { emoji: "🐞", tint: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
+  devops:             { emoji: "🚀", tint: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30" },
+  performance:        { emoji: "⚡", tint: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
+  documentation:      { emoji: "📚", tint: "bg-teal-500/15 text-teal-400 border-teal-500/30" },
+  summary_agent:      { emoji: "✅", tint: "bg-green-500/15 text-green-400 border-green-500/30" },
+};
+
+/** Strip the leading `<!--agent:role-->` marker and return role + clean text. */
+export function parseAgentMarker(content: string): { role: AgentRole | null; text: string } {
+  const m = content.match(/^<!--agent:([a-z_]+)-->\n?/);
+  if (!m) return { role: null, text: content };
+  const role = m[1] as AgentRole;
+  if (!(role in AGENTS)) return { role: null, text: content };
+  return { role, text: content.slice(m[0].length) };
+}

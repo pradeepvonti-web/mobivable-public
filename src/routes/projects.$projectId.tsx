@@ -72,7 +72,8 @@ import { parseAppSchema } from "@/lib/code-gen";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { SAMPLE_FITTRACK, SAMPLE_APPS } from "@/lib/sample-apps";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
-import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, type AgentRole } from "@/lib/agents";
+import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, AGENT_BADGE, parseAgentMarker, type AgentRole } from "@/lib/agents";
+import { SDLCProgressBar } from "@/components/SDLCProgressBar";
 import { useTheme } from "@/components/theme-toggle";
 import { ExportPanel } from "@/components/ExportPanel";
 import { ScreenshotGallery } from "@/components/ScreenshotGallery";
@@ -371,8 +372,9 @@ function ProjectPage() {
     });
   };
   const [messages, setMessages] = useState<
-    { id: string; role: "user" | "assistant"; content: string; pending?: boolean }[]
+    { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string }[]
   >([]);
+  const [teamBanner, setTeamBanner] = useState<{ phaseLabel: string; agents: { role: AgentRole; name: string }[] } | null>(null);
   const [input, setInput] = useState("");
   const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -602,11 +604,21 @@ function ProjectPage() {
       .eq(previewConfig.messagesFields.projectFk, projectId)
       .order(previewConfig.messagesFields.createdAt, { ascending: true });
     setMessages(
-      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-      })),
+      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => {
+        if (m.role !== "assistant") return { id: m.id, role: m.role, content: m.content };
+        const { role, text } = parseAgentMarker(m.content);
+        // legacy fallback: old messages used `**🤖 Name** *(Phase)*` prefix
+        const legacy = text.match(/^\*\*🤖 ([^*]+)\*\*\s*(?:\*\(([^)]+)\)\*)?\s*\n+/);
+        const cleaned = legacy ? text.slice(legacy[0].length) : text;
+        return {
+          id: m.id,
+          role: m.role,
+          content: cleaned,
+          agentRole: role,
+          agentName: role ? AGENTS[role].name : legacy?.[1],
+          phase: legacy?.[2],
+        };
+      }),
     );
   }
 
@@ -761,62 +773,77 @@ function ProjectPage() {
     setMessages((prev) => [
       ...prev,
       { id: tempId, role: "user", content },
-      { id: `${tempId}-a`, role: "assistant", content: "", pending: true },
     ]);
+    setTeamBanner(null);
     try {
       const stream = await chatFn({ data: { projectId, content, agentRole: selectedAgent } });
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
-      let acc = "";
+      let activeAgentMsgId: string | null = null;
       let errored = false;
       for await (const event of stream) {
         if (cancelRef.current) break;
-        if (event.type === "delta") {
-          acc += event.delta;
+        if (event.type === "team_assembled") {
+          setTeamBanner({ phaseLabel: event.phaseLabel, agents: event.agents });
+        } else if (event.type === "agent_start") {
+          activeAgentMsgId = `${tempId}-${event.role}-${Date.now()}`;
+          const id = activeAgentMsgId;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id,
+              role: "assistant",
+              content: "",
+              pending: true,
+              agentRole: event.role as AgentRole,
+              agentName: event.name,
+              phase: event.phase,
+            },
+          ]);
+        } else if (event.type === "delta") {
+          const id = activeAgentMsgId;
+          if (!id) continue;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === `${tempId}-a` ? { ...m, content: acc, pending: false } : m,
+              m.id === id ? { ...m, content: m.content + event.delta, pending: false } : m,
             ),
           );
+        } else if (event.type === "agent_done") {
+          activeAgentMsgId = null;
+        } else if (event.type === "agent_error") {
+          errored = true;
+          const id = activeAgentMsgId;
+          if (id) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === id ? { ...m, content: `⚠️ ${event.error}`, pending: false } : m)),
+            );
+          }
         } else if (event.type === "error") {
           errored = true;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === `${tempId}-a`
-                ? { ...m, content: `⚠️ ${event.error}`, pending: false }
-                : m,
-            ),
-          );
+          setMessages((prev) => [
+            ...prev,
+            { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
+          ]);
         } else if (event.type === "project_updated") {
           await reloadProject();
         }
       }
-      if (cancelRef.current) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === `${tempId}-a`
-              ? { ...m, content: `${acc}${acc ? "\n\n" : ""}_Stopped._`, pending: false }
-              : m,
-          ),
-        );
-      } else if (!errored) {
+      if (!errored && !cancelRef.current) {
         await loadMessages();
       }
     } catch (err) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === `${tempId}-a`
-            ? {
-                ...m,
-                content: `⚠️ ${err instanceof Error ? err.message : "Failed to send"}`,
-                pending: false,
-              }
-            : m,
-        ),
-      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${tempId}-err`,
+          role: "assistant",
+          content: `⚠️ ${err instanceof Error ? err.message : "Failed to send"}`,
+        },
+      ]);
     } finally {
       streamRef.current = null;
       cancelRef.current = false;
       setSending(false);
+      setTeamBanner(null);
     }
   }
 
@@ -1368,6 +1395,11 @@ function ProjectPage() {
           </div>
         </header>
 
+        {/* SDLC phase progress — full team pipeline */}
+        <SDLCProgressBar projectId={projectId} />
+
+
+
         {/* Agent brief: functionalities + templates */}
         {(() => {
           const a = AGENTS[selectedAgent];
@@ -1573,45 +1605,85 @@ function ProjectPage() {
                 </div>
               )}
 
-              {/* Iterative chat messages */}
-              {messages.map((m) =>
-                m.role === "user" ? (
-                  <div key={m.id} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-3">
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
+              {/* Team chat messages (multi-agent) */}
+              {messages.map((m) => {
+                if (m.role === "user") {
+                  return (
+                    <div key={m.id} className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-3">
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div key={m.id} className="flex justify-start">
-                    <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-3">
+                  );
+                }
+                const role = m.agentRole;
+                const badge = role ? AGENT_BADGE[role] : null;
+                const name = m.agentName ?? (role ? AGENTS[role].name : "Assistant");
+                return (
+                  <div key={m.id} className="flex justify-start gap-2">
+                    <div
+                      className={`h-8 w-8 shrink-0 rounded-full border grid place-items-center text-base ${
+                        badge?.tint ?? "bg-muted/40 text-muted-foreground border-border"
+                      }`}
+                      aria-hidden
+                    >
+                      {badge?.emoji ?? "🤖"}
+                    </div>
+                    <div className="max-w-[85%] w-full rounded-2xl border border-border bg-card/60 p-3">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className={`text-[10px] font-display uppercase tracking-widest px-1.5 py-0.5 rounded border ${badge?.tint ?? "border-border text-muted-foreground"}`}>
+                          {name}
+                        </span>
+                        {m.phase && (
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70">
+                            · {m.phase}
+                          </span>
+                        )}
+                      </div>
                       {m.pending && !m.content ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Thinking…</span>
+                          <span>{name} is thinking…</span>
                         </div>
                       ) : (
-                        <>
-                          <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-                            <ReactMarkdown>{m.content}</ReactMarkdown>
-                          </div>
-                          {sending && m.id.endsWith("-a") && (
-                            <div className="mt-2 flex items-center gap-2 text-xs text-primary">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                              </span>
-                              <span>Streaming…</span>
-                            </div>
-                          )}
-                        </>
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
+                          <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                        </div>
                       )}
                     </div>
                   </div>
-                ),
+                );
+              })}
+
+              {/* Live "team is collaborating" banner */}
+              {teamBanner && (
+                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                      {teamBanner.phaseLabel} team is collaborating
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {teamBanner.agents.map((a) => {
+                      const b = AGENT_BADGE[a.role];
+                      return (
+                        <span
+                          key={a.role}
+                          className={`inline-flex items-center gap-1 text-[10px] font-display uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${b.tint}`}
+                        >
+                          <span aria-hidden>{b.emoji}</span>
+                          {a.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </>
           )}
         </div>
+
 
         {/* Composer */}
         <form
