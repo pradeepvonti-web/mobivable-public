@@ -16,6 +16,16 @@ const FRAMEWORK_INSTRUCTIONS: Record<string, string> = {
   jetpack_compose: `Use Jetpack Compose with Kotlin. Use Material3, remember/mutableStateOf, NavHost for navigation, and modern Compose patterns. Include proper @Preview annotations.`,
 };
 
+function requireKey(): string {
+  const key = process.env.PIXLAB_API_KEY;
+  if (!key) {
+    throw new Error(
+      "PIXLAB_API_KEY is not configured. Add it as a runtime secret to enable PixLab features."
+    );
+  }
+  return key;
+}
+
 /**
  * Generate mobile UI code for a specific framework using PixLab's CODER API.
  */
@@ -33,7 +43,6 @@ export const generateMobileCode = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // 1. Fetch project for context
     const { data: project, error: fetchErr } = await supabase
       .from("projects")
       .select("id, prompt, name, result, user_id")
@@ -45,7 +54,6 @@ export const generateMobileCode = createServerFn({ method: "POST" })
     if (project.user_id !== userId)
       return { ok: false as const, error: "Forbidden" };
 
-    // 2. Build the prompt
     const frameworkLabel = FRAMEWORK_LABELS[data.framework] ?? data.framework;
     const frameworkInstructions = FRAMEWORK_INSTRUCTIONS[data.framework] ?? "";
 
@@ -72,19 +80,15 @@ ${data.designSpec ? `## Design Specification (from Designer Agent)\n${data.desig
 
 Generate the full source code now:`;
 
-    // 3. Call PixLab CODER API
     const apiKey = process.env.PIXLAB_API_KEY;
     if (!apiKey) {
       return { ok: false as const, error: "PIXLAB_API_KEY is not configured on the server." };
     }
 
     try {
-      const response = await fetch("https://llm.pixlab.io/coder", {
+      const response = await fetch(`https://llm.pixlab.io/coder?key=${encodeURIComponent(apiKey)}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "WWW-Authenticate": apiKey,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [{ role: "user", content: prompt }],
           format: "markdown",
@@ -100,8 +104,6 @@ Generate the full source code now:`;
       }
 
       const result = await response.json();
-
-      // PixLab returns the generated content — extract the text
       const generatedCode: string =
         typeof result === "string"
           ? result
@@ -121,4 +123,104 @@ Generate the full source code now:`;
       const msg = e instanceof Error ? e.message : "Unknown PixLab API error";
       return { ok: false as const, error: msg };
     }
+  });
+
+// ─────────────────────────────────────────────────────────────────────────
+// PixLab Image API — UI design helpers (bgremove, gen, filters, mockup)
+// ─────────────────────────────────────────────────────────────────────────
+
+const PIXLAB_IMG_BASE = "https://api.pixlab.io/v1";
+
+async function callPixlabImg(
+  endpoint: string,
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const key = requireKey();
+  const res = await fetch(`${PIXLAB_IMG_BASE}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, key }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok || (typeof data.status === "number" && data.status !== 200)) {
+    const msg =
+      (typeof data.error === "string" && data.error) ||
+      `PixLab ${endpoint} failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/** Remove background — returns a hosted PixLab URL of the transparent result. */
+export const pixlabBgRemove = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ imageUrl: z.string().url().max(2048) }).parse)
+  .handler(async ({ data }) => {
+    const out = await callPixlabImg("bgremove", { img: data.imageUrl });
+    return { url: (out.link as string | undefined) ?? null };
+  });
+
+/** Text → image generation. */
+export const pixlabGenerate = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      prompt: z.string().min(2).max(1000),
+      width: z.number().int().min(256).max(1536).optional(),
+      height: z.number().int().min(256).max(1536).optional(),
+    }).parse
+  )
+  .handler(async ({ data }) => {
+    const out = await callPixlabImg("gen", {
+      text: data.prompt,
+      width: data.width ?? 1024,
+      height: data.height ?? 1024,
+    });
+    return { url: (out.link as string | undefined) ?? null };
+  });
+
+/** Apply a smart filter (blur, grayscale, oilpaint, sepia, sharpen, etc.). */
+export const pixlabFilter = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      imageUrl: z.string().url().max(2048),
+      filter: z.enum([
+        "blur",
+        "grayscale",
+        "oilpaint",
+        "sepia",
+        "sharpen",
+        "edge",
+        "emboss",
+        "invert",
+      ]),
+      intensity: z.number().min(0).max(100).optional(),
+    }).parse
+  )
+  .handler(async ({ data }) => {
+    const out = await callPixlabImg(data.filter, {
+      img: data.imageUrl,
+      ...(data.intensity != null ? { sigma: data.intensity } : {}),
+    });
+    return { url: (out.link as string | undefined) ?? null };
+  });
+
+/** Merge a screenshot onto a device frame / background (mockup composer). */
+export const pixlabMockup = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      screenshotUrl: z.string().url().max(2048),
+      frameUrl: z.string().url().max(2048),
+      x: z.number().int().min(0).max(4096).optional(),
+      y: z.number().int().min(0).max(4096).optional(),
+      opacity: z.number().min(0).max(100).optional(),
+    }).parse
+  )
+  .handler(async ({ data }) => {
+    const out = await callPixlabImg("merge", {
+      src: data.frameUrl,
+      cap: data.screenshotUrl,
+      x: data.x ?? 0,
+      y: data.y ?? 0,
+      opacity: data.opacity ?? 100,
+    });
+    return { url: (out.link as string | undefined) ?? null };
   });

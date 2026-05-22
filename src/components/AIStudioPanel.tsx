@@ -3,6 +3,7 @@ import {
   Wand2, Search, Globe, FileCode, Brain, Image as ImageIcon,
   Lightbulb, Rocket, Copy, CheckCheck, Loader2, ChevronRight,
   Zap, BookOpen, Bug, Palette, Shield, BarChart3, AlertTriangle,
+  Sparkles, Scissors, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -10,8 +11,11 @@ import {
   aiGenerate, aiResearch, aiCodeReview, aiDebug, aiPalette, aiOptimize,
   type ReviewResult, type PaletteResult,
 } from "@/lib/ai-studio.functions";
+import {
+  pixlabGenerate, pixlabBgRemove, pixlabFilter,
+} from "@/lib/pixlab.functions";
 
-type Tool = "generate" | "research" | "review" | "debug" | "design" | "optimize";
+type Tool = "generate" | "research" | "review" | "debug" | "design" | "optimize" | "pixlab";
 
 const TOOLS: { id: Tool; icon: any; label: string; desc: string; color: string }[] = [
   { id: "generate", icon: Wand2, label: "AI Generate", desc: "Generate code, screens, components from text", color: "text-violet-400" },
@@ -20,6 +24,7 @@ const TOOLS: { id: Tool; icon: any; label: string; desc: string; color: string }
   { id: "debug", icon: Bug, label: "Smart Debug", desc: "Diagnose errors, find fixes automatically", color: "text-red-400" },
   { id: "design", icon: Palette, label: "Design System", desc: "Generate colors, typography, components", color: "text-pink-400" },
   { id: "optimize", icon: BarChart3, label: "Optimize", desc: "Performance, accessibility, best practices", color: "text-amber-400" },
+  { id: "pixlab", icon: Sparkles, label: "PixLab", desc: "Image gen, bg removal, filters for UI design", color: "text-cyan-400" },
 ];
 
 const QUICK_ACTIONS = [
@@ -83,12 +88,22 @@ export function AIStudioPanel({
   const [paletteResult, setPaletteResult] = useState<PaletteResult | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<string | null>(null);
 
+  // PixLab state
+  const [pixMode, setPixMode] = useState<"gen" | "bgremove" | "filter">("gen");
+  const [pixPrompt, setPixPrompt] = useState("");
+  const [pixImageUrl, setPixImageUrl] = useState("");
+  const [pixFilter, setPixFilter] = useState<"blur" | "grayscale" | "oilpaint" | "sepia" | "sharpen" | "edge" | "emboss" | "invert">("oilpaint");
+  const [pixResult, setPixResult] = useState<string | null>(null);
+
   const fnGenerate = useServerFn(aiGenerate);
   const fnResearch = useServerFn(aiResearch);
   const fnReview = useServerFn(aiCodeReview);
   const fnDebug = useServerFn(aiDebug);
   const fnPalette = useServerFn(aiPalette);
   const fnOptimize = useServerFn(aiOptimize);
+  const fnPixGen = useServerFn(pixlabGenerate);
+  const fnPixBg = useServerFn(pixlabBgRemove);
+  const fnPixFilter = useServerFn(pixlabFilter);
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -135,6 +150,20 @@ export function AIStudioPanel({
   const handleOptimize = async () => {
     const res = await withLoading(() => fnOptimize({ data: { projectName, focus: "all" } }));
     if (res) { setOptimizeResult(res.text); toast.success("Recommendations ready"); }
+  };
+
+  const handlePixlab = async () => {
+    setPixResult(null);
+    const res = await withLoading(async () => {
+      if (pixMode === "gen") {
+        if (!pixPrompt.trim()) throw new Error("Enter a prompt");
+        return fnPixGen({ data: { prompt: pixPrompt } });
+      }
+      if (!pixImageUrl.trim()) throw new Error("Paste an image URL");
+      if (pixMode === "bgremove") return fnPixBg({ data: { imageUrl: pixImageUrl } });
+      return fnPixFilter({ data: { imageUrl: pixImageUrl, filter: pixFilter } });
+    });
+    if (res?.url) { setPixResult(res.url); toast.success("PixLab result ready"); }
   };
 
   const displayPalettes = paletteResult?.palettes ?? [
@@ -441,6 +470,101 @@ export function AIStudioPanel({
             </button>
 
             {optimizeResult && <ResultBlock text={optimizeResult} accent="amber" />}
+          </>
+        )}
+
+        {/* ─── PixLab ─── */}
+        {activeTool === "pixlab" && (
+          <>
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-cyan-500/20 grid place-items-center shrink-0">
+                <Sparkles className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">PixLab Image Toolkit</h4>
+                <p className="text-[10px] text-muted-foreground">Generate, clean up, and stylize images for UI design</p>
+              </div>
+            </div>
+
+            <div className="flex gap-1 rounded-lg border border-border p-1">
+              {([
+                { id: "gen", label: "Generate", icon: Wand2 },
+                { id: "bgremove", label: "Remove BG", icon: Scissors },
+                { id: "filter", label: "Filter", icon: Layers },
+              ] as const).map((m) => {
+                const Icon = m.icon;
+                const active = pixMode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { setPixMode(m.id); setPixResult(null); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${
+                      active ? "bg-cyan-500/15 text-cyan-400" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {pixMode === "gen" ? (
+              <textarea
+                value={pixPrompt}
+                onChange={(e) => setPixPrompt(e.target.value)}
+                placeholder="A minimalist iOS app icon, gradient teal background, abstract wave glyph..."
+                className="w-full rounded-xl border border-border bg-card/50 px-4 py-3 text-sm min-h-[90px] resize-none outline-none focus:border-cyan-400/40 transition-colors placeholder:text-muted-foreground/50"
+              />
+            ) : (
+              <>
+                <input
+                  type="url"
+                  value={pixImageUrl}
+                  onChange={(e) => setPixImageUrl(e.target.value)}
+                  placeholder="https://… public image URL"
+                  className="w-full rounded-xl border border-border bg-card/50 px-4 py-2.5 text-sm outline-none focus:border-cyan-400/40 transition-colors placeholder:text-muted-foreground/50"
+                />
+                {pixMode === "filter" && (
+                  <select
+                    value={pixFilter}
+                    onChange={(e) => setPixFilter(e.target.value as typeof pixFilter)}
+                    className="w-full rounded-xl border border-border bg-card/50 px-4 py-2.5 text-sm outline-none focus:border-cyan-400/40"
+                  >
+                    {["blur","grayscale","oilpaint","sepia","sharpen","edge","emboss","invert"].map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                )}
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePixlab}
+              disabled={loading}
+              className="w-full rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Run PixLab
+            </button>
+
+            {pixResult && (
+              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
+                <img src={pixResult} alt="PixLab result" className="w-full rounded-lg border border-border" />
+                <div className="flex items-center justify-between gap-2">
+                  <a href={pixResult} target="_blank" rel="noreferrer" className="text-[11px] text-cyan-400 hover:underline truncate">{pixResult}</a>
+                  <button
+                    type="button"
+                    onClick={() => copy(pixResult, "pix")}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {copied === "pix" ? <CheckCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
