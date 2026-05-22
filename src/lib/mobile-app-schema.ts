@@ -429,6 +429,121 @@ export type MHeroBanner = BaseElement & {
   };
 };
 
+// ─── Premium primitives ─────────────────────────────────────────
+
+export type MGlassCard = BaseElement & {
+  type: "glass-card";
+  props: {
+    title?: string;
+    subtitle?: string;
+    tint?: "light" | "dark" | "primary" | "accent";
+    children?: MElement[];
+    image?: string;
+    prompt?: string;
+  };
+};
+
+export type MGradientMeshBg = BaseElement & {
+  type: "gradient-mesh-bg";
+  props: {
+    colors?: string[];
+    intensity?: "subtle" | "medium" | "bold";
+    height?: number;
+    children?: MElement[];
+  };
+};
+
+export type MParallaxHero = BaseElement & {
+  type: "parallax-hero";
+  props: {
+    title: string;
+    subtitle?: string;
+    eyebrow?: string;
+    image?: string;
+    prompt?: string;
+    height?: number;
+    buttonLabel?: string;
+    align?: "left" | "center";
+  };
+};
+
+export type MMarquee = BaseElement & {
+  type: "marquee";
+  props: {
+    items: string[];
+    speed?: "slow" | "medium" | "fast";
+    separator?: string;
+    variant?: "primary" | "muted" | "accent";
+  };
+};
+
+export type MStatCardXL = BaseElement & {
+  type: "stat-card-xl";
+  props: {
+    label: string;
+    value: string | number;
+    delta?: string;
+    deltaDirection?: "up" | "down" | "flat";
+    sparkline?: number[];
+    icon?: MIconName;
+    accent?: string;
+  };
+};
+
+export type MFeatureShowcase = BaseElement & {
+  type: "feature-showcase";
+  props: {
+    title: string;
+    description: string;
+    image?: string;
+    prompt?: string;
+    icon?: MIconName;
+    layout?: "image-left" | "image-right" | "image-top";
+    buttonLabel?: string;
+  };
+};
+
+export type MTestimonial = BaseElement & {
+  type: "testimonial";
+  props: {
+    quote: string;
+    name: string;
+    role?: string;
+    avatar?: string;
+    rating?: number;
+  };
+};
+
+export type MPricingCard = BaseElement & {
+  type: "pricing-card";
+  props: {
+    name: string;
+    price: string;
+    period?: string;
+    description?: string;
+    features: string[];
+    buttonLabel?: string;
+    highlighted?: boolean;
+    badge?: string;
+  };
+};
+
+export type MOnboardingSlide = BaseElement & {
+  type: "onboarding-slide";
+  props: {
+    title: string;
+    body: string;
+    image?: string;
+    prompt?: string;
+    icon?: MIconName;
+    step?: number;
+    totalSteps?: number;
+    buttonLabel?: string;
+  };
+};
+
+
+
 
 // ─── Backend (per-project Supabase) ─────────────────────────────
 export type MColumnType =
