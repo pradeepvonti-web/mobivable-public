@@ -152,6 +152,20 @@ export function AIStudioPanel({
     if (res) { setOptimizeResult(res.text); toast.success("Recommendations ready"); }
   };
 
+  const handlePixlab = async () => {
+    setPixResult(null);
+    const res = await withLoading(async () => {
+      if (pixMode === "gen") {
+        if (!pixPrompt.trim()) throw new Error("Enter a prompt");
+        return fnPixGen({ data: { prompt: pixPrompt } });
+      }
+      if (!pixImageUrl.trim()) throw new Error("Paste an image URL");
+      if (pixMode === "bgremove") return fnPixBg({ data: { imageUrl: pixImageUrl } });
+      return fnPixFilter({ data: { imageUrl: pixImageUrl, filter: pixFilter } });
+    });
+    if (res?.url) { setPixResult(res.url); toast.success("PixLab result ready"); }
+  };
+
   const displayPalettes = paletteResult?.palettes ?? [
     { name: "Primary", colors: ["#8B5CF6", "#7C3AED", "#6D28D9", "#5B21B6"] },
     { name: "Neutral", colors: ["#F8FAFC", "#94A3B8", "#475569", "#1E293B"] },
