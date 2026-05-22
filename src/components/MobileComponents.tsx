@@ -617,4 +617,377 @@ export function HeroBanner({ title, subtitle, gradient, height = 160, icon, butt
   );
 }
 
+/* ─── Glass Card ─────────────────────────────────────── */
+export function GlassCard({ title, subtitle, tint = "dark", image, children }: {
+  title?: string; subtitle?: string; tint?: "light" | "dark" | "primary" | "accent";
+  image?: string; children?: React.ReactNode;
+}) {
+  const tintBg = {
+    light: "rgba(255,255,255,0.12)",
+    dark: "rgba(10,10,20,0.45)",
+    primary: "color-mix(in oklab, var(--m-primary) 28%, transparent)",
+    accent: "color-mix(in oklab, var(--m-accent) 28%, transparent)",
+  }[tint];
+  return (
+    <div style={{
+      position: "relative", borderRadius: "var(--m-radius-lg, 18px)",
+      padding: 18, overflow: "hidden",
+      background: tintBg,
+      backdropFilter: "blur(20px) saturate(140%)",
+      WebkitBackdropFilter: "blur(20px) saturate(140%)",
+      border: "1px solid rgba(255,255,255,0.12)",
+      boxShadow: "var(--m-shadow-md)",
+      color: tint === "light" ? "var(--m-text)" : "#fff",
+    }}>
+      {image && <img src={image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.5, zIndex: -1 }} />}
+      {title && <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, fontFamily: "var(--m-font-heading)" }}>{title}</h3>}
+      {subtitle && <p style={{ fontSize: 11, opacity: 0.85, margin: "4px 0 10px" }}>{subtitle}</p>}
+      {children}
+    </div>
+  );
+}
+
+/* ─── Gradient Mesh Background ───────────────────────── */
+export function GradientMeshBg({ colors, intensity = "medium", height, children }: {
+  colors?: string[]; intensity?: "subtle" | "medium" | "bold"; height?: number; children?: React.ReactNode;
+}) {
+  const palette = colors && colors.length >= 2 ? colors : [
+    "var(--m-primary)", "var(--m-accent)", "var(--m-gradient-to, var(--m-primary))",
+  ];
+  const op = intensity === "subtle" ? 0.45 : intensity === "bold" ? 1 : 0.75;
+  const blobs = palette.slice(0, 4).map((c, i) => {
+    const positions = [
+      { top: "-20%", left: "-10%" },
+      { top: "10%", right: "-20%" },
+      { bottom: "-25%", left: "20%" },
+      { bottom: "-10%", right: "10%" },
+    ][i];
+    return (
+      <div key={i} style={{
+        position: "absolute", width: 240, height: 240, borderRadius: "50%",
+        background: c, filter: "blur(60px)", opacity: op, ...positions,
+      }} />
+    );
+  });
+  return (
+    <div style={{
+      position: "relative", width: "100%", height: height ?? (children ? "auto" : 220),
+      borderRadius: "var(--m-radius-lg, 18px)", overflow: "hidden",
+      background: "var(--m-card)", padding: children ? 20 : 0,
+    }}>
+      {blobs}
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Parallax Hero ──────────────────────────────────── */
+export function ParallaxHero({ title, subtitle, eyebrow, image, height = 220, buttonLabel, align = "left" }: {
+  title: string; subtitle?: string; eyebrow?: string; image?: string;
+  height?: number; buttonLabel?: string; align?: "left" | "center";
+}) {
+  return (
+    <div style={{
+      position: "relative", height, borderRadius: "var(--m-radius-xl, 22px)",
+      overflow: "hidden", boxShadow: "var(--m-shadow-lg)",
+      background: "linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))",
+    }}>
+      {image && (
+        <img src={image} alt="" style={{
+          position: "absolute", inset: 0, width: "100%", height: "115%",
+          objectFit: "cover", transform: "translateY(-4%) scale(1.05)",
+        }} />
+      )}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%)",
+      }} />
+      <div style={{
+        position: "absolute", inset: 0, padding: 22,
+        display: "flex", flexDirection: "column", justifyContent: "flex-end",
+        alignItems: align === "center" ? "center" : "flex-start",
+        textAlign: align, color: "#fff",
+      }}>
+        {eyebrow && <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase",
+          padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)",
+          backdropFilter: "blur(6px)", marginBottom: 10,
+        }}>{eyebrow}</span>}
+        <h2 style={{ fontSize: 26, fontWeight: 800, margin: 0, lineHeight: 1.1, fontFamily: "var(--m-font-heading)" }}>{title}</h2>
+        {subtitle && <p style={{ fontSize: 12, opacity: 0.9, marginTop: 6, maxWidth: 280 }}>{subtitle}</p>}
+        {buttonLabel && (
+          <button type="button" style={{
+            marginTop: 14, padding: "10px 18px", borderRadius: 999,
+            background: "#fff", color: "var(--m-text)", border: "none",
+            fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>{buttonLabel} →</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Marquee ────────────────────────────────────────── */
+export function Marquee({ items, speed = "medium", separator = "•", variant = "muted" }: {
+  items: string[]; speed?: "slow" | "medium" | "fast"; separator?: string;
+  variant?: "primary" | "muted" | "accent";
+}) {
+  const dur = speed === "slow" ? 40 : speed === "fast" ? 14 : 24;
+  const color = variant === "primary" ? "var(--m-primary)" : variant === "accent" ? "var(--m-accent)" : "var(--m-muted)";
+  const content = (items ?? []).join(`   ${separator}   `);
+  const animName = `m-marquee-${dur}`;
+  return (
+    <div style={{
+      overflow: "hidden", borderTop: "1px solid var(--m-border)",
+      borderBottom: "1px solid var(--m-border)", padding: "10px 0",
+      background: "var(--m-card)",
+    }}>
+      <style>{`@keyframes ${animName}{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+      <div style={{
+        display: "inline-flex", whiteSpace: "nowrap",
+        animation: `${animName} ${dur}s linear infinite`,
+        fontSize: 12, fontWeight: 600, color, letterSpacing: 1, textTransform: "uppercase",
+      }}>
+        <span style={{ paddingRight: 32 }}>{content}</span>
+        <span style={{ paddingRight: 32 }}>{content}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Stat Card XL ───────────────────────────────────── */
+export function StatCardXL({ label, value, delta, deltaDirection = "up", sparkline, icon, accent }: {
+  label: string; value: string | number; delta?: string;
+  deltaDirection?: "up" | "down" | "flat"; sparkline?: number[];
+  icon?: MIconName | string; accent?: string;
+}) {
+  const dColor = deltaDirection === "down" ? "var(--m-danger)" : deltaDirection === "flat" ? "var(--m-muted)" : "var(--m-success)";
+  const dArrow = deltaDirection === "down" ? "↓" : deltaDirection === "flat" ? "→" : "↑";
+  const accentColor = accent ?? "var(--m-primary)";
+  const series = sparkline ?? [];
+  const max = Math.max(...series, 1);
+  const min = Math.min(...series, 0);
+  const range = Math.max(max - min, 1);
+  const path = series.length > 1 ? series.map((v, i) => {
+    const x = (i / (series.length - 1)) * 100;
+    const y = 30 - ((v - min) / range) * 28;
+    return `${i === 0 ? "M" : "L"}${x},${y}`;
+  }).join(" ") : "";
+  return (
+    <div style={{
+      background: "var(--m-card)", borderRadius: "var(--m-radius-lg, 18px)",
+      padding: 18, border: "1px solid var(--m-border)",
+      boxShadow: "var(--m-shadow-sm)", position: "relative", overflow: "hidden",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 11, color: "var(--m-muted)", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{label}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--m-text)", marginTop: 6, fontFamily: "var(--m-font-heading)", fontVariantNumeric: "tabular-nums" }}>{value}</div>
+          {delta && <div style={{ fontSize: 12, color: dColor, fontWeight: 600, marginTop: 4 }}>{dArrow} {delta}</div>}
+        </div>
+        {icon && (
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: accentColor + "22", display: "grid", placeItems: "center", color: accentColor }}>
+            <MIcon name={icon as MIconName} size={18} />
+          </div>
+        )}
+      </div>
+      {series.length > 1 && (
+        <svg viewBox="0 0 100 32" preserveAspectRatio="none" style={{ width: "100%", height: 48, marginTop: 12, display: "block" }}>
+          <defs>
+            <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={accentColor} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={accentColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={`${path} L100,32 L0,32 Z`} fill={`url(#spark-${label})`} />
+          <path d={path} fill="none" stroke={accentColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+/* ─── Feature Showcase ───────────────────────────────── */
+export function FeatureShowcase({ title, description, image, icon, layout = "image-left", buttonLabel }: {
+  title: string; description: string; image?: string; icon?: MIconName | string;
+  layout?: "image-left" | "image-right" | "image-top"; buttonLabel?: string;
+}) {
+  const visual = (
+    <div style={{
+      width: layout === "image-top" ? "100%" : 110,
+      height: layout === "image-top" ? 140 : 110,
+      borderRadius: "var(--m-radius-md, 14px)", overflow: "hidden", flexShrink: 0,
+      background: image ? "var(--m-border)" : "linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))",
+      display: "grid", placeItems: "center",
+    }}>
+      {image
+        ? <img src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : icon ? <MIcon name={icon as MIconName} size={36} className="" /> : null}
+    </div>
+  );
+  return (
+    <div style={{
+      background: "var(--m-card)", borderRadius: "var(--m-radius-lg, 18px)",
+      padding: 14, border: "1px solid var(--m-border)",
+      display: "flex", flexDirection: layout === "image-top" ? "column" : "row",
+      gap: 14, alignItems: layout === "image-top" ? "stretch" : "center",
+    }}>
+      {layout !== "image-right" && visual}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--m-text)", margin: 0, fontFamily: "var(--m-font-heading)" }}>{title}</h3>
+        <p style={{ fontSize: 12, color: "var(--m-muted)", marginTop: 6, lineHeight: 1.45 }}>{description}</p>
+        {buttonLabel && (
+          <button type="button" style={{
+            marginTop: 10, padding: "8px 14px", borderRadius: 999,
+            background: "transparent", color: "var(--m-primary)",
+            border: "1px solid var(--m-primary)", fontSize: 11, fontWeight: 600, cursor: "pointer",
+          }}>{buttonLabel}</button>
+        )}
+      </div>
+      {layout === "image-right" && visual}
+    </div>
+  );
+}
+
+/* ─── Testimonial ────────────────────────────────────── */
+export function Testimonial({ quote, name, role, rating }: {
+  quote: string; name: string; role?: string; avatar?: string; rating?: number;
+}) {
+  return (
+    <div style={{
+      background: "var(--m-card)", borderRadius: "var(--m-radius-lg, 18px)",
+      padding: 18, border: "1px solid var(--m-border)",
+      boxShadow: "var(--m-shadow-sm)", position: "relative",
+    }}>
+      <div style={{
+        position: "absolute", top: -8, left: 16, fontSize: 48, lineHeight: 1,
+        color: "var(--m-primary)", opacity: 0.25, fontFamily: "serif",
+      }}>"</div>
+      <p style={{
+        fontSize: 13, lineHeight: 1.55, color: "var(--m-text)",
+        margin: "8px 0 14px", fontStyle: "italic", fontFamily: "var(--m-font-heading)",
+      }}>{quote}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: "50%", background: "var(--m-primary)",
+          color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13,
+        }}>{name.charAt(0).toUpperCase()}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--m-text)" }}>{name}</div>
+          {role && <div style={{ fontSize: 10, color: "var(--m-muted)" }}>{role}</div>}
+        </div>
+        {typeof rating === "number" && (
+          <div style={{ display: "flex", gap: 1 }}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <span key={i} style={{ fontSize: 12, color: i < Math.round(rating) ? "#f59e0b" : "var(--m-border)" }}>★</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Pricing Card ───────────────────────────────────── */
+export function PricingCard({ name, price, period, description, features, buttonLabel, highlighted, badge }: {
+  name: string; price: string; period?: string; description?: string;
+  features: string[]; buttonLabel?: string; highlighted?: boolean; badge?: string;
+}) {
+  const bg = highlighted ? "linear-gradient(160deg, var(--m-gradient-from), var(--m-gradient-to))" : "var(--m-card)";
+  const fg = highlighted ? "#fff" : "var(--m-text)";
+  const mutedFg = highlighted ? "rgba(255,255,255,0.8)" : "var(--m-muted)";
+  return (
+    <div style={{
+      background: bg, color: fg,
+      borderRadius: "var(--m-radius-xl, 22px)", padding: 20,
+      border: highlighted ? "none" : "1px solid var(--m-border)",
+      boxShadow: highlighted ? "var(--m-shadow-lg)" : "var(--m-shadow-sm)",
+      position: "relative",
+    }}>
+      {badge && (
+        <span style={{
+          position: "absolute", top: 14, right: 14,
+          padding: "3px 9px", borderRadius: 999, fontSize: 9, fontWeight: 700,
+          background: highlighted ? "rgba(255,255,255,0.25)" : "var(--m-primary)",
+          color: "#fff", letterSpacing: 0.5, textTransform: "uppercase",
+        }}>{badge}</span>
+      )}
+      <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.85, textTransform: "uppercase", letterSpacing: 1.2 }}>{name}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 8 }}>
+        <span style={{ fontSize: 36, fontWeight: 800, fontFamily: "var(--m-font-heading)" }}>{price}</span>
+        {period && <span style={{ fontSize: 12, color: mutedFg }}>{period}</span>}
+      </div>
+      {description && <p style={{ fontSize: 11, color: mutedFg, margin: "6px 0 14px" }}>{description}</p>}
+      <ul style={{ listStyle: "none", padding: 0, margin: "14px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+        {(features ?? []).map((f, i) => (
+          <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+              background: highlighted ? "rgba(255,255,255,0.25)" : "color-mix(in oklab, var(--m-success) 22%, transparent)",
+              color: highlighted ? "#fff" : "var(--m-success)",
+              display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700,
+            }}>✓</span>
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+      {buttonLabel && (
+        <button type="button" style={{
+          width: "100%", padding: "12px 16px", borderRadius: "var(--m-radius-md, 12px)",
+          background: highlighted ? "#fff" : "var(--m-primary)",
+          color: highlighted ? "var(--m-text)" : "#fff",
+          border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer",
+        }}>{buttonLabel}</button>
+      )}
+    </div>
+  );
+}
+
+/* ─── Onboarding Slide ───────────────────────────────── */
+export function OnboardingSlide({ title, body, image, icon, step, totalSteps, buttonLabel }: {
+  title: string; body: string; image?: string; icon?: MIconName | string;
+  step?: number; totalSteps?: number; buttonLabel?: string;
+}) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+      gap: 16, padding: "20px 12px",
+    }}>
+      <div style={{
+        width: "100%", height: 220, borderRadius: "var(--m-radius-xl, 22px)",
+        overflow: "hidden", position: "relative",
+        background: "linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))",
+        display: "grid", placeItems: "center", boxShadow: "var(--m-shadow-md)",
+      }}>
+        {image
+          ? <img src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : icon ? <div style={{ color: "#fff", opacity: 0.85 }}><MIcon name={icon as MIconName} size={72} /></div> : null}
+      </div>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--m-text)", margin: 0, fontFamily: "var(--m-font-heading)" }}>{title}</h2>
+      <p style={{ fontSize: 13, color: "var(--m-muted)", lineHeight: 1.5, margin: 0, maxWidth: 280 }}>{body}</p>
+      {typeof step === "number" && typeof totalSteps === "number" && (
+        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+          {Array.from({ length: totalSteps }, (_, i) => (
+            <span key={i} style={{
+              width: i === step - 1 ? 22 : 6, height: 6, borderRadius: 3,
+              background: i === step - 1 ? "var(--m-primary)" : "var(--m-border)",
+              transition: "width 0.3s",
+            }} />
+          ))}
+        </div>
+      )}
+      {buttonLabel && (
+        <button type="button" style={{
+          marginTop: 6, padding: "12px 28px", borderRadius: 999,
+          background: "var(--m-primary)", color: "#fff", border: "none",
+          fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%",
+        }}>{buttonLabel}</button>
+      )}
+    </div>
+  );
+}
+
+
 
