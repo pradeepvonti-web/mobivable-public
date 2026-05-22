@@ -382,6 +382,54 @@ export type Database = {
         }
         Relationships: []
       }
+      project_backends: {
+        Row: {
+          created_at: string
+          error_text: string | null
+          id: string
+          last_synced_at: string | null
+          project_id: string
+          region: string
+          status: string
+          supabase_anon_key_enc: string | null
+          supabase_project_ref: string | null
+          supabase_service_role_key_enc: string | null
+          supabase_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          last_synced_at?: string | null
+          project_id: string
+          region?: string
+          status?: string
+          supabase_anon_key_enc?: string | null
+          supabase_project_ref?: string | null
+          supabase_service_role_key_enc?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          last_synced_at?: string | null
+          project_id?: string
+          region?: string
+          status?: string
+          supabase_anon_key_enc?: string | null
+          supabase_project_ref?: string | null
+          supabase_service_role_key_enc?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_env_vars: {
         Row: {
           created_at: string
@@ -486,9 +534,46 @@ export type Database = {
           },
         ]
       }
+      project_migrations: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          error_text: string | null
+          id: string
+          name: string
+          project_id: string
+          sql: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          name: string
+          project_id: string
+          sql: string
+          user_id: string
+          version: number
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          sql?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           attachments: Json
+          backend_spec: Json
           created_at: string
           error_text: string | null
           id: string
@@ -503,6 +588,7 @@ export type Database = {
         }
         Insert: {
           attachments?: Json
+          backend_spec?: Json
           created_at?: string
           error_text?: string | null
           id?: string
@@ -517,6 +603,7 @@ export type Database = {
         }
         Update: {
           attachments?: Json
+          backend_spec?: Json
           created_at?: string
           error_text?: string | null
           id?: string
