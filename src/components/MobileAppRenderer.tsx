@@ -288,7 +288,8 @@ export function MobileAppRenderer({
   return (
     <MobileErrorBoundary fallbackTitle="Preview Crashed">
       <div
-        className={className}
+        className={`m-preview ${className ?? ""}`.trim()}
+
         style={{
           ...cssVars,
           height: "100%", width: "100%",
