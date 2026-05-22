@@ -446,6 +446,21 @@ function ProjectPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
+  // Apply theme extracted from the UI/UX Designer's spec (matches the generated mockup).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const theme = (e as CustomEvent).detail;
+      if (!theme || typeof theme !== "object") return;
+      setLiveSchema((prev) => {
+        const base = prev ?? (project?.result ? parseAppSchema(project.result) : null) ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+        const prevTheme = typeof base.theme === "object" ? base.theme : {};
+        return { ...base, theme: { ...prevTheme, ...theme } } as MobileAppSchema;
+      });
+    };
+    window.addEventListener("mobile-theme-extracted", handler);
+    return () => window.removeEventListener("mobile-theme-extracted", handler);
+  }, [project?.result, demoApp]);
+
 
   // Load latest icon/splash URLs so the generated app config can reference them.
   useEffect(() => {
