@@ -87,6 +87,7 @@ import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { FigmaImportPanel } from "@/components/FigmaImportPanel";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
+import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -342,6 +343,7 @@ function ProjectPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
+  const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
@@ -444,6 +446,28 @@ function ProjectPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
+  const exportExpoFn = useServerFn(exportExpoProject);
+
+  const handleExportExpo = async () => {
+    setExportingExpo(true);
+    try {
+      const res = await exportExpoFn({ data: { projectId } });
+      if (res.ok) {
+        const a = document.createElement("a");
+        a.href = res.url;
+        a.download = res.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        alert(`Export failed: ${res.error}`);
+      }
+    } catch (e) {
+      alert(`Export failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setExportingExpo(false);
+    }
+  };
   const triggeredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef(false);
@@ -1078,6 +1102,16 @@ function ProjectPage() {
           >
             <BookOpen className="h-3.5 w-3.5" />
             Agents.md
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExpo}
+            disabled={exportingExpo}
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors disabled:opacity-50"
+            title="Download a complete Expo (React Native) project"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exportingExpo ? "Packaging…" : "Export Expo"}
           </button>
           <button
             type="button"
