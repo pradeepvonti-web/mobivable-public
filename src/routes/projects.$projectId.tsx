@@ -87,6 +87,7 @@ import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { FigmaImportPanel } from "@/components/FigmaImportPanel";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
+import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
