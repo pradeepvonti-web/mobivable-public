@@ -28,6 +28,13 @@ const VALID_SCREEN_LAYOUTS = new Set([
   "stack", "split-hero", "bento-grid", "magazine", "full-bleed",
 ]);
 
+const VALID_ENTRANCES = new Set([
+  "none", "fade-up", "fade-in", "scale-in",
+  "slide-left", "slide-right", "pop", "blur-in",
+]);
+
+const VALID_GESTURES = new Set(["tap-scale", "press-glow", "swipe-hint"]);
+
 
 /** Validate and auto-fix an element */
 function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElement | null {
