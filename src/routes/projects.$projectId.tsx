@@ -414,6 +414,11 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  // Drag-and-drop editing: live schema overrides + active screen tracked from renderer.
+  const [liveSchema, setLiveSchema] = useState<MobileAppSchema | null>(null);
+  const [liveSchemaResultId, setLiveSchemaResultId] = useState<string | null>(null);
+  const [activeScreenId, setActiveScreenId] = useState<string>("");
+  const [dropFlash, setDropFlash] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [demoApp, setDemoApp] = useState<string>("fittrack");
   const [newClassInput, setNewClassInput] = useState("");
