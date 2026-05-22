@@ -52,6 +52,7 @@ import {
   Brain,
   BookOpen as BookOpenIcon,
   Rocket,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +78,8 @@ import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { AIStudioPanel } from "@/components/AIStudioPanel";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
+import { FigmaImportPanel } from "@/components/FigmaImportPanel";
+import { CodeExportPanel } from "@/components/CodeExportPanel";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 
 type Attachment = { path: string; url: string; name: string };
@@ -196,6 +199,8 @@ const SIDE_ITEMS = [
   { icon: ImageIcon, label: "Assets" },
   { icon: BookOpenIcon, label: "Knowledge" },
   { icon: Rocket, label: "Deployments" },
+  { icon: Layers, label: "Figma Import" },
+  { icon: Smartphone, label: "Code Export" },
   { icon: History, label: "Ver. History" },
   { icon: LifeBuoy, label: "Get Support" },
   { icon: Settings, label: "Settings" },
@@ -320,7 +325,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1187,6 +1192,8 @@ function ProjectPage() {
               (label === "Assets" && sidePanel === "assets") ||
               (label === "Knowledge" && sidePanel === "knowledge") ||
               (label === "Deployments" && sidePanel === "deployments") ||
+              (label === "Figma Import" && sidePanel === "figma") ||
+              (label === "Code Export" && sidePanel === "code_export") ||
               (label === "Ver. History" && sidePanel === "history") ||
               (label === "Get Support" && sidePanel === "support") ||
               (label === "Settings" && sidePanel === "settings");
@@ -1215,6 +1222,10 @@ function ProjectPage() {
                     setSidePanel("knowledge");
                   } else if (label === "Deployments") {
                     setSidePanel("deployments");
+                  } else if (label === "Figma Import") {
+                    setSidePanel("figma");
+                  } else if (label === "Code Export") {
+                    setSidePanel("code_export");
                   } else if (label === "Ver. History") {
                     setSidePanel("history");
                   } else if (label === "Get Support") {
@@ -2118,6 +2129,24 @@ function ProjectPage() {
       {sidePanel === "deployments" && (
         <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
           <DeploymentsPanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
+      )}
+
+      {sidePanel === "figma" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <FigmaImportPanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
+      )}
+
+      {sidePanel === "code_export" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <CodeExportPanel
             projectId={projectId}
             onClose={() => setSidePanel(null)}
           />
