@@ -53,6 +53,7 @@ import {
   BookOpen as BookOpenIcon,
   Rocket,
   Layers,
+  LayoutGrid as Layout,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,6 +197,7 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
+  { icon: Layout, label: "Components" },
   { icon: Brain, label: "AI Studio" },
   { icon: Code2, label: "Code" },
   { icon: Terminal, label: "Console" },
@@ -331,7 +333,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1147,6 +1149,7 @@ function ProjectPage() {
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
+              (label === "Components" && sidePanel === "components") ||
               (label === "AI Studio" && sidePanel === "aistudio") ||
               (label === "Code" && sidePanel === "code") ||
               (label === "Console" && sidePanel === "console") ||
@@ -1170,6 +1173,8 @@ function ProjectPage() {
                   if (label === "Backend") {
                     if (!isPro) setUpgradeOpen(true);
                     else setSidePanel("backend");
+                  } else if (label === "Components") {
+                    setSidePanel("components");
                   } else if (label === "AI Studio") {
                     setSidePanel("aistudio");
                   } else if (label === "AI & Env Keys") {
@@ -1216,11 +1221,6 @@ function ProjectPage() {
             );
           })}
         </div>
-        {isReady && (
-          <div className="shrink-0 border-t border-border p-2">
-            <ComponentPalette />
-          </div>
-        )}
       </aside>
 
       {/* Chat thread */}
@@ -1925,6 +1925,28 @@ function ProjectPage() {
 
       {sidePanel === "backend" && isPro && (
         <BackendPanel projectId={projectId} onClose={() => setSidePanel(null)} />
+      )}
+
+      {sidePanel === "components" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <Layout className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Components</h2>
+                <p className="text-[10px] text-muted-foreground truncate">Drag any block onto the phone preview</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+              Close
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">
+            <ComponentPalette variant="panel" />
+          </div>
+        </section>
       )}
 
       {sidePanel === "env" && (
