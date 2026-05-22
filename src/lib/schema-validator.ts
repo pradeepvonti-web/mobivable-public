@@ -176,6 +176,12 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
     issues.push({ severity: "info", path, message: "Screen missing icon, defaulting to home", autoFixed: true });
   }
 
+  // Validate layout
+  if (s.layout && (typeof s.layout !== "string" || !VALID_SCREEN_LAYOUTS.has(s.layout as string))) {
+    issues.push({ severity: "warning", path, message: `Unknown screen layout "${String(s.layout)}", using "stack"`, autoFixed: true });
+    s.layout = "stack";
+  }
+
   // Fix elements
   if (!Array.isArray(s.elements)) {
     issues.push({ severity: "warning", path, message: "Screen missing elements array", autoFixed: true });
@@ -188,6 +194,7 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
 
   return s as unknown as MScreen;
 }
+
 
 /** Validate and auto-fix a full app schema */
 export function validateAndFixSchema(
