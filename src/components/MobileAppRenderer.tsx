@@ -299,7 +299,8 @@ export function MobileAppRenderer({
           overflow: "hidden", position: "relative",
         } as React.CSSProperties}
       >
-        {/* Validation issues banner */}
+        <style>{`.m-preview h1,.m-preview h2,.m-preview h3,.m-preview h4{font-family:var(--m-font-heading);}`}</style>
+
         {issueCount > 0 && (
           <div style={{
             padding: "4px 12px", fontSize: 9, fontFamily: "monospace",
