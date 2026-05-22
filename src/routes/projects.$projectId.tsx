@@ -196,6 +196,7 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 const SIDE_ITEMS = [
   { icon: MessageSquare, label: "Chat", active: true },
+  { icon: Layout, label: "Components" },
   { icon: Brain, label: "AI Studio" },
   { icon: Code2, label: "Code" },
   { icon: Terminal, label: "Console" },
