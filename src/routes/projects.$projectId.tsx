@@ -1105,6 +1105,16 @@ function ProjectPage() {
           </button>
           <button
             type="button"
+            onClick={handleExportExpo}
+            disabled={exportingExpo}
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors disabled:opacity-50"
+            title="Download a complete Expo (React Native) project"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exportingExpo ? "Packaging…" : "Export Expo"}
+          </button>
+          <button
+            type="button"
             onClick={() => setPublishOpen(true)}
             className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-border text-xs lg:text-sm font-medium hover:bg-muted/50 transition-colors"
           >
