@@ -604,11 +604,21 @@ function ProjectPage() {
       .eq(previewConfig.messagesFields.projectFk, projectId)
       .order(previewConfig.messagesFields.createdAt, { ascending: true });
     setMessages(
-      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-      })),
+      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => {
+        if (m.role !== "assistant") return { id: m.id, role: m.role, content: m.content };
+        const { role, text } = parseAgentMarker(m.content);
+        // legacy fallback: old messages used `**🤖 Name** *(Phase)*` prefix
+        const legacy = text.match(/^\*\*🤖 ([^*]+)\*\*\s*(?:\*\(([^)]+)\)\*)?\s*\n+/);
+        const cleaned = legacy ? text.slice(legacy[0].length) : text;
+        return {
+          id: m.id,
+          role: m.role,
+          content: cleaned,
+          agentRole: role,
+          agentName: role ? AGENTS[role].name : legacy?.[1],
+          phase: legacy?.[2],
+        };
+      }),
     );
   }
 
