@@ -346,10 +346,13 @@ export function MobileAppRenderer({
   schema,
   className,
   onValidationIssues,
+  onScreenChange,
 }: {
   schema: MobileAppSchema | null;
   className?: string;
   onValidationIssues?: (summary: string, count: number) => void;
+  /** Fires whenever the active screen changes (initial mount + user tab). */
+  onScreenChange?: (screenId: string) => void;
 }) {
   const [activeScreen, setActiveScreen] = useState<string>("");
 
@@ -401,6 +404,11 @@ export function MobileAppRenderer({
     link.href = fontHref;
     document.head.appendChild(link);
   }, [fontHref]);
+
+  // Notify parent of active screen (initial + on tab change).
+  useEffect(() => {
+    onScreenChange?.(current);
+  }, [current, onScreenChange]);
 
   return (
     <MobileErrorBoundary fallbackTitle="Preview Crashed">

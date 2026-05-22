@@ -66,7 +66,9 @@ import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
+import { ComponentPalette } from "@/components/ComponentPalette";
 import { parseAppSchema } from "@/lib/code-gen";
+import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { SAMPLE_FITTRACK, SAMPLE_APPS } from "@/lib/sample-apps";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
 import { AGENTS, ALL_ROLES, AGENT_TEMPLATES, type AgentRole } from "@/lib/agents";
@@ -412,6 +414,11 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  // Drag-and-drop editing: live schema overrides + active screen tracked from renderer.
+  const [liveSchema, setLiveSchema] = useState<MobileAppSchema | null>(null);
+  const [liveSchemaResultId, setLiveSchemaResultId] = useState<string | null>(null);
+  const [activeScreenId, setActiveScreenId] = useState<string>("");
+  const [dropFlash, setDropFlash] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [demoApp, setDemoApp] = useState<string>("fittrack");
   const [newClassInput, setNewClassInput] = useState("");
@@ -3080,13 +3087,76 @@ function ProjectPage() {
                       </div>
                     );
                   }
-                  const schema = project?.result ? parseAppSchema(project.result) : null;
-                  return <MobileAppRenderer key={previewKey} schema={schema ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK} />;
+                  const parsed = project?.result ? parseAppSchema(project.result) : null;
+                  // Reset live edits when the underlying generated result changes.
+                  if (project?.result && project.result !== liveSchemaResultId) {
+                    queueMicrotask(() => {
+                      setLiveSchemaResultId(project.result);
+                      setLiveSchema(null);
+                    });
+                  }
+                  const baseSchema = liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+                  const handleDrop = (e: React.DragEvent) => {
+                    e.preventDefault();
+                    const raw = e.dataTransfer.getData("application/x-mobile-element");
+                    if (!raw) return;
+                    try {
+                      const el = JSON.parse(raw) as MElement;
+                      const screenId = activeScreenId || baseSchema.screens[0]?.id;
+                      const next: MobileAppSchema = {
+                        ...baseSchema,
+                        screens: baseSchema.screens.map((s) =>
+                          s.id === screenId ? { ...s, elements: [...s.elements, el] } : s,
+                        ),
+                      };
+                      setLiveSchema(next);
+                      setDropFlash(true);
+                      setTimeout(() => setDropFlash(false), 350);
+                    } catch {
+                      /* ignore malformed payload */
+                    }
+                  };
+                  return (
+                    <div
+                      style={{ position: "relative", height: "100%", width: "100%" }}
+                      onDragOver={(e) => {
+                        if (e.dataTransfer.types.includes("application/x-mobile-element")) {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "copy";
+                        }
+                      }}
+                      onDrop={handleDrop}
+                    >
+                      <MobileAppRenderer
+                        key={previewKey}
+                        schema={baseSchema}
+                        onScreenChange={setActiveScreenId}
+                      />
+                      {dropFlash && (
+                        <div
+                          style={{
+                            position: "absolute", inset: 0, pointerEvents: "none",
+                            border: "3px solid hsl(var(--primary))",
+                            borderRadius: 18,
+                            animation: "dropFlashAnim 350ms ease-out",
+                          }}
+                        />
+                      )}
+                      <style>{`@keyframes dropFlashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }`}</style>
+                    </div>
+                  );
                 })()}
               </div>
             )}
           </div>
         </div>
+
+        {/* Drag-and-drop component palette — floats over the preview pane on desktop */}
+        {isReady && (
+          <div className="hidden lg:block fixed left-4 bottom-4 z-40">
+            <ComponentPalette />
+          </div>
+        )}
       </section>
 
       {/* Mobile bottom action bar */}
