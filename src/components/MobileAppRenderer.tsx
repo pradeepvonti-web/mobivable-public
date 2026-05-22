@@ -346,10 +346,13 @@ export function MobileAppRenderer({
   schema,
   className,
   onValidationIssues,
+  onScreenChange,
 }: {
   schema: MobileAppSchema | null;
   className?: string;
   onValidationIssues?: (summary: string, count: number) => void;
+  /** Fires whenever the active screen changes (initial mount + user tab). */
+  onScreenChange?: (screenId: string) => void;
 }) {
   const [activeScreen, setActiveScreen] = useState<string>("");
 
