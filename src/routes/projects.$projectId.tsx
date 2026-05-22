@@ -1109,7 +1109,7 @@ function ProjectPage() {
 
       <div className="flex-1 min-h-0 w-full lg:overflow-hidden flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Left rail */}
-      <aside className="hidden lg:flex w-60 shrink-0 border-r border-border flex-col">
+      <aside className="hidden lg:flex w-52 shrink-0 border-r border-border flex-col">
         <div className="p-4 border-b border-border flex items-center gap-2">
           <Link
             to="/dashboard"
@@ -1118,7 +1118,7 @@ function ProjectPage() {
             Mobivable Agentic Mobile Studio
           </Link>
         </div>
-        <div className="p-4">
+        <div className="p-3">
           <Link
             to="/"
             className="block w-full text-center px-4 py-2 rounded-full border border-primary/40 text-primary font-display text-xs uppercase tracking-wider hover:bg-primary/10 transition-colors"
@@ -1126,8 +1126,7 @@ function ProjectPage() {
             + New Project
           </Link>
         </div>
-        <div className="px-2 pb-3 flex-1 overflow-y-auto" />
-        <div className="mt-auto border-t border-border p-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
           {SIDE_ITEMS.map(({ icon: Icon, label }) => {
             const isActive =
               (label === "Chat" && sidePanel === null) ||
