@@ -240,6 +240,36 @@ function RenderElement({ el }: { el: MElement }) {
 }
 
 
+/** Default entrance per element type for sensible motion when not specified. */
+function defaultEntranceFor(type: string): string {
+  if (type === "hero-banner" || type === "parallax-hero" || type === "gradient-mesh-bg") return "blur-in";
+  if (type === "onboarding-slide") return "scale-in";
+  if (type === "marquee") return "fade-in";
+  if (type === "stat-card-xl" || type === "pricing-card" || type === "glass-card") return "pop";
+  return "fade-up";
+}
+
+/** Compute motion class + per-index stagger style for an element. */
+function motionWrapProps(el: MElement, index: number): { className: string; style: React.CSSProperties } {
+  const entrance = el.entrance ?? defaultEntranceFor(el.type);
+  const gesture = el.gesture;
+  const cls = ["m-el", `m-anim-${entrance}`];
+  if (gesture) cls.push(`m-g-${gesture}`);
+  return {
+    className: cls.join(" "),
+    style: { animationDelay: `calc(var(--m-stagger) * ${index})` },
+  };
+}
+
+function MotionItem({ el, index, block }: { el: MElement; index: number; block?: boolean }) {
+  const w = motionWrapProps(el, index);
+  return (
+    <div className={w.className} style={{ ...w.style, ...(block ? { display: "block" } : null) }}>
+      <RenderElement el={el} />
+    </div>
+  );
+}
+
 /** Renders a full screen using the chosen composition template. */
 function RenderScreen({ screen }: { screen: MScreen }) {
   const elements = screen.elements ?? [];
@@ -248,7 +278,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "full-bleed") {
     return (
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0 }}>
-        {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+        {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
       </div>
     );
   }
@@ -257,9 +287,9 @@ function RenderScreen({ screen }: { screen: MScreen }) {
     const [hero, ...rest] = elements;
     return (
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-        {hero && <div style={{ padding: 0 }}><RenderElement el={hero} /></div>}
+        {hero && <MotionItem el={hero} index={0} />}
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+          {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
         </div>
       </div>
     );
@@ -269,9 +299,9 @@ function RenderScreen({ screen }: { screen: MScreen }) {
     const [feature, ...rest] = elements;
     return (
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {feature && <RenderElement el={feature} />}
+        {feature && <MotionItem el={feature} index={0} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-          {rest.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+          {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
         </div>
       </div>
     );
@@ -283,11 +313,18 @@ function RenderScreen({ screen }: { screen: MScreen }) {
         flex: 1, overflowY: "auto", padding: "12px 16px",
         display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
       }}>
-        {elements.map((el, i) => (
-          <div key={el.id ?? i} style={{ gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}>
-            <RenderElement el={el} />
-          </div>
-        ))}
+        {elements.map((el, i) => {
+          const w = motionWrapProps(el, i);
+          return (
+            <div
+              key={el.id ?? i}
+              className={w.className}
+              style={{ ...w.style, gridColumn: (el.span ?? 1) === 2 ? "span 2" : "span 1" }}
+            >
+              <RenderElement el={el} />
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -298,7 +335,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      {elements.map((el, i) => <RenderElement key={el.id ?? i} el={el} />)}
+      {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
     </div>
   );
 }
