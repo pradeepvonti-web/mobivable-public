@@ -78,9 +78,14 @@ const DEFAULT_SHADOWS: MobileShadows = {
   lg: "0 20px 50px rgba(0,0,0,0.28)",
 };
 const DEFAULT_MOTION: MobileMotion = {
-  duration: 220,
-  easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+  duration: 260,
+  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
   intensity: "medium",
+  springs: {
+    snappy: { duration: 180, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+    gentle: { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    bouncy: { duration: 420, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+  },
 };
 
 export const MOBILE_THEMES: Record<string, MobileTheme> = {
