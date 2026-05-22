@@ -773,62 +773,77 @@ function ProjectPage() {
     setMessages((prev) => [
       ...prev,
       { id: tempId, role: "user", content },
-      { id: `${tempId}-a`, role: "assistant", content: "", pending: true },
     ]);
+    setTeamBanner(null);
     try {
       const stream = await chatFn({ data: { projectId, content, agentRole: selectedAgent } });
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
-      let acc = "";
+      let activeAgentMsgId: string | null = null;
       let errored = false;
       for await (const event of stream) {
         if (cancelRef.current) break;
-        if (event.type === "delta") {
-          acc += event.delta;
+        if (event.type === "team_assembled") {
+          setTeamBanner({ phaseLabel: event.phaseLabel, agents: event.agents });
+        } else if (event.type === "agent_start") {
+          activeAgentMsgId = `${tempId}-${event.role}-${Date.now()}`;
+          const id = activeAgentMsgId;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id,
+              role: "assistant",
+              content: "",
+              pending: true,
+              agentRole: event.role as AgentRole,
+              agentName: event.name,
+              phase: event.phase,
+            },
+          ]);
+        } else if (event.type === "delta") {
+          const id = activeAgentMsgId;
+          if (!id) continue;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === `${tempId}-a` ? { ...m, content: acc, pending: false } : m,
+              m.id === id ? { ...m, content: m.content + event.delta, pending: false } : m,
             ),
           );
+        } else if (event.type === "agent_done") {
+          activeAgentMsgId = null;
+        } else if (event.type === "agent_error") {
+          errored = true;
+          const id = activeAgentMsgId;
+          if (id) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === id ? { ...m, content: `⚠️ ${event.error}`, pending: false } : m)),
+            );
+          }
         } else if (event.type === "error") {
           errored = true;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === `${tempId}-a`
-                ? { ...m, content: `⚠️ ${event.error}`, pending: false }
-                : m,
-            ),
-          );
+          setMessages((prev) => [
+            ...prev,
+            { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
+          ]);
         } else if (event.type === "project_updated") {
           await reloadProject();
         }
       }
-      if (cancelRef.current) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === `${tempId}-a`
-              ? { ...m, content: `${acc}${acc ? "\n\n" : ""}_Stopped._`, pending: false }
-              : m,
-          ),
-        );
-      } else if (!errored) {
+      if (!errored && !cancelRef.current) {
         await loadMessages();
       }
     } catch (err) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === `${tempId}-a`
-            ? {
-                ...m,
-                content: `⚠️ ${err instanceof Error ? err.message : "Failed to send"}`,
-                pending: false,
-              }
-            : m,
-        ),
-      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${tempId}-err`,
+          role: "assistant",
+          content: `⚠️ ${err instanceof Error ? err.message : "Failed to send"}`,
+        },
+      ]);
     } finally {
       streamRef.current = null;
       cancelRef.current = false;
       setSending(false);
+      setTeamBanner(null);
     }
   }
 
