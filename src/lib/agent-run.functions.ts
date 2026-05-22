@@ -237,11 +237,21 @@ export const runAgentTask = createServerFn({ method: "POST" })
     }
 
     // ─── DEFAULT: Call AI gateway ───
+    const priorRoles = (prior ?? [])
+      .filter(p => p.output)
+      .map(p => AGENTS[p.role as AgentRole]?.name ?? p.role);
+    const teamInstruction = priorRoles.length > 0
+      ? `You are working as part of a team. The following agents have already completed their work: ${priorRoles.join(", ")}. ` +
+        `You MUST reference their specific decisions and build upon them — do NOT contradict or duplicate their work. ` +
+        `Cite specific details from their outputs (colors, features, screens, etc.) in yours.`
+      : `You are the first agent on this project. Set the foundation for the team.`;
+
     const userPrompt =
       `App idea: ${project?.prompt ?? ""}\n\n` +
       `Project name: ${project?.name ?? ""}\n\n` +
+      `${teamInstruction}\n\n` +
       `Previous agents' outputs:\n${priorBlock}\n\n` +
-      `Now produce your output for this app.`;
+      `Now produce YOUR specialized output for this app. Be specific, actionable, and reference prior agents' decisions.`;
 
     const r = await callAI(def.system, userPrompt);
 
@@ -295,7 +305,9 @@ export const runAgentTask = createServerFn({ method: "POST" })
     return { ok: true as const, output: r.text };
   });
 
-/** Mark a run completed when all its tasks are done (or failed). */
+/** Mark a run completed when all its tasks are done (or failed).
+ *  CRITICAL: After marking the run, combine ALL agent outputs and regenerate
+ *  the app schema so the preview actually reflects the agents' work. */
 export const finalizeAgentRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -305,8 +317,9 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: tasks } = await supabase
       .from("agent_tasks")
-      .select("status, user_id")
-      .eq("run_id", data.runId);
+      .select("status, role, output, user_id, run_id, ordinal")
+      .eq("run_id", data.runId)
+      .order("ordinal", { ascending: true });
     if (!tasks || tasks.length === 0 || tasks[0].user_id !== userId)
       return { ok: false as const, error: "Run not found" };
     const anyFailed = tasks.some((t) => t.status === "failed");
@@ -319,5 +332,104 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
       .from("agent_runs")
       .update({ status: next })
       .eq("id", data.runId);
+
+    // ─── KEY FIX: Regenerate app schema from combined agent outputs ───
+    // This is what makes agents actually work as a team — their individual
+    // outputs (PM requirements, designer specs, developer plans, etc.)
+    // are combined into a single prompt that feeds CODE_GEN_SYSTEM_PROMPT
+    // to produce a premium app JSON for the live preview.
+    if (next === "completed") {
+      try {
+        // Find the project
+        const { data: runRow } = await supabase
+          .from("agent_runs")
+          .select("project_id")
+          .eq("id", data.runId)
+          .single();
+        if (!runRow) throw new Error("Run not found");
+
+        const { data: project } = await supabase
+          .from("projects")
+          .select("id, prompt, name, result")
+          .eq("id", runRow.project_id)
+          .single();
+        if (!project) throw new Error("Project not found");
+
+        // Combine all agent outputs into a rich context block
+        const completedTasks = tasks.filter(
+          (t) => t.status === "completed" && t.output,
+        );
+        const agentContext = completedTasks
+          .map((t) => {
+            const agentName = AGENTS[t.role as AgentRole]?.name ?? t.role;
+            return `### ${agentName} Output\n${t.output}`;
+          })
+          .join("\n\n---\n\n");
+
+        // Import the code generation prompt
+        const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
+
+        const userPrompt =
+          `Build a premium mobile app based on the following specifications.\n\n` +
+          `## App Idea\n${project.prompt}\n\n` +
+          `## Agent Team Outputs\nThe following specialist agents have analyzed and designed this app:\n\n${agentContext}\n\n` +
+          `## Instructions\n` +
+          `Use ALL the agent outputs above to create a comprehensive, premium app.\n` +
+          `- Use the UI/UX Designer's exact color palette, typography, and component specs\n` +
+          `- Include all screens the Product Manager identified\n` +
+          `- Follow the UX Researcher's user journey and accessibility recommendations\n` +
+          `- Incorporate the Frontend Developer's component architecture\n` +
+          `- Make every screen data-dense with realistic content\n` +
+          `Generate the COMPLETE app JSON now.`;
+
+        const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+
+        if (result.ok && result.text.length > 50) {
+          // Try to parse and validate
+          const parsed = parseAppSchema(result.text);
+          if (parsed) {
+            const { validateAndFixSchema } = await import("./schema-validator");
+            const { schema: fixed } = validateAndFixSchema(parsed);
+            const finalJson = JSON.stringify(fixed ?? parsed);
+
+            await supabase
+              .from("projects")
+              .update({ result: finalJson, status: "ready", error_text: null })
+              .eq("id", project.id);
+
+            // Post a message to the chat
+            await supabase.from("agent_messages").insert({
+              run_id: data.runId,
+              project_id: project.id,
+              user_id: userId,
+              role: "summary_agent",
+              content: `🎨 **App schema regenerated!** All ${completedTasks.length} agent outputs have been combined into a premium app UI. The live preview has been updated.`,
+            });
+
+            console.log("[finalizeAgentRun] ✅ App schema regenerated from agent outputs", {
+              projectId: project.id,
+              agentCount: completedTasks.length,
+              jsonLength: finalJson.length,
+            });
+          } else {
+            // Raw text is probably valid but didn't parse — save it anyway
+            await supabase
+              .from("projects")
+              .update({ result: result.text, status: "ready" })
+              .eq("id", project.id);
+          }
+        } else {
+          console.error("[finalizeAgentRun] Code gen failed or returned too little text", {
+            ok: result.ok,
+            textLength: result.ok ? result.text.length : 0,
+            error: !result.ok ? result.error : undefined,
+          });
+        }
+      } catch (e) {
+        console.error("[finalizeAgentRun] Schema regeneration error:", e);
+        // Non-fatal: the run is still marked as completed
+      }
+    }
+
     return { ok: true as const, status: next };
   });
