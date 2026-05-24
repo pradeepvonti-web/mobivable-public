@@ -196,7 +196,27 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
               ? `GitHub connected as @${status!.githubUsername}`
               : "Connect GitHub"
           }
-          hint={!githubConnected ? "Open Settings → GitHub to authorize." : undefined}
+          hint={!githubConnected ? "Authorize GitHub to push your Expo scaffold." : undefined}
+          action={
+            !githubConnected ? (
+              <button
+                type="button"
+                disabled={oauthMut.isPending}
+                onClick={() => oauthMut.mutate()}
+                className="mt-1 rounded-md px-2.5 py-1 text-[10px] font-medium bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {oauthMut.isPending ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Redirecting…
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-3 w-3" /> Authorize GitHub
+                  </>
+                )}
+              </button>
+            ) : null
+          }
         />
 
         <Step
