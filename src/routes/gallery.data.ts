@@ -936,5 +936,5 @@ const data =
       "Android"
     ]
   }
-] as const;
+];
 export default data;
