@@ -3089,12 +3089,6 @@ function ProjectPage() {
                   <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
                 </div>
               </div>
-              <div className="h-full w-full grid place-items-center p-6">
-                <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
-                </div>
-              </div>
             ) : isFailed && project?.result && parseAppSchema(project.result) === null && !SAMPLE_APPS[demoApp] ? (
               <div className="h-full w-full grid place-items-center p-6">
                 <div className="text-center">
