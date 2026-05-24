@@ -14,7 +14,9 @@ export const generateAsset = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    try { await consumeOrThrow(context.userId, CREDIT_COSTS.image, `asset.${data.kind}`); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const styleHint =
       data.kind === "icon"
         ? "App icon: bold, centered, symmetrical, 1024x1024, no text, vibrant, modern, suitable for iOS/Android home screen."
