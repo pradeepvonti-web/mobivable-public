@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const AGENTS_MD_SYSTEM_PROMPT = `You are a senior mobile engineer writing an AGENTS.md guide that another AI agent will read before every feature it builds.
 
