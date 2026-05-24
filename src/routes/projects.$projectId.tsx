@@ -595,6 +595,28 @@ function ProjectPage() {
     }
   }
 
+  async function regenerateAssets() {
+    if (genAssetsState === "running") return;
+    setGenAssetsState("running");
+    setGenAssetsMsg("");
+    try {
+      const res = await generateImagesFn({ data: { projectId } });
+      if (res && "ok" in res && res.ok) {
+        setGenAssetsState("done");
+        setGenAssetsMsg(`Generated ${res.generated} • cached ${res.cached}${res.failed ? ` • failed ${res.failed}` : ""}`);
+        await reloadProject();
+        setTimeout(() => setGenAssetsState("idle"), 4000);
+      } else {
+        setGenAssetsState("error");
+        setGenAssetsMsg("ok" in (res ?? {}) && !(res as { ok: boolean }).ok ? (res as { error?: string }).error ?? "Failed" : "Failed");
+        setTimeout(() => setGenAssetsState("idle"), 5000);
+      }
+    } catch (e) {
+      setGenAssetsState("error");
+      setGenAssetsMsg(e instanceof Error ? e.message : "Failed");
+      setTimeout(() => setGenAssetsState("idle"), 5000);
+    }
+
 
   async function loadMessages() {
     const msgSelect = aliasedSelect({
