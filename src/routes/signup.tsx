@@ -9,9 +9,11 @@ const PLAN_VALUES = ["free_beta", "starter", "pro", "scale", "business"] as cons
 type PlanValue = (typeof PLAN_VALUES)[number];
 
 const PLAN_LABELS: Record<PlanValue, { name: string; tag: string; blurb: string }> = {
-  free_beta: { name: "Free Beta", tag: "TIER_00", blurb: "Free forever during public beta. 1 published app." },
-  starter: { name: "Starter", tag: "TIER_01", blurb: "$29/mo · 5 published apps, source export, priority compile." },
-  pro: { name: "Pro", tag: "TIER_02", blurb: "$99/mo · Unlimited apps, team workspaces, dedicated support." },
+  free_beta: { name: "Free Beta", tag: "TIER_00", blurb: "Free during public beta · 6 AI credits / day, 1 published app." },
+  starter:   { name: "Starter",   tag: "TIER_01", blurb: "$29/mo · 120 AI credits, 5 published apps, source export." },
+  pro:       { name: "Pro",       tag: "TIER_02", blurb: "$59/mo · 300 AI credits, unlimited apps, priority queue." },
+  scale:     { name: "Scale",     tag: "TIER_03", blurb: "$119/mo · 700 AI credits, team seats, app analytics." },
+  business:  { name: "Business",  tag: "TIER_04", blurb: "$299/mo · 2,000 AI credits, SSO, dedicated success manager." },
 };
 
 const searchSchema = z.object({
