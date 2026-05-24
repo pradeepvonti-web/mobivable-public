@@ -390,6 +390,8 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           `- Make every screen data-dense with realistic content\n` +
           `Generate the COMPLETE app JSON now.`;
 
+        try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
+        catch (e) { throw new Error((e as Error).message); }
         const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
 
         if (result.ok && result.text.length > 50) {
