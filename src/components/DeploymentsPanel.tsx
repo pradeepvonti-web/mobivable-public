@@ -110,21 +110,26 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
   });
 
   const oauthMut = useMutation({
-    mutationFn: () => startOAuth({ data: { redirectTo: window.location.pathname } }),
-    onSuccess: (res) => {
+    mutationFn: ({ popup }: { popup: Window | null }) =>
+      startOAuth({ data: { redirectTo: window.location.pathname } }).then((res) => ({ res, popup })),
+    onSuccess: ({ res, popup }) => {
       if (!res.ok) {
+        if (popup && !popup.closed) popup.close();
         setErrMsg(res.error);
         return;
       }
-      // Open in new tab — preview iframe blocks cross-origin top-level navigation.
-      const win = window.open(res.url, "_blank", "noopener,noreferrer");
-      if (!win) {
+      if (!popup || popup.closed) {
         setErrMsg("Popup blocked. Allow popups, or open this URL manually: " + res.url);
       } else {
+        popup.location.href = res.url;
+        popup.focus();
         setErrMsg("Complete the GitHub authorization in the new tab, then come back and refresh.");
       }
     },
-    onError: (e: any) => setErrMsg(e?.message || "GitHub OAuth failed to start."),
+    onError: (e: any, { popup }) => {
+      if (popup && !popup.closed) popup.close();
+      setErrMsg(e?.message || "GitHub OAuth failed to start.");
+    },
   });
 
   const startMut = useMutation({
@@ -211,7 +216,15 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
               <button
                 type="button"
                 disabled={oauthMut.isPending}
-                onClick={() => oauthMut.mutate()}
+                onClick={() => {
+                  setErrMsg(null);
+                  const popup = window.open("about:blank", "_blank", "popup=yes,width=640,height=800");
+                  if (popup && popup.document) {
+                    popup.document.title = "Connecting to GitHub…";
+                    popup.document.body.innerHTML = "<p style=\"font-family: system-ui, sans-serif; padding: 24px;\">Connecting to GitHub…</p>";
+                  }
+                  oauthMut.mutate({ popup });
+                }}
                 className="mt-1 rounded-md px-2.5 py-1 text-[10px] font-medium bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 {oauthMut.isPending ? (
