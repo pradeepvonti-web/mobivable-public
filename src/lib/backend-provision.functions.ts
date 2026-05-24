@@ -151,6 +151,8 @@ export const inferBackendSpec = createServerFn({ method: "POST" })
         })
       : proj.result.slice(0, 4000);
 
+    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const ai = await callAI(INFER_PROMPT, summary, proj.model || "google/gemini-2.5-flash");
     if (!ai.ok) return { ok: false as const, error: ai.error };
 
