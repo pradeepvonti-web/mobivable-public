@@ -3393,7 +3393,7 @@ function ProjectPage() {
                 })()}
               </div>
             )}
-          </div>
+          </DeviceFrame>
         </div>
 
       </section>
