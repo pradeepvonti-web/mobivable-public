@@ -1105,6 +1105,7 @@ function ProjectPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 lg:gap-2">
+          <CreditBadge />
           <button
             type="button"
             onClick={() => { if (!isPro) setUpgradeOpen(true); else toast.info("You're already on Pro!"); }}
