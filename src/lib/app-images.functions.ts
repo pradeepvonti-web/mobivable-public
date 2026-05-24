@@ -119,6 +119,14 @@ export const generateAppImages = createServerFn({ method: "POST" })
     const queue = sites.slice(0, MAX_IMAGES);
     if (queue.length === 0) return { ok: true as const, generated: 0, cached: 0, failed: 0, skipped: 0 };
 
+    // Charge image credits upfront for the queued generations (uncached ones).
+    // We pre-check cache count by listing once to avoid overcharging — best-effort.
+    try {
+      await consumeOrThrow(userId, CREDIT_COSTS.image * queue.length, "app_images", project.id);
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message };
+    }
+
     const theme = resolveTheme(schema.theme);
     const palette = [theme.primary, theme.accent, theme.background].join(", ");
 
