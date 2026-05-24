@@ -636,6 +636,68 @@ export type Database = {
         }
         Relationships: []
       }
+      project_monetization: {
+        Row: {
+          admob_android_app_id: string | null
+          admob_banner_android: string | null
+          admob_banner_ios: string | null
+          admob_interstitial_android: string | null
+          admob_interstitial_ios: string | null
+          admob_ios_app_id: string | null
+          admob_rewarded_android: string | null
+          admob_rewarded_ios: string | null
+          created_at: string
+          extra: Json
+          id: string
+          project_id: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admob_android_app_id?: string | null
+          admob_banner_android?: string | null
+          admob_banner_ios?: string | null
+          admob_interstitial_android?: string | null
+          admob_interstitial_ios?: string | null
+          admob_ios_app_id?: string | null
+          admob_rewarded_android?: string | null
+          admob_rewarded_ios?: string | null
+          created_at?: string
+          extra?: Json
+          id?: string
+          project_id: string
+          provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admob_android_app_id?: string | null
+          admob_banner_android?: string | null
+          admob_banner_ios?: string | null
+          admob_interstitial_android?: string | null
+          admob_interstitial_ios?: string | null
+          admob_ios_app_id?: string | null
+          admob_rewarded_android?: string | null
+          admob_rewarded_ios?: string | null
+          created_at?: string
+          extra?: Json
+          id?: string
+          project_id?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_monetization_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_phases: {
         Row: {
           completed_at: string | null
