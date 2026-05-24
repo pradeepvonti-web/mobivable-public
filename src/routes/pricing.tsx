@@ -146,7 +146,7 @@ function PricingPage() {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 border border-border">
         {tiers.map((t, i) => {
           const price = billing === "yearly" ? t.yearly : t.monthly;
           const note = t.freeNote
@@ -157,27 +157,33 @@ function PricingPage() {
           return (
             <div
               key={t.code}
-              className={`p-10 ${i < 2 ? "md:border-r border-border" : ""} ${
+              className={`p-8 ${i < tiers.length - 1 ? "lg:border-r border-border" : ""} ${
                 t.highlight ? "bg-primary text-background" : ""
               }`}
             >
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <span className={`font-mono text-[10px] uppercase tracking-widest ${t.highlight ? "text-background/60" : "text-primary"}`}>
                   {t.code}
                 </span>
                 {t.highlight && (
                   <span className="font-mono text-[10px] uppercase tracking-widest bg-background text-primary px-2 py-1">
-                    Recommended
+                    Popular
                   </span>
                 )}
               </div>
-              <h3 className="font-display text-4xl uppercase mb-2">{t.name}</h3>
+              <h3 className="font-display text-3xl uppercase mb-2">{t.name}</h3>
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="font-display text-6xl">${price}</span>
+                <span className="font-display text-5xl">${price}</span>
               </div>
-              <p className={`font-mono text-[10px] uppercase tracking-widest mb-8 ${t.highlight ? "text-background/70" : "text-muted-foreground"}`}>
+              <p className={`font-mono text-[10px] uppercase tracking-widest mb-6 ${t.highlight ? "text-background/70" : "text-muted-foreground"}`}>
                 {note}
               </p>
+              <div className={`mb-6 pb-4 border-b ${t.highlight ? "border-background/30" : "border-border"}`}>
+                <div className="font-display text-2xl">⚡ {t.credits}</div>
+                <div className={`font-mono text-[10px] uppercase tracking-widest ${t.highlight ? "text-background/70" : "text-muted-foreground"}`}>
+                  {t.creditsSub}
+                </div>
+              </div>
               <ul className="space-y-3 mb-10">
                 {t.features.map((f) => (
                   <li key={f} className={`text-sm flex gap-3 ${t.highlight ? "text-background" : "text-foreground"}`}>
