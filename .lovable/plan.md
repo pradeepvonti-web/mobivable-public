@@ -1,66 +1,84 @@
-# AI Credits + Repriced Plans
+# Pivot to GitHub-triggered EAS Builds
 
-Mirror Lovable's credit model: every AI action costs credits, plans grant a monthly bucket, free users also get a small daily bucket, balance is shown in the header.
+## The flow
 
-## Pricing (≈20% over Lovable)
+```
+Lovable                    GitHub                   Expo (EAS)
+-------                    ------                   ----------
+1. Push Expo scaffold  →   New repo created
+   (multi-file commit)     `lovable-<slug>`
 
-| Tier | Monthly | Yearly (/mo) | Monthly credits | Daily credits | Notes |
-|---|---|---|---|---|---|
-| Free Beta | $0 | $0 | — | 6 (cap 35/mo) | 1 published app |
-| Starter | $29 | $23 | 120 | — | was $25 / 100 cr on Lovable |
-| Pro | $59 | $47 | 300 | — | was $50 / 250 cr |
-| Scale | $119 | $95 | 700 | — | new tier, was $100 / 500 cr |
-| Business | $299 | $239 | 2,000 | — | was $250 / 1,500 cr, adds SSO, team seats |
+2. User clicks         →   (one-time)          →    Install Expo GitHub App
+   "Connect to Expo"        Install app on repo     on selected repo
 
-1 credit ≈ 1 AI Studio generation / chat turn. Image gen + heavy ops cost more (configurable multiplier, default 1).
+3. Server links EAS app                         →   setGitHubRepositoryOnEasApp
+   to that repo
 
-## Database (single migration)
+4. Build button        →                        →   createGitHubBuildAsync
+                                                     (EAS pulls from GitHub,
+                                                      runs `eas build`,
+                                                      handles all schema)
 
-- `ai_credit_balances(user_id PK, monthly_remaining int, monthly_granted int, daily_remaining int, period_start timestamptz, last_daily_reset date, updated_at)` — RLS: owner select; service-role write.
-- `ai_credit_ledger(id, user_id, project_id null, amount int, reason text, balance_after int, created_at)` — append-only audit; RLS owner select.
-- Postgres function `consume_ai_credits(p_user uuid, p_amount int, p_reason text, p_project uuid)` returns `{ok, remaining}`:
-  - Resets `daily_remaining` if `last_daily_reset < today`.
-  - Resets `monthly_*` if `period_start + 30d <= now()` (or on plan change).
-  - Deducts from daily first, then monthly. Inserts ledger row. Returns insufficient if both empty.
-- Function `grant_ai_credits(p_user uuid)` reads `profiles.plan`, sets monthly bucket per plan map, resets `period_start`.
-- Trigger on `profiles` plan change → call `grant_ai_credits`.
-- Backfill: insert balances for all existing profiles with their plan's grant.
+5. Poll status         ←                        ←   builds.byId
+   Download APK / logs
+```
 
-## Server functions
+## What changes
 
-- `src/lib/credits.functions.ts`
-  - `getCreditBalance()` — authed, returns balance + plan tier.
-  - `consumeCredits({amount, reason, projectId?})` — authed wrapper around RPC, throws typed `INSUFFICIENT_CREDITS`.
-- Wire into existing AI call sites:
-  - `aiGenerate`, `aiResearch`, `aiCodeReview`, `aiDebug`, `aiPalette`, `aiOptimize` (1 cr each)
-  - `pixlabGenerate` (3 cr), `pixlabBgRemove` / `pixlabFilter` (2 cr)
-  - `generateProject` (10 cr)
-  - `project-chat` send (1 cr)
-  - Each handler calls `consumeCredits` first; on `INSUFFICIENT_CREDITS` returns `{ok:false, error:"Out of credits — upgrade to continue", code:"NO_CREDITS"}`.
+**1. Push multi-file commit to GitHub** (extend `pushCodeToGithub`)
+- Current: PUTs a single file via Contents API
+- New: use Git Data API (createTree + createCommit + updateRef) to commit
+  the whole Expo scaffold (package.json, app.json, eas.json, App.js,
+  index.js, assets/*, babel.config.js, .gitignore, eas-hook README) in
+  one commit. Reuse `scaffoldExpoProject()` from `eas.server.ts`.
 
-## Frontend
+**2. New `eas_apps` columns** (migration)
+- `github_repo_owner text`
+- `github_repo_name text`
+- `github_repo_installed boolean default false`  (whether Expo GitHub app
+  is installed on this repo — we detect via EAS API)
 
-- `src/hooks/useCredits.ts` — TanStack Query around `getCreditBalance`, invalidated after every AI mutation.
-- `CreditBadge` component in the top nav (project page + dashboard) showing `⚡ {remaining} / {granted}` with a popover breakdown (monthly + daily) and "Upgrade" CTA when low.
-- Update `AIStudioPanel`: show cost chip next to each tool button, surface `NO_CREDITS` toast with link to `/pricing`.
-- Update `pricing.tsx`: replace the 3-tier array with the 5 tiers above; each card lists monthly credit allowance prominently; toggle keeps monthly/yearly.
-- Add credit FAQ entries (what's a credit, do they roll over — no, daily reset rules).
+**3. New server functions in `eas.functions.ts`**
+- `pushExpoScaffoldToGithub({ projectId })` — creates repo + commits
+  scaffold + records repo in `eas_apps`.
+- `linkEasAppToGithub({ projectId })` — calls EAS
+  `setGitHubRepositoryAndBaseDirectory` mutation; returns
+  `{ ok, needsAppInstall, installUrl }` if the Expo GitHub App isn't
+  installed yet.
+- Rewrite `startEasBuild` to use `createGitHubBuildAsync` (or current
+  equivalent) — no more tarball upload, no more `AndroidJobInput`.
 
-## Payments
+**4. UI changes in `DeploymentsPanel`**
+- Three-step gate before the Build button:
+  1. ✓ Expo connected
+  2. ✓ GitHub connected (link to `/settings` if not)
+  3. ✓ Repo created & linked (button: "Push to GitHub & link to EAS")
+     - If Expo GitHub App not installed → show clear CTA with
+       `https://github.com/apps/expo/installations/new` link.
+- Once all three green: enable "Build APK on EAS".
 
-- Use `payments--batch_create_product` to create: `starter_plan`, `pro_plan`, `scale_plan`, `business_plan` each with `_monthly` and `_yearly` prices at amounts above. Quantity 1/1.
-- Existing checkout flow already resolves `priceId` → Paddle price, no changes needed beyond adding new ids in `pricing.tsx` data.
+**5. Drop the tarball path**
+- Remove `makeTarGz`, `uploadProjectArchive`, `archive_url` writes.
+  Keep `scaffoldExpoProject` (still used for the GitHub commit content).
 
-## Out of scope (follow-ups)
+## Manual step the user must do once
 
-- Credit top-up purchases (one-time packs) — note in FAQ as "coming soon".
-- Per-org/workspace pooled credits.
-- Admin override / gift credits UI (DB function exists, no UI yet).
+Install **Expo's GitHub App** on the repo:
+- We surface a deep link directly to the install page in the UI
+- Takes ~10 seconds; only required first time per repo
 
-## Order of execution
+After that, every rebuild is one click — EAS pulls latest `main` from
+GitHub and runs `eas build` natively. No more reverse-engineering EAS's
+private GraphQL shape.
 
-1. DB migration (table + functions + trigger + backfill).
-2. Server functions + wire into AI handlers.
-3. Frontend hook + badge + AIStudio cost chips.
-4. Pricing page rewrite.
-5. Paddle products via `batch_create_product`.
+## What we keep
+- EXPO_TOKEN, `easGraphql()` client, `eas_builds` table, polling, status UI.
+- `scaffoldExpoProject()` (used to generate files for the GitHub commit).
+- All RLS, all secret handling.
+
+## Tradeoffs
+- One-time manual GitHub-App install per repo (clear UI link).
+- We commit a working Expo project to the user's GitHub — they can also
+  clone & build locally if they want (a nice bonus).
+- ~1 build cycle to verify the EAS GraphQL mutation name is current
+  (the EAS schema for GitHub builds is public-stable, unlike `AndroidJobInput`).
