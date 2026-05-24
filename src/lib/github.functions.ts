@@ -1,20 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
 
 function getCallbackUrl(): string {
-  const req = (() => {
-    try {
-      // Available inside server fn handlers
-      const { getRequest } = require("@tanstack/react-start/server") as typeof import("@tanstack/react-start/server");
-      return getRequest();
-    } catch {
-      return null;
-    }
-  })();
-  const origin = req ? new URL(req.url).origin : "https://easy-mobile-ai.lovable.app";
-  return `${origin}/api/public/github/callback`;
+  try {
+    const req = getRequest();
+    return `${new URL(req.url).origin}/api/public/github/callback`;
+  } catch {
+    return "https://easy-mobile-ai.lovable.app/api/public/github/callback";
+  }
 }
 
 /** Return current GitHub connection status for the user (no token exposed). */
