@@ -347,12 +347,15 @@ export function MobileAppRenderer({
   className,
   onValidationIssues,
   onScreenChange,
+  hideStatusBar = false,
 }: {
   schema: MobileAppSchema | null;
   className?: string;
   onValidationIssues?: (summary: string, count: number) => void;
   /** Fires whenever the active screen changes (initial mount + user tab). */
   onScreenChange?: (screenId: string) => void;
+  /** Suppress the built-in status bar (e.g. when wrapped in a DeviceFrame that owns it). */
+  hideStatusBar?: boolean;
 }) {
   const [activeScreen, setActiveScreen] = useState<string>("");
 
@@ -464,7 +467,7 @@ export function MobileAppRenderer({
             <span>{issuesSummary}</span>
           </div>
         )}
-        <MobileStatusBar />
+        {!hideStatusBar && <MobileStatusBar />}
         {screen && <RenderScreen screen={screen} />}
         {nav?.type === "bottom-tabs" && (
           <MobileBottomNav

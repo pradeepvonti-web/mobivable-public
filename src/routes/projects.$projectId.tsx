@@ -68,6 +68,8 @@ import { ProjectPreview } from "@/components/ProjectPreview";
 import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
+import { DeviceFrame } from "@/components/DeviceFrame";
+import { resolveTheme } from "@/lib/mobile-theme";
 import { ComponentPalette } from "@/components/ComponentPalette";
 import { parseAppSchema } from "@/lib/code-gen";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
@@ -423,6 +425,9 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  const [deviceOS, setDeviceOS] = useState<"ios" | "android">("ios");
+  const [genAssetsState, setGenAssetsState] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [genAssetsMsg, setGenAssetsMsg] = useState<string>("");
   // Drag-and-drop editing: live schema overrides + active screen tracked from renderer.
   const [liveSchema, setLiveSchema] = useState<MobileAppSchema | null>(null);
   const [liveSchemaResultId, setLiveSchemaResultId] = useState<string | null>(null);
@@ -591,6 +596,32 @@ function ProjectPage() {
         .catch((e) => console.error("[appImages]", e));
     }
   }
+
+  async function regenerateAssets() {
+    if (genAssetsState === "running") return;
+    setGenAssetsState("running");
+    setGenAssetsMsg("");
+    try {
+      const res = await generateImagesFn({ data: { projectId } });
+      if (res && "ok" in res && res.ok) {
+        setGenAssetsState("done");
+        setGenAssetsMsg(`Generated ${res.generated} • cached ${res.cached}${res.failed ? ` • failed ${res.failed}` : ""}`);
+        await reloadProject();
+        setTimeout(() => setGenAssetsState("idle"), 4000);
+      } else {
+        setGenAssetsState("error");
+        setGenAssetsMsg("ok" in (res ?? {}) && !(res as { ok: boolean }).ok ? (res as { error?: string }).error ?? "Failed" : "Failed");
+        setTimeout(() => setGenAssetsState("idle"), 5000);
+      }
+    } catch (e) {
+      setGenAssetsState("error");
+      setGenAssetsMsg(e instanceof Error ? e.message : "Failed");
+      setTimeout(() => setGenAssetsState("idle"), 5000);
+    }
+  }
+
+
+
 
 
   async function loadMessages() {
@@ -3042,16 +3073,15 @@ function ProjectPage() {
               : ""
           }`}
         >
-          <div
-            aria-hidden
-            className="absolute -inset-6 rounded-[3rem] blur-2xl opacity-50"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in oklab, var(--primary) 60%, transparent), transparent 70%)",
-            }}
-          />
-          <div className="relative h-[640px] w-[320px] rounded-[2.5rem] border-[10px] border-foreground/80 bg-card shadow-2xl overflow-hidden">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-foreground/80 z-20" />
+          <DeviceFrame
+            os={deviceOS}
+            screenBg={(() => {
+              try {
+                const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
+                return s ? resolveTheme(s.theme).background : undefined;
+              } catch { return undefined; }
+            })()}
+          >
             {isBuilding ? (
               <div className="h-full w-full grid place-items-center p-6">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -3357,7 +3387,7 @@ function ProjectPage() {
                 })()}
               </div>
             )}
-          </div>
+          </DeviceFrame>
         </div>
 
       </section>
