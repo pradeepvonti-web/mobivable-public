@@ -1,19 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-function htmlRedirect(to: string, message: string) {
-  const safe = to.replace(/"/g, "&quot;");
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function htmlResult({
+  ok,
+  message,
+  username,
+}: {
+  ok: boolean;
+  message: string;
+  username?: string;
+}) {
+  const safeMessage = escapeHtml(message);
+  const title = ok ? "GitHub Connected" : "GitHub Error";
+  const heading = ok ? "GitHub connected" : "GitHub connection failed";
+  const color = ok ? "#e5e7eb" : "#fca5a5";
+  const payload = JSON.stringify({
+    source: "mobivable:github-oauth",
+    ok,
+    username,
+    error: ok ? null : message,
+  });
+
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="2;url=${safe}"><title>GitHub Connected</title></head><body style="font-family:system-ui;padding:40px;text-align:center;background:#0a0a0f;color:#e5e7eb"><p>${message}</p><p><a style="color:#a78bfa" href="${safe}">Continue →</a></p></body></html>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body style="font-family:system-ui;padding:40px;text-align:center;background:#0a0a0f;color:${color}"><h2>${heading}</h2><p>${safeMessage}</p><p id="hint">You can close this window and return to the app.</p><script>const payload=${payload};try{if(window.opener&&!window.opener.closed){window.opener.postMessage(payload,"*");window.close();}}catch{}</script></body></html>`,
+    { status: ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }
 
 function htmlError(message: string) {
-  return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><title>GitHub Error</title></head><body style="font-family:system-ui;padding:40px;text-align:center;background:#0a0a0f;color:#fca5a5"><h2>GitHub connection failed</h2><p>${message}</p></body></html>`,
-    { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
+  return htmlResult({ ok: false, message });
 }
 
 export const Route = createFileRoute("/api/public/github/callback")({
@@ -97,10 +121,11 @@ export const Route = createFileRoute("/api/public/github/callback")({
         );
         if (upErr) return htmlError(upErr.message);
 
-        const target = row.redirect_to && row.redirect_to.startsWith("/")
-          ? `${url.origin}${row.redirect_to}`
-          : `${url.origin}/dashboard`;
-        return htmlRedirect(target, `Connected as @${ghUser.login}. Redirecting…`);
+        return htmlResult({
+          ok: true,
+          username: ghUser.login,
+          message: `Connected as @${ghUser.login}. You can return to the app now.`,
+        });
       },
     },
   },
