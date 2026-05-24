@@ -282,7 +282,7 @@ export const refreshEasBuild = createServerFn({ method: "POST" })
       `query B($id: ID!) {
         builds {
           byId(buildId: $id) {
-            id status logsUrl
+            id status
             artifacts { applicationArchiveUrl buildArtifactsUrl }
             error { errorCode message }
           }
@@ -298,7 +298,6 @@ export const refreshEasBuild = createServerFn({ method: "POST" })
       .from("eas_builds")
       .update({
         status: (b.status || "unknown").toLowerCase(),
-        logs_url: b.logsUrl ?? null,
         artifact_url: b.artifacts?.applicationArchiveUrl ?? null,
         error_text: b.error?.message ?? null,
       })
@@ -308,7 +307,6 @@ export const refreshEasBuild = createServerFn({ method: "POST" })
       ok: true as const,
       status: (b.status || "unknown").toLowerCase(),
       artifactUrl: b.artifacts?.applicationArchiveUrl ?? null,
-      logsUrl: b.logsUrl ?? null,
       error: b.error?.message ?? null,
     };
   });
