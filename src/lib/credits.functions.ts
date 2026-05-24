@@ -62,12 +62,13 @@ export const consumeCredits = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ConsumeInput.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
-    const { data: result, error } = await supabaseAdmin.rpc("consume_ai_credits", {
+    const rpcArgs: { p_user: string; p_amount: number; p_reason: string; p_project?: string } = {
       p_user: userId,
       p_amount: data.amount,
       p_reason: data.reason,
-      p_project: data.projectId ?? null,
-    });
+    };
+    if (data.projectId) rpcArgs.p_project = data.projectId;
+    const { data: result, error } = await supabaseAdmin.rpc("consume_ai_credits", rpcArgs);
     if (error) throw new Error(error.message);
-    return result as { ok: boolean; daily_remaining: number; monthly_remaining: number };
+    return result as unknown as { ok: boolean; daily_remaining: number; monthly_remaining: number };
   });
