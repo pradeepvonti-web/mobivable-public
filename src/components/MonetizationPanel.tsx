@@ -6,7 +6,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 /* ─── Provider Definitions ─── */
-type MonetizationProvider = "adapty" | "revenuecat" | "stripe";
+type MonetizationProvider = "adapty" | "revenuecat" | "stripe" | "admob";
 
 type ProviderConfig = {
   id: MonetizationProvider;
