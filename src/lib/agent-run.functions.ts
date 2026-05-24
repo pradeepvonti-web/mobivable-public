@@ -26,6 +26,8 @@ export const recommendAgents = createServerFn({ method: "POST" })
       'You are a senior software studio lead. Given a mobile app idea, choose which specialist agents are required. Reply with ONLY a JSON object: {"complexity":"simple|standard|ai_powered|enterprise","roles":["product_manager", ...]}. Allowed roles: ' +
       ALL_ROLES.join(", ") +
       '. No prose, no code fences.';
+    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const r = await callAI(sys, project.prompt);
 
     let complexity: keyof typeof COMPLEXITY_PRESETS = "standard";
