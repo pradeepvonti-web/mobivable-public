@@ -3073,17 +3073,22 @@ function ProjectPage() {
               : ""
           }`}
         >
-          <div
-            aria-hidden
-            className="absolute -inset-6 rounded-[3rem] blur-2xl opacity-50"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in oklab, var(--primary) 60%, transparent), transparent 70%)",
-            }}
-          />
-          <div className="relative h-[640px] w-[320px] rounded-[2.5rem] border-[10px] border-foreground/80 bg-card shadow-2xl overflow-hidden">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-foreground/80 z-20" />
+          <DeviceFrame
+            os={deviceOS}
+            screenBg={(() => {
+              try {
+                const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
+                return s ? resolveTheme(s.theme).background : undefined;
+              } catch { return undefined; }
+            })()}
+          >
             {isBuilding ? (
+              <div className="h-full w-full grid place-items-center p-6">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
+                </div>
+              </div>
               <div className="h-full w-full grid place-items-center p-6">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
