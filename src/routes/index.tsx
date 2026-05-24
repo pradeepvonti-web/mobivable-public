@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import {
+  ChevronDown, Sparkles, Smartphone, Apple, Palette, Eye, Database,
+  KeyRound, CreditCard, MonitorPlay, Rocket, Github, Package,
+} from "lucide-react";
 import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
@@ -178,6 +181,52 @@ function Index() {
                 fluid performance.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Capabilities Matrix — all features */}
+      <section id="capabilities" className="py-24 border-b border-border">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex justify-between items-end border-b border-border pb-8">
+            <h2 className="font-display text-5xl uppercase tracking-tighter">Capabilities Matrix</h2>
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+              12 Modules · Live
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-border">
+            {[
+              { icon: Sparkles, code: "MOD_01", title: "AI App Generation", desc: "Describe your app in plain English. Mobivable generates a functional React Native mobile app end to end." },
+              { icon: Smartphone, code: "MOD_02", title: "iOS + Android", desc: "Cross-platform output. One prompt builds for both App Store and Google Play simultaneously." },
+              { icon: Apple, code: "MOD_03", title: "Native Mobile Apps", desc: "True native binaries via Expo/React Native — ready for App Store and Google Play deployment." },
+              { icon: Palette, code: "MOD_04", title: "Design, Branding & Assets", desc: "Generates UI, branding, mockups, app icons, logos, illustrations, and marketing assets." },
+              { icon: Eye, code: "MOD_05", title: "Live Preview & Testing", desc: "Watch the app update in real time on a device-accurate preview as you iterate via chat." },
+              { icon: Database, code: "MOD_06", title: "Backend Support", desc: "Managed backend: PostgreSQL database, storage, authentication, and auto-wired API keys." },
+              { icon: KeyRound, code: "MOD_07", title: "Authentication", desc: "User accounts plus Google and Apple sign-in — provisioned with one toggle." },
+              { icon: CreditCard, code: "MOD_08", title: "Monetization", desc: "Subscriptions, in-app purchases, trials, upgrades — plus revenue and churn analytics." },
+              { icon: MonitorPlay, code: "MOD_09", title: "AdMob Integration", desc: "One-click Google AdMob: banner, interstitial, and rewarded ad units pre-wired." },
+              { icon: Rocket, code: "MOD_10", title: "One-Click Deployment", desc: "Publishes to App Store and Google Play. Auto-generates store metadata, screenshots, and docs." },
+              { icon: Github, code: "MOD_11", title: "GitHub Integration", desc: "Sync your generated project to a GitHub repo for version control and team collaboration." },
+              { icon: Package, code: "MOD_12", title: "APK / IPA Builder", desc: "Build signed APK and IPA artifacts. Test on real devices before pushing to the stores." },
+            ].map((c, i, arr) => (
+              <div
+                key={c.code}
+                className={`p-8 ${
+                  (i + 1) % 3 !== 0 ? "lg:border-r" : ""
+                } ${(i + 1) % 2 !== 0 ? "sm:max-lg:border-r" : ""} ${
+                  i < arr.length - (arr.length % 3 || 3) ? "lg:border-b" : ""
+                } ${i < arr.length - 2 ? "border-b sm:max-lg:border-b" : ""} border-border group hover:bg-primary/[0.03] transition-colors`}
+              >
+                <div className="flex items-start justify-between mb-5">
+                  <div className="h-10 w-10 grid place-items-center border border-primary/30 text-primary group-hover:border-primary group-hover:bg-primary/10 transition-colors">
+                    <c.icon className="h-5 w-5" />
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{c.code}</span>
+                </div>
+                <h4 className="font-display text-xl uppercase tracking-tight mb-2">{c.title}</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-[40ch]">{c.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
