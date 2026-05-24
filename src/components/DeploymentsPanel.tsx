@@ -21,6 +21,7 @@ import {
   pushExpoScaffoldToGithub,
   getGithubBuildStatus,
 } from "@/lib/eas.functions";
+import { startGithubOAuth } from "@/lib/github.functions";
 
 type Platform = "android" | "ios";
 
