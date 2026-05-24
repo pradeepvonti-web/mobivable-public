@@ -170,6 +170,29 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
   const repoPushed = !!status?.repoPushed;
   const canBuild = expoConnected && githubConnected && repoPushed;
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data as {
+        source?: string;
+        ok?: boolean;
+        username?: string;
+        error?: string | null;
+      } | null;
+
+      if (data?.source !== "mobivable:github-oauth") return;
+
+      if (data.ok) {
+        setErrMsg(data.username ? `GitHub connected as @${data.username}.` : "GitHub connected.");
+        qc.invalidateQueries({ queryKey: ["ghBuildStatus", projectId] });
+      } else {
+        setErrMsg(data.error || "GitHub connection failed.");
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [projectId, qc]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-border">
