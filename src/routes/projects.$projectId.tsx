@@ -68,6 +68,8 @@ import { ProjectPreview } from "@/components/ProjectPreview";
 import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
+import { DeviceFrame } from "@/components/DeviceFrame";
+import { resolveTheme } from "@/lib/mobile-theme";
 import { ComponentPalette } from "@/components/ComponentPalette";
 import { parseAppSchema } from "@/lib/code-gen";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
