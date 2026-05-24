@@ -215,7 +215,7 @@ export const startEasBuild = createServerFn({ method: "POST" })
       `mutation Trigger($appId: ID!, $job: ${inputType}!) {
         build {
           ${mutationName}(appId: $appId, job: $job) {
-            build { id status logsUrl artifacts { applicationArchiveUrl } }
+            build { id status artifacts { applicationArchiveUrl } }
           }
         }
       }`,
@@ -239,12 +239,15 @@ export const startEasBuild = createServerFn({ method: "POST" })
     }
 
     const easBuild = built.data?.build?.[mutationName]?.build;
+    const dashUrl = easBuild?.id
+      ? `https://expo.dev/accounts/${app.accountName}/projects/${app.slug}/builds/${easBuild.id}`
+      : null;
     await supabase
       .from("eas_builds")
       .update({
         status: (easBuild?.status || "in-queue").toLowerCase(),
         eas_build_id: easBuild?.id ?? null,
-        logs_url: easBuild?.logsUrl ?? null,
+        logs_url: dashUrl,
         artifact_url: easBuild?.artifacts?.applicationArchiveUrl ?? null,
         raw_response: built as any,
       })
@@ -254,8 +257,8 @@ export const startEasBuild = createServerFn({ method: "POST" })
       ok: true as const,
       buildRowId: buildRow.id,
       easBuildId: easBuild?.id,
-      logsUrl: easBuild?.logsUrl,
-      easDashboardUrl: `https://expo.dev/accounts/${app.accountName}/projects/${app.slug}/builds/${easBuild?.id ?? ""}`,
+      logsUrl: dashUrl,
+      easDashboardUrl: dashUrl ?? "",
     };
   });
 
