@@ -112,8 +112,17 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
   const oauthMut = useMutation({
     mutationFn: () => startOAuth({ data: { redirectTo: window.location.pathname } }),
     onSuccess: (res) => {
-      if (res.ok) window.location.href = res.url;
-      else setErrMsg(res.error);
+      if (!res.ok) {
+        setErrMsg(res.error);
+        return;
+      }
+      // Open in new tab — preview iframe blocks cross-origin top-level navigation.
+      const win = window.open(res.url, "_blank", "noopener,noreferrer");
+      if (!win) {
+        setErrMsg("Popup blocked. Allow popups, or open this URL manually: " + res.url);
+      } else {
+        setErrMsg("Complete the GitHub authorization in the new tab, then come back and refresh.");
+      }
     },
     onError: (e: any) => setErrMsg(e?.message || "GitHub OAuth failed to start."),
   });
