@@ -78,6 +78,29 @@ const PROVIDERS: ProviderConfig[] = [
       "Set up webhook endpoints for server-side verification",
     ],
   },
+  {
+    id: "admob",
+    name: "Google AdMob",
+    tagline: "Banner, interstitial & rewarded ads",
+    logo: "📱",
+    color: "#34A853",
+    features: ["Banner ads", "Interstitial ads", "Rewarded ads", "Native ads", "Mediation"],
+    docsUrl: "https://admob.google.com",
+    fields: [
+      { key: "admob_app_id_ios", label: "iOS App ID", placeholder: "ca-app-pub-xxxx~xxxxxxxxxx" },
+      { key: "admob_app_id_android", label: "Android App ID", placeholder: "ca-app-pub-xxxx~xxxxxxxxxx" },
+      { key: "admob_banner_unit_id", label: "Banner Ad Unit ID", placeholder: "ca-app-pub-xxxx/xxxxxxxxxx" },
+      { key: "admob_interstitial_unit_id", label: "Interstitial Ad Unit ID", placeholder: "ca-app-pub-xxxx/xxxxxxxxxx" },
+      { key: "admob_rewarded_unit_id", label: "Rewarded Ad Unit ID", placeholder: "ca-app-pub-xxxx/xxxxxxxxxx" },
+    ],
+    setupSteps: [
+      "Create an AdMob account at admob.google.com",
+      "Register your iOS and Android app",
+      "Create banner, interstitial, and rewarded ad units",
+      "Paste the app IDs and unit IDs above",
+      "Ask the AI to place ad units inside your app screens",
+    ],
+  },
 ];
 
 /* ─── Types for Monetization Config ─── */
