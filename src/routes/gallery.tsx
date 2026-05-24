@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { ExternalLink, Star, Download } from "lucide-react";
-import appsData from "./gallery.data.json";
+import appsData from "./gallery.data";
 
 export const Route = createFileRoute("/gallery")({
   component: GalleryPage,

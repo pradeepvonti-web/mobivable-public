@@ -1,3 +1,4 @@
+const data = 
 [
   {
     "code": "APP-001",
@@ -935,4 +936,5 @@
       "Android"
     ]
   }
-]
+];
+export default data;
