@@ -46,7 +46,7 @@ function Step({
   action,
 }: {
   done: boolean;
-  label: string;
+  label: React.ReactNode;
   hint?: string;
   action?: React.ReactNode;
 }) {
