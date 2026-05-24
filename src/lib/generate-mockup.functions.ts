@@ -54,6 +54,9 @@ ${data.designerOutput.slice(0, 2000)}
 
 Generate the image prompt for a professional 4-screen mockup of this app.`;
 
+    try { await consumeOrThrow(userId, CREDIT_COSTS.image + CREDIT_COSTS.text, "mockup", project.id); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
+
     const promptResult = await callAI(promptSystemMsg, promptUserMsg);
     if (!promptResult.ok) {
       return { ok: false as const, error: `Failed to create prompt: ${promptResult.error}` };
