@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const AGENTS_MD_SYSTEM_PROMPT = `You are a senior mobile engineer writing an AGENTS.md guide that another AI agent will read before every feature it builds.
 
@@ -46,6 +47,8 @@ export const generateAgentsMd = createServerFn({ method: "POST" })
       (bibleRow?.value as { content?: string } | null)?.content?.trim() ?? "";
 
     const userPrompt = `THE BIBLE:\n${bible || "(no bible uploaded yet — use Practical Vibe Coding defaults)"}\n\n---\n\nPROJECT INFO:\nName: ${project.name}\nPrompt / description: ${project.prompt}\n\nGenerate the AGENTS.md file now.`;
+    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "agents_md", project.id); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
     const r = await callAI(AGENTS_MD_SYSTEM_PROMPT, userPrompt, project.model);
     if (!r.ok) return { ok: false as const, error: r.error };

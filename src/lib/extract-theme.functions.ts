@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 import type { MobileTheme } from "./mobile-theme";
 import { FONT_ALLOWLIST } from "./mobile-theme";
 
@@ -20,7 +21,9 @@ export const extractThemeFromDesigner = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    try { await consumeOrThrow(context.userId, CREDIT_COSTS.text, "extract_theme"); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const system = `You convert a UI/UX design spec into a strict JSON theme for a mobile app renderer.
 
 Output ONLY valid JSON matching this shape (no markdown, no commentary):

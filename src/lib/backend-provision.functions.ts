@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { MBackend, MColumn, MTable, MobileAppSchema } from "./mobile-app-schema";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const PG_TYPE: Record<string, string> = {
   text: "text",
@@ -121,7 +122,7 @@ export const inferBackendSpec = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ projectId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { data: proj, error } = await supabase
       .from("projects")
       .select("result, model")
@@ -150,6 +151,8 @@ export const inferBackendSpec = createServerFn({ method: "POST" })
         })
       : proj.result.slice(0, 4000);
 
+    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const ai = await callAI(INFER_PROMPT, summary, proj.model || "google/gemini-2.5-flash");
     if (!ai.ok) return { ok: false as const, error: ai.error };
 

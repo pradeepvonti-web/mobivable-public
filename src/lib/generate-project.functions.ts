@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT } from "@/lib/code-gen";
 
 const SYSTEM_PROMPT = CODE_GEN_SYSTEM_PROMPT;
@@ -31,6 +32,9 @@ export const generateProject = createServerFn({ method: "POST" })
     }
 
     try {
+      try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "generate_project", project.id); }
+      catch (e) { return { ok: false as const, error: (e as Error).message }; }
+
       // ── PASS 1: design brief (palette, typography, mood, references, layouts) ──
       const briefRes = await callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model);
       const brief = briefRes.ok ? briefRes.text.trim() : "";

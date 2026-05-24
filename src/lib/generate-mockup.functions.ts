@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI, callAIImage } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 /**
  * Generate a UI mockup image for a project using AI image generation.
@@ -52,6 +53,9 @@ UI/UX Designer's specification:
 ${data.designerOutput.slice(0, 2000)}
 
 Generate the image prompt for a professional 4-screen mockup of this app.`;
+
+    try { await consumeOrThrow(userId, CREDIT_COSTS.image + CREDIT_COSTS.text, "mockup", project.id); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
     const promptResult = await callAI(promptSystemMsg, promptUserMsg);
     if (!promptResult.ok) {

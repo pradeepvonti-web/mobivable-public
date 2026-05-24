@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { resolveTheme } from "@/lib/mobile-theme";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const MAX_IMAGES = 8;
 const CONCURRENCY = 3;
@@ -117,6 +118,14 @@ export const generateAppImages = createServerFn({ method: "POST" })
     walkPrompts(schema, sites);
     const queue = sites.slice(0, MAX_IMAGES);
     if (queue.length === 0) return { ok: true as const, generated: 0, cached: 0, failed: 0, skipped: 0 };
+
+    // Charge image credits upfront for the queued generations (uncached ones).
+    // We pre-check cache count by listing once to avoid overcharging — best-effort.
+    try {
+      await consumeOrThrow(userId, CREDIT_COSTS.image * queue.length, "app_images", project.id);
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message };
+    }
 
     const theme = resolveTheme(schema.theme);
     const palette = [theme.primary, theme.accent, theme.background].join(", ");

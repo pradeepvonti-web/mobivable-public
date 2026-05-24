@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "./agents";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 /** Recommend a set of agent roles based on the project's prompt. */
 export const recommendAgents = createServerFn({ method: "POST" })
@@ -25,6 +26,8 @@ export const recommendAgents = createServerFn({ method: "POST" })
       'You are a senior software studio lead. Given a mobile app idea, choose which specialist agents are required. Reply with ONLY a JSON object: {"complexity":"simple|standard|ai_powered|enterprise","roles":["product_manager", ...]}. Allowed roles: ' +
       ALL_ROLES.join(", ") +
       '. No prose, no code fences.';
+    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id); }
+    catch (e) { return { ok: false as const, error: (e as Error).message }; }
     const r = await callAI(sys, project.prompt);
 
     let complexity: keyof typeof COMPLEXITY_PRESETS = "standard";
@@ -253,6 +256,11 @@ export const runAgentTask = createServerFn({ method: "POST" })
       `Previous agents' outputs:\n${priorBlock}\n\n` +
       `Now produce YOUR specialized output for this app. Be specific, actionable, and reference prior agents' decisions.`;
 
+    try { await consumeOrThrow(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id); }
+    catch (e) {
+      await supabase.from("agent_tasks").update({ status: "failed", error_text: (e as Error).message }).eq("id", task.id);
+      return { ok: false as const, error: (e as Error).message };
+    }
     const r = await callAI(def.system, userPrompt);
 
     if (!r.ok) {
@@ -382,6 +390,8 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           `- Make every screen data-dense with realistic content\n` +
           `Generate the COMPLETE app JSON now.`;
 
+        try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
+        catch (e) { throw new Error((e as Error).message); }
         const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
 
         if (result.ok && result.text.length > 50) {
