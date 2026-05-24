@@ -109,6 +109,15 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
     onError: (e: any) => setErrMsg(e?.message || "Push failed."),
   });
 
+  const oauthMut = useMutation({
+    mutationFn: () => startOAuth({ data: { redirectTo: window.location.pathname } }),
+    onSuccess: (res) => {
+      if (res.ok) window.location.href = res.url;
+      else setErrMsg(res.error);
+    },
+    onError: (e: any) => setErrMsg(e?.message || "GitHub OAuth failed to start."),
+  });
+
   const startMut = useMutation({
     mutationFn: () => trigger({ data: { projectId, platform } }),
     onSuccess: (res) => {
