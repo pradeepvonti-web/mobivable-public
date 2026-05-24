@@ -56,6 +56,20 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     if (!project) { yield { type: "error" as const, error: "Project not found" }; return; }
     if (project.user_id !== userId) { yield { type: "error" as const, error: "Forbidden" }; return; }
 
+    // Consume 1 AI credit per chat turn
+    const { data: credit, error: credErr } = await supabase.rpc("consume_ai_credits", {
+      p_user: userId,
+      p_amount: 1,
+      p_reason: "project_chat",
+      p_project: project.id,
+    });
+    if (credErr) { yield { type: "error" as const, error: credErr.message }; return; }
+    const c = credit as { ok: boolean; daily_remaining: number; monthly_remaining: number } | null;
+    if (c && !c.ok) {
+      yield { type: "error" as const, error: "OUT_OF_CREDITS: You're out of AI credits. Upgrade your plan to keep going." };
+      return;
+    }
+
     if (!project.current_phase) {
       try { await initProjectPhases({ data: { projectId: project.id } }); } catch { /* */ }
     }

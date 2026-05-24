@@ -1,147 +1,66 @@
-## Goal
+# AI Credits + Repriced Plans
 
-Stop generating mobile apps that look like the same 6 presets with stock icons. Two upgrades:
+Mirror Lovable's credit model: every AI action costs credits, plans grant a monthly bucket, free users also get a small daily bucket, balance is shown in the header.
 
-1. **Custom theme per app** — AI outputs a full design system (palette, typography pair, radius, spacing, shadows, motion) instead of picking a preset name.
-2. **AI-generated imagery** — hero banners, carousel slides, image elements, and grid cards get real generated images (Nano Banana via Lovable AI Gateway) cached in Cloud Storage, not placeholder gradients.
+## Pricing (≈20% over Lovable)
 
-## Milestone 1A — Custom Theme System
+| Tier | Monthly | Yearly (/mo) | Monthly credits | Daily credits | Notes |
+|---|---|---|---|---|---|
+| Free Beta | $0 | $0 | — | 6 (cap 35/mo) | 1 published app |
+| Starter | $29 | $23 | 120 | — | was $25 / 100 cr on Lovable |
+| Pro | $59 | $47 | 300 | — | was $50 / 250 cr |
+| Scale | $119 | $95 | 700 | — | new tier, was $100 / 500 cr |
+| Business | $299 | $239 | 2,000 | — | was $250 / 1,500 cr, adds SSO, team seats |
 
-### Schema changes
+1 credit ≈ 1 AI Studio generation / chat turn. Image gen + heavy ops cost more (configurable multiplier, default 1).
 
-Extend `MobileTheme` in `src/lib/mobile-theme.ts`:
+## Database (single migration)
 
-```text
-MobileTheme {
-  mode, primary, accent, background, card, text, muted, border, danger, success,
-  gradient,
-  // NEW
-  typography: {
-    headingFont: string,   // Google Font name e.g. "Space Grotesk"
-    bodyFont: string,      // e.g. "Inter"
-    displayFont?: string,  // optional editorial face
-    scale: "compact" | "comfortable" | "editorial"
-  },
-  radius: { sm, md, lg, xl, pill },   // numbers in px
-  spacing: { xs, sm, md, lg, xl },
-  shadows: { sm, md, lg },             // CSS shadow strings
-  motion: {
-    duration: number,                   // ms
-    easing: string,                     // cubic-bezier
-    intensity: "subtle" | "medium" | "bold"
-  }
-}
-```
+- `ai_credit_balances(user_id PK, monthly_remaining int, monthly_granted int, daily_remaining int, period_start timestamptz, last_daily_reset date, updated_at)` — RLS: owner select; service-role write.
+- `ai_credit_ledger(id, user_id, project_id null, amount int, reason text, balance_after int, created_at)` — append-only audit; RLS owner select.
+- Postgres function `consume_ai_credits(p_user uuid, p_amount int, p_reason text, p_project uuid)` returns `{ok, remaining}`:
+  - Resets `daily_remaining` if `last_daily_reset < today`.
+  - Resets `monthly_*` if `period_start + 30d <= now()` (or on plan change).
+  - Deducts from daily first, then monthly. Inserts ledger row. Returns insufficient if both empty.
+- Function `grant_ai_credits(p_user uuid)` reads `profiles.plan`, sets monthly bucket per plan map, resets `period_start`.
+- Trigger on `profiles` plan change → call `grant_ai_credits`.
+- Backfill: insert balances for all existing profiles with their plan's grant.
 
-Keep the 6 presets as fallbacks; each gets default values filled in.
+## Server functions
 
-### CSS variable surface
+- `src/lib/credits.functions.ts`
+  - `getCreditBalance()` — authed, returns balance + plan tier.
+  - `consumeCredits({amount, reason, projectId?})` — authed wrapper around RPC, throws typed `INSUFFICIENT_CREDITS`.
+- Wire into existing AI call sites:
+  - `aiGenerate`, `aiResearch`, `aiCodeReview`, `aiDebug`, `aiPalette`, `aiOptimize` (1 cr each)
+  - `pixlabGenerate` (3 cr), `pixlabBgRemove` / `pixlabFilter` (2 cr)
+  - `generateProject` (10 cr)
+  - `project-chat` send (1 cr)
+  - Each handler calls `consumeCredits` first; on `INSUFFICIENT_CREDITS` returns `{ok:false, error:"Out of credits — upgrade to continue", code:"NO_CREDITS"}`.
 
-`themeToCSSVars` emits:
-- `--m-font-heading`, `--m-font-body`, `--m-font-display`
-- `--m-radius-sm/md/lg/xl/pill`
-- `--m-space-xs/sm/md/lg/xl`
-- `--m-shadow-sm/md/lg`
-- `--m-ease`, `--m-duration`
+## Frontend
 
-Renderer (`MobileAppRenderer.tsx`) injects a dynamic `<link rel="stylesheet">` for the chosen Google Fonts, swaps hardcoded `fontFamily`/radii/shadows in `MobileComponents.tsx` to use the new vars (no behavior change for preset users — they get sensible defaults).
+- `src/hooks/useCredits.ts` — TanStack Query around `getCreditBalance`, invalidated after every AI mutation.
+- `CreditBadge` component in the top nav (project page + dashboard) showing `⚡ {remaining} / {granted}` with a popover breakdown (monthly + daily) and "Upgrade" CTA when low.
+- Update `AIStudioPanel`: show cost chip next to each tool button, surface `NO_CREDITS` toast with link to `/pricing`.
+- Update `pricing.tsx`: replace the 3-tier array with the 5 tiers above; each card lists monthly credit allowance prominently; toggle keeps monthly/yearly.
+- Add credit FAQ entries (what's a credit, do they roll over — no, daily reset rules).
 
-### Prompt changes (`src/lib/code-gen.ts`)
+## Payments
 
-AI is now required to output a **full theme object** (not a preset string) per app, with:
-- Palette derived from app domain + mood
-- Typography pair from a curated whitelist (~15 Google Font pairs to keep load fast)
-- Radius/spacing/motion that matches the mood (e.g. editorial → larger radius + slower motion + serif display font)
+- Use `payments--batch_create_product` to create: `starter_plan`, `pro_plan`, `scale_plan`, `business_plan` each with `_monthly` and `_yearly` prices at amounts above. Quantity 1/1.
+- Existing checkout flow already resolves `priceId` → Paddle price, no changes needed beyond adding new ids in `pricing.tsx` data.
 
-Whitelist enforced server-side via `schema-validator.ts` — unknown fonts snap to nearest preset.
+## Out of scope (follow-ups)
 
-### Validator update
-
-`schema-validator.ts` accepts both string preset names (backward compat) and full theme objects. Fills missing keys with sane defaults so the renderer never crashes.
-
-## Milestone 1B — AI-Generated Imagery
-
-### Schema changes
-
-Add optional `prompt: string` field to image-bearing elements:
-- `MImage.props.prompt`
-- `MHeroBanner.props.prompt`
-- `MCarousel.props.items[].prompt`
-- `MGridCards.props.items[].prompt`
-
-Existing `src` URL still wins. If `prompt` is set and `src` is empty, the image pipeline fills it.
-
-### Storage bucket
-
-New migration: public `app-assets` bucket, path scheme `{projectId}/{hash}.png`. Public read; only service role writes.
-
-### Image generator (`src/lib/app-images.functions.ts` — NEW)
-
-Server function `generateAppImages({ projectId })`:
-1. Loads the project's current schema from `projects.result`.
-2. Walks all screens; collects any image element with `prompt && !src`.
-3. For each prompt:
-   - Hashes prompt + theme palette → asset key.
-   - Calls Lovable AI Gateway directly with `google/gemini-2.5-flash-image` (Nano Banana), passing prompt enriched with theme palette hint (e.g. "in palette #6366f1, #22c55e, dark background").
-   - Decodes base64, uploads to `app-assets/{projectId}/{hash}.png` via `supabaseAdmin`.
-   - Writes back the public URL into the schema element's `src`.
-4. Persists updated schema to `projects.result`.
-5. Returns counts: `{ generated, cached, failed }`.
-
-Concurrency: process in batches of 3 to avoid gateway rate limits.
-
-### Prompt changes
-
-The code-gen prompt now instructs the AI to **always add a `prompt` field** to hero banners, carousel slides, grid cards (when visual), and image elements. Prompts must be 1-2 sentence cinematic art-direction strings ("dimly lit espresso bar at golden hour, shallow depth of field, editorial").
-
-### UX wiring
-
-In `src/routes/projects.$projectId.tsx`:
-- After `generateProject` finishes, automatically call `generateAppImages` in the background.
-- Show subtle "Generating imagery…" pill in the preview header with a count (e.g. `4/7`).
-- Each image, as it lands, swaps into the live preview (poll the schema or use Supabase realtime).
-- Add manual "Regenerate imagery" button in the existing toolbar.
-
-### Cost guard
-
-- Skip if `prompt` already mapped to an existing asset (hash-based cache).
-- Hard cap: 12 generated images per app generation pass.
-- Surface gateway errors (429 → "Image quota reached", 402 → "Add credits to workspace") instead of failing the whole render.
-
-## Files Touched / Created
-
-```text
-NEW   src/lib/app-images.functions.ts        # image generator server fn
-NEW   supabase/migrations/*_app_assets.sql   # public bucket + RLS
-
-EDIT  src/lib/mobile-theme.ts                # extended type + defaults + CSS vars
-EDIT  src/lib/mobile-app-schema.ts           # optional `prompt` on image elements
-EDIT  src/lib/schema-validator.ts            # accept custom theme objects, snap fonts
-EDIT  src/lib/code-gen.ts                    # new system prompt, font whitelist
-EDIT  src/components/MobileAppRenderer.tsx   # font loader, vars
-EDIT  src/components/MobileComponents.tsx    # use --m-radius/--m-font/--m-shadow
-EDIT  src/routes/projects.$projectId.tsx    # post-gen image pipeline + UI
-```
-
-## Dependencies / Secrets
-
-- `LOVABLE_API_KEY` — required for Nano Banana image generation. If not present, I'll provision it via `lovable_api_key--create`.
-- No new npm packages.
+- Credit top-up purchases (one-time packs) — note in FAQ as "coming soon".
+- Per-org/workspace pooled credits.
+- Admin override / gift credits UI (DB function exists, no UI yet).
 
 ## Order of execution
 
-1. Migration: create `app-assets` storage bucket.
-2. Schema + theme type extensions (backward compatible).
-3. Renderer + components consume new CSS vars.
-4. Code-gen prompt rewrite.
-5. Image generator server fn + wiring in project route.
-6. Manual smoke test on the current project.
-
-## Out of scope (saved for later)
-
-- Richer primitives (glass-card, bento-grid, etc.) — separate milestone.
-- Per-screen layout templates.
-- Motion playback in preview (we'll emit motion tokens but actual animation execution comes later).
-- Editing/regenerating individual images from the UI (only "regenerate all" for now).
-
-Approve and I'll start with the migration.
+1. DB migration (table + functions + trigger + backfill).
+2. Server functions + wire into AI handlers.
+3. Frontend hook + badge + AIStudio cost chips.
+4. Pricing page rewrite.
+5. Paddle products via `batch_create_product`.

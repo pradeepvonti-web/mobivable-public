@@ -65,6 +65,7 @@ import { generateAppImages } from "@/lib/app-images.functions";
 import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
 import { ComponentPalette } from "@/components/ComponentPalette";
@@ -1105,6 +1106,7 @@ function ProjectPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 lg:gap-2">
+          <CreditBadge />
           <button
             type="button"
             onClick={() => { if (!isPro) setUpgradeOpen(true); else toast.info("You're already on Pro!"); }}

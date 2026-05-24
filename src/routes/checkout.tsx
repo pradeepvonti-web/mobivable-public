@@ -6,14 +6,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
 import { PageShell } from "@/components/PageShell";
 
-const PLAN_VALUES = ["starter", "pro"] as const;
+const PLAN_VALUES = ["starter", "pro", "scale", "business"] as const;
 const CADENCE_VALUES = ["monthly", "yearly"] as const;
 type Plan = (typeof PLAN_VALUES)[number];
 type Cadence = (typeof CADENCE_VALUES)[number];
 
 const PLAN_META: Record<Plan, { name: string; tag: string; blurb: string }> = {
-  starter: { name: "Starter", tag: "TIER_01", blurb: "5 published apps, source export, priority compile queue." },
-  pro: { name: "Pro", tag: "TIER_02", blurb: "Unlimited apps, team workspaces, advanced analytics." },
+  starter: { name: "Starter", tag: "TIER_01", blurb: "120 AI credits / month, 5 published apps, source export." },
+  pro: { name: "Pro", tag: "TIER_02", blurb: "300 AI credits / month, unlimited apps, priority queue." },
+  scale: { name: "Scale", tag: "TIER_03", blurb: "700 AI credits / month, team seats, app analytics." },
+  business: { name: "Business", tag: "TIER_04", blurb: "2,000 AI credits / month, SSO, dedicated success manager." },
 };
 
 const searchSchema = z.object({
