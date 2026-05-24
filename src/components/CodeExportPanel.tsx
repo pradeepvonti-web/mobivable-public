@@ -133,6 +133,29 @@ export function CodeExportPanel({
         </div>
       </div>
 
+      {/* GitHub integration */}
+      <div className="px-4 pt-4 pb-3 border-b border-border">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
+          GitHub Integration
+        </p>
+        <div className="rounded-xl border border-border bg-card/40 p-3 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-foreground/10 grid place-items-center shrink-0">
+            <Github className="h-4 w-4 text-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium">Push generated project to GitHub</p>
+            <p className="text-[10px] text-muted-foreground">Creates a repo with the Expo / React Native source so you can keep iterating in your editor.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toast.info("Connect GitHub", { description: "Authorize Mobivable to push this project to your account." })}
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-primary hover:bg-primary/10 transition-colors shrink-0"
+          >
+            Connect <ExternalLink className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
       {/* Design spec toggle */}
       <div className="px-4 pt-3 pb-1">
         <button
