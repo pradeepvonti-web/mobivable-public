@@ -65,6 +65,7 @@ import { generateAppImages } from "@/lib/app-images.functions";
 import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
+import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
 import { ComponentPalette } from "@/components/ComponentPalette";
