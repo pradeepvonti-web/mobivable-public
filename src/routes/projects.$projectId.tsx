@@ -616,6 +616,10 @@ function ProjectPage() {
       setGenAssetsMsg(e instanceof Error ? e.message : "Failed");
       setTimeout(() => setGenAssetsState("idle"), 5000);
     }
+  }
+
+
+
 
 
   async function loadMessages() {
