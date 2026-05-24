@@ -1,8 +1,26 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Rocket, Smartphone, Loader2, RefreshCw, ExternalLink, Download, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getExpoAccount, startEasBuild, refreshEasBuild, listEasBuilds } from "@/lib/eas.functions";
+import {
+  Rocket,
+  Smartphone,
+  Loader2,
+  RefreshCw,
+  ExternalLink,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  Github,
+  Circle,
+} from "lucide-react";
+import {
+  getExpoAccount,
+  startEasBuild,
+  refreshEasBuild,
+  listEasBuilds,
+  pushExpoScaffoldToGithub,
+  getGithubBuildStatus,
+} from "@/lib/eas.functions";
 
 type Platform = "android" | "ios";
 
@@ -21,16 +39,45 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function Step({
+  done,
+  label,
+  hint,
+  action,
+}: {
+  done: boolean;
+  label: React.ReactNode;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-[11px]">
+      {done ? (
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+      ) : (
+        <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+      )}
+      <div className="flex-1 space-y-1">
+        <div className={done ? "text-foreground" : "text-muted-foreground"}>{label}</div>
+        {hint && <div className="text-[10px] text-muted-foreground leading-relaxed">{hint}</div>}
+        {action}
+      </div>
+    </div>
+  );
+}
+
 export function DeploymentsPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const fetchAccount = useServerFn(getExpoAccount);
   const fetchBuilds = useServerFn(listEasBuilds);
+  const fetchStatus = useServerFn(getGithubBuildStatus);
   const trigger = useServerFn(startEasBuild);
   const refresh = useServerFn(refreshEasBuild);
+  const pushScaffold = useServerFn(pushExpoScaffoldToGithub);
 
   const [platform, setPlatform] = useState<Platform>("android");
   const [errMsg, setErrMsg] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const [installUrl, setInstallUrl] = useState<string | null>(null);
 
   const accountQ = useQuery({
     queryKey: ["expoAccount"],
@@ -39,10 +86,25 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
     retry: false,
   });
 
+  const statusQ = useQuery({
+    queryKey: ["ghBuildStatus", projectId],
+    queryFn: () => fetchStatus({ data: { projectId } }),
+  });
+
   const buildsQ = useQuery({
     queryKey: ["easBuilds", projectId],
     queryFn: () => fetchBuilds({ data: { projectId } }),
     refetchInterval: 15_000,
+  });
+
+  const pushMut = useMutation({
+    mutationFn: () => pushScaffold({ data: { projectId } }),
+    onSuccess: (res) => {
+      if (!res.ok) setErrMsg(res.error);
+      else setErrMsg(null);
+      qc.invalidateQueries({ queryKey: ["ghBuildStatus", projectId] });
+    },
+    onError: (e: any) => setErrMsg(e?.message || "Push failed."),
   });
 
   const startMut = useMutation({
@@ -50,10 +112,10 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
     onSuccess: (res) => {
       if (!res.ok) {
         setErrMsg(res.error);
-        setHint((res as any).hint || null);
+        setInstallUrl((res as any).installUrl || null);
       } else {
         setErrMsg(null);
-        setHint(null);
+        setInstallUrl(null);
       }
       qc.invalidateQueries({ queryKey: ["easBuilds", projectId] });
     },
@@ -65,17 +127,23 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
     onSuccess: () => qc.invalidateQueries({ queryKey: ["easBuilds", projectId] }),
   });
 
-  // Auto-refresh any non-terminal build once on mount
   useEffect(() => {
     const rows = buildsQ.data?.ok ? buildsQ.data.builds : [];
-    rows.filter((b) => !["finished", "errored", "canceled"].includes((b.status || "").toLowerCase()))
+    rows
+      .filter((b) => !["finished", "errored", "canceled"].includes((b.status || "").toLowerCase()))
       .slice(0, 3)
       .forEach((b) => refreshMut.mutate(b.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildsQ.data?.ok]);
 
   const account = accountQ.data?.ok ? accountQ.data : null;
+  const status = statusQ.data?.ok ? statusQ.data : null;
   const builds = buildsQ.data?.ok ? buildsQ.data.builds : [];
+
+  const expoConnected = !!account;
+  const githubConnected = !!status?.githubConnected;
+  const repoPushed = !!status?.repoPushed;
+  const canBuild = expoConnected && githubConnected && repoPushed;
 
   return (
     <div className="flex flex-col h-full">
@@ -87,43 +155,94 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
           <div>
             <h2 className="font-display text-base">Deployments</h2>
             <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">
-              {accountQ.isLoading
-                ? "Checking Expo connection…"
-                : account
-                  ? `Connected as @${account.username}`
-                  : "Expo not connected"}
+              GitHub → EAS Build
             </p>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+        >
           Close
         </button>
       </div>
 
-      {/* Connection status */}
+      {/* Setup steps */}
       <div className="p-4 border-b border-border space-y-3">
-        {accountQ.isLoading ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying Expo token…
-          </div>
-        ) : account ? (
-          <div className="flex items-center gap-2 text-[11px]">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-foreground">@{account.username}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">
-              {account.accounts.length} account{account.accounts.length === 1 ? "" : "s"}
-            </span>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 flex items-start gap-2">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-            <div className="text-[11px] text-red-400 leading-relaxed">
-              {accountQ.data?.ok === false ? accountQ.data.error : "Expo connection failed."}
-            </div>
-          </div>
-        )}
+        <h3 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Setup</h3>
 
+        <Step
+          done={expoConnected}
+          label={expoConnected ? `Expo connected as @${account!.username}` : "Connect Expo"}
+          hint={!expoConnected ? (accountQ.data as any)?.error || "EXPO_TOKEN not valid." : undefined}
+        />
+
+        <Step
+          done={githubConnected}
+          label={
+            githubConnected
+              ? `GitHub connected as @${status!.githubUsername}`
+              : "Connect GitHub"
+          }
+          hint={!githubConnected ? "Open Settings → GitHub to authorize." : undefined}
+        />
+
+        <Step
+          done={repoPushed}
+          label={
+            repoPushed ? (
+              <>
+                Repo pushed:{" "}
+                <a
+                  href={status!.repoUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <Github className="h-3 w-3" />
+                  {status!.repoUrl!.replace("https://github.com/", "")}
+                </a>
+              </>
+            ) : (
+              "Push Expo scaffold to GitHub"
+            )
+          }
+          action={
+            !repoPushed && githubConnected && expoConnected ? (
+              <button
+                type="button"
+                disabled={pushMut.isPending}
+                onClick={() => pushMut.mutate()}
+                className="mt-1 rounded-md px-2.5 py-1 text-[10px] font-medium bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {pushMut.isPending ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Pushing…
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-3 w-3" /> Push to GitHub
+                  </>
+                )}
+              </button>
+            ) : repoPushed ? (
+              <button
+                type="button"
+                disabled={pushMut.isPending}
+                onClick={() => pushMut.mutate()}
+                className="mt-1 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+              >
+                <RefreshCw className={`h-2.5 w-2.5 ${pushMut.isPending ? "animate-spin" : ""}`} />
+                Re-sync scaffold
+              </button>
+            ) : null
+          }
+        />
+      </div>
+
+      {/* Build controls */}
+      <div className="p-4 border-b border-border space-y-3">
         <div className="flex gap-2">
           {(["android", "ios"] as Platform[]).map((p) => (
             <button
@@ -131,7 +250,9 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
               type="button"
               onClick={() => setPlatform(p)}
               className={`flex-1 rounded-lg py-2 text-[11px] font-medium capitalize transition-all ${
-                platform === p ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/30 border border-transparent"
+                platform === p
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:bg-muted/30 border border-transparent"
               }`}
             >
               {p === "android" ? "Android APK" : "iOS Simulator"}
@@ -141,7 +262,7 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
 
         <button
           type="button"
-          disabled={!account || startMut.isPending}
+          disabled={!canBuild || startMut.isPending}
           onClick={() => startMut.mutate()}
           className="w-full rounded-lg py-2.5 text-[11px] font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
@@ -163,20 +284,31 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
               <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
               <div className="text-[11px] text-red-400 leading-relaxed">{errMsg}</div>
             </div>
-            {hint && <div className="text-[10px] text-muted-foreground leading-relaxed pl-5">{hint}</div>}
+            {installUrl && (
+              <a
+                href={installUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline inline-flex items-center gap-1 pl-5"
+              >
+                <ExternalLink className="h-3 w-3" /> Install the Expo GitHub App on your account
+              </a>
+            )}
           </div>
         )}
       </div>
 
       {/* Build history */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        <h3 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">Builds</h3>
+        <h3 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+          Builds
+        </h3>
         {buildsQ.isLoading ? (
           <div className="text-[11px] text-muted-foreground flex items-center gap-2">
             <Loader2 className="h-3 w-3 animate-spin" /> Loading…
           </div>
         ) : builds.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">No builds yet. Click the button above to start one.</p>
+          <p className="text-[11px] text-muted-foreground">No builds yet.</p>
         ) : (
           builds.map((b) => (
             <div key={b.id} className="rounded-lg border border-border bg-card/40 p-3 space-y-2">

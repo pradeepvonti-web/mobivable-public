@@ -276,8 +276,14 @@ export type Database = {
           created_at: string
           eas_account_name: string
           eas_app_id: string
+          eas_github_repo_id: string | null
           eas_slug: string
           expo_username: string | null
+          github_default_branch: string | null
+          github_repo_db_id: string | null
+          github_repo_name: string | null
+          github_repo_node_id: string | null
+          github_repo_owner: string | null
           id: string
           project_id: string
           updated_at: string
@@ -287,8 +293,14 @@ export type Database = {
           created_at?: string
           eas_account_name: string
           eas_app_id: string
+          eas_github_repo_id?: string | null
           eas_slug: string
           expo_username?: string | null
+          github_default_branch?: string | null
+          github_repo_db_id?: string | null
+          github_repo_name?: string | null
+          github_repo_node_id?: string | null
+          github_repo_owner?: string | null
           id?: string
           project_id: string
           updated_at?: string
@@ -298,8 +310,14 @@ export type Database = {
           created_at?: string
           eas_account_name?: string
           eas_app_id?: string
+          eas_github_repo_id?: string | null
           eas_slug?: string
           expo_username?: string | null
+          github_default_branch?: string | null
+          github_repo_db_id?: string | null
+          github_repo_name?: string | null
+          github_repo_node_id?: string | null
+          github_repo_owner?: string | null
           id?: string
           project_id?: string
           updated_at?: string
@@ -323,12 +341,14 @@ export type Database = {
           eas_app_id: string
           eas_build_id: string | null
           error_text: string | null
+          git_ref: string | null
           id: string
           logs_url: string | null
           platform: string
           profile: string
           project_id: string
           raw_response: Json | null
+          receipt_id: string | null
           status: string
           updated_at: string
           user_id: string
@@ -340,12 +360,14 @@ export type Database = {
           eas_app_id: string
           eas_build_id?: string | null
           error_text?: string | null
+          git_ref?: string | null
           id?: string
           logs_url?: string | null
           platform: string
           profile?: string
           project_id: string
           raw_response?: Json | null
+          receipt_id?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -357,12 +379,14 @@ export type Database = {
           eas_app_id?: string
           eas_build_id?: string | null
           error_text?: string | null
+          git_ref?: string | null
           id?: string
           logs_url?: string | null
           platform?: string
           profile?: string
           project_id?: string
           raw_response?: Json | null
+          receipt_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string
