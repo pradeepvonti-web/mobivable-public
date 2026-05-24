@@ -423,6 +423,9 @@ function ProjectPage() {
   const historyFutureRef = useRef<VisualSnapshot[]>([]);
   const [, setHistoryTick] = useState(0);
   const [previewKey, setPreviewKey] = useState(0);
+  const [deviceOS, setDeviceOS] = useState<"ios" | "android">("ios");
+  const [genAssetsState, setGenAssetsState] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [genAssetsMsg, setGenAssetsMsg] = useState<string>("");
   // Drag-and-drop editing: live schema overrides + active screen tracked from renderer.
   const [liveSchema, setLiveSchema] = useState<MobileAppSchema | null>(null);
   const [liveSchemaResultId, setLiveSchemaResultId] = useState<string | null>(null);
