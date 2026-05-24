@@ -174,7 +174,7 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
 
         <Step
           done={expoConnected}
-          label={expoConnected ? `Expo connected as @${account!.username}` : "Connect Expo"}
+          label={expoConnected ? "Expo connected" : "Connect Expo"}
           hint={!expoConnected ? (accountQ.data as any)?.error || "EXPO_TOKEN not valid." : undefined}
         />
 
