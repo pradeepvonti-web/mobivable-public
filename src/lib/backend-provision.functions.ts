@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { MBackend, MColumn, MTable, MobileAppSchema } from "./mobile-app-schema";
 import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const PG_TYPE: Record<string, string> = {
   text: "text",
