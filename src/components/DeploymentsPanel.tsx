@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Rocket, CheckCircle2, Clock, AlertCircle, ExternalLink, RefreshCw, Smartphone, Globe, GitBranch } from "lucide-react";
+import { Rocket, CheckCircle2, Clock, AlertCircle, ExternalLink, RefreshCw, Smartphone, Globe, GitBranch, Download, Package } from "lucide-react";
 import { toast } from "sonner";
 
-type Build = { id: string; platform: "ios" | "android" | "web"; status: "success" | "building" | "failed" | "queued"; version: string; date: string; size: string; duration: string };
+type Build = { id: string; platform: "ios" | "android" | "web"; status: "success" | "building" | "failed" | "queued"; version: string; date: string; size: string; duration: string; artifact: string };
 
 const BUILDS: Build[] = [
-  { id: "b1", platform: "ios", status: "success", version: "1.0.3", date: "2 hours ago", size: "12.4 MB", duration: "4m 23s" },
-  { id: "b2", platform: "android", status: "success", version: "1.0.3", date: "2 hours ago", size: "8.7 MB", duration: "3m 51s" },
-  { id: "b3", platform: "ios", status: "success", version: "1.0.2", date: "3 days ago", size: "12.1 MB", duration: "4m 12s" },
-  { id: "b4", platform: "android", status: "failed", version: "1.0.2", date: "3 days ago", size: "—", duration: "1m 04s" },
-  { id: "b5", platform: "web", status: "success", version: "1.0.1", date: "1 week ago", size: "3.2 MB", duration: "45s" },
+  { id: "b1", platform: "ios", status: "success", version: "1.0.3", date: "2 hours ago", size: "12.4 MB", duration: "4m 23s", artifact: "Mobivable-1.0.3.ipa" },
+  { id: "b2", platform: "android", status: "success", version: "1.0.3", date: "2 hours ago", size: "8.7 MB", duration: "3m 51s", artifact: "Mobivable-1.0.3.apk" },
+  { id: "b3", platform: "ios", status: "success", version: "1.0.2", date: "3 days ago", size: "12.1 MB", duration: "4m 12s", artifact: "Mobivable-1.0.2.ipa" },
+  { id: "b4", platform: "android", status: "failed", version: "1.0.2", date: "3 days ago", size: "—", duration: "1m 04s", artifact: "Mobivable-1.0.2.apk" },
+  { id: "b5", platform: "web", status: "success", version: "1.0.1", date: "1 week ago", size: "3.2 MB", duration: "45s", artifact: "Mobivable-1.0.1.zip" },
 ];
 
 const statusConfig = {
@@ -91,13 +91,25 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
                     <span className="text-xs font-semibold">{p.label} Build</span>
                     <span className={`text-[9px] font-mono uppercase tracking-widest ${s.color}`}>{s.label}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1"><GitBranch className="h-2.5 w-2.5" />v{build.version}</span>
                     <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{build.duration}</span>
                     <span>{build.size}</span>
+                    <span className="flex items-center gap-1 font-mono"><Package className="h-2.5 w-2.5" />{build.artifact}</span>
                   </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground whitespace-nowrap">{build.date}</span>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-[9px] text-muted-foreground whitespace-nowrap">{build.date}</span>
+                  {build.status === "success" && (
+                    <button
+                      type="button"
+                      onClick={() => toast.info(`Downloading ${build.artifact}…`, { description: "Signed artifact will be emailed when EAS build completes." })}
+                      className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-primary hover:underline"
+                    >
+                      <Download className="h-2.5 w-2.5" /> {build.platform === "ios" ? "IPA" : build.platform === "android" ? "APK" : "ZIP"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
