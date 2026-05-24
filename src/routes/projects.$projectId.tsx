@@ -2305,6 +2305,10 @@ function ProjectPage() {
             projectId={projectId}
             projectName={project?.name ?? ""}
             onClose={() => setSidePanel(null)}
+            onSendPrompt={(p) => {
+              setSidePanel(null);
+              handleSend(undefined, p);
+            }}
           />
         </section>
       )}
