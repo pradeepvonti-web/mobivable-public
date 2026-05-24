@@ -209,7 +209,7 @@ function Index() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 border border-border">
             {([
               {
                 plan: "free_beta" as const,
@@ -218,14 +218,14 @@ function Index() {
                 monthly: 0,
                 yearly: 0,
                 cadence: "/ forever",
-                blurb: "For first-time builders shipping their initial app during the public beta.",
+                credits: "6 daily credits (35/mo cap)",
+                blurb: "Kick the tires during the public beta.",
                 cta: "Start Building",
                 featured: false,
                 features: [
                   "1 published app",
-                  "Unlimited AI iterations",
+                  "6 AI credits / day",
                   "Native iOS + Android builds",
-                  "App Store submission",
                   "Community support",
                 ],
               },
@@ -236,15 +236,15 @@ function Index() {
                 monthly: 29,
                 yearly: 23,
                 cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
-                blurb: "For solo founders running a small portfolio of live apps.",
+                credits: "120 monthly credits",
+                blurb: "For solo founders shipping a small portfolio.",
                 cta: "Go Starter",
-                featured: true,
+                featured: false,
                 features: [
                   "5 published apps",
-                  "Unlimited AI iterations",
+                  "120 AI credits / month",
                   "Source code export",
                   "Custom domains",
-                  "Priority queue compile",
                   "Email support",
                 ],
               },
@@ -252,26 +252,63 @@ function Index() {
                 plan: "pro" as const,
                 name: "Pro",
                 tag: "TIER_02",
-                monthly: 99,
-                yearly: 79,
+                monthly: 59,
+                yearly: 47,
                 cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
-                blurb: "For teams and operators shipping production apps at scale.",
+                credits: "300 monthly credits",
+                blurb: "For operators iterating daily on live apps.",
                 cta: "Go Pro",
+                featured: true,
+                features: [
+                  "Unlimited published apps",
+                  "300 AI credits / month",
+                  "Priority compile queue",
+                  "Advanced analytics",
+                  "Email support",
+                ],
+              },
+              {
+                plan: "scale" as const,
+                name: "Scale",
+                tag: "TIER_03",
+                monthly: 119,
+                yearly: 95,
+                cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
+                credits: "700 monthly credits",
+                blurb: "For studios shipping multiple apps in parallel.",
+                cta: "Go Scale",
                 featured: false,
                 features: [
                   "Unlimited published apps",
-                  "Unlimited AI iterations",
-                  "Source code export",
-                  "Custom domains",
+                  "700 AI credits / month",
+                  "Priority compile queue",
                   "Team workspaces",
+                  "Priority support",
+                ],
+              },
+              {
+                plan: "business" as const,
+                name: "Business",
+                tag: "TIER_04",
+                monthly: 299,
+                yearly: 239,
+                cadence: billing === "yearly" ? "/ mo billed yearly" : "/ month",
+                credits: "2,000 monthly credits",
+                blurb: "For agencies and teams at production scale.",
+                cta: "Go Business",
+                featured: false,
+                features: [
+                  "Unlimited published apps",
+                  "2,000 AI credits / month",
+                  "SSO + team seats",
                   "Advanced analytics",
                   "Dedicated support",
                 ],
               },
-            ]).map((p, i) => (
+            ]).map((p, i, arr) => (
               <div
                 key={p.tag}
-                className={`p-8 flex flex-col ${i < 2 ? "md:border-r border-border" : ""} ${p.featured ? "bg-primary/5 relative" : ""}`}
+                className={`p-8 flex flex-col ${i < arr.length - 1 ? "lg:border-r border-border" : ""} ${p.featured ? "bg-primary/5 relative" : ""}`}
               >
                 {p.featured && (
                   <span className="absolute top-0 right-0 bg-primary text-background font-mono text-[10px] uppercase tracking-widest px-3 py-1">
@@ -281,10 +318,11 @@ function Index() {
                 <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4">{p.tag}</span>
                 <h3 className="font-display text-3xl uppercase tracking-tighter mb-2">{p.name}</h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-[35ch]">{p.blurb}</p>
-                <div className="flex items-baseline gap-2 mb-8">
+                <div className="flex items-baseline gap-2 mb-2">
                   <span className="font-display text-5xl">${billing === "yearly" ? p.yearly : p.monthly}</span>
                   <span className="font-mono text-xs text-muted-foreground uppercase">{p.cadence}</span>
                 </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-8">⚡ {p.credits}</div>
                 <ul className="space-y-3 mb-10 flex-1">
                   {p.features.map((f) => (
                     <li key={f} className="flex items-start gap-3 text-sm">
@@ -322,46 +360,9 @@ function Index() {
             ))}
           </div>
 
-          {/* Feature comparison */}
-          <div className="mt-16 border border-border overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Capability</th>
-                  <th className="text-center p-5 font-display uppercase tracking-tight">Free Beta</th>
-                  <th className="text-center p-5 font-display uppercase tracking-tight text-primary">Starter</th>
-                  <th className="text-center p-5 font-display uppercase tracking-tight">Pro</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono text-xs">
-                {[
-                  [
-                    billing === "yearly" ? "Price (billed yearly)" : "Price (monthly)",
-                    "$0",
-                    billing === "yearly" ? "$23 / mo" : "$29 / mo",
-                    billing === "yearly" ? "$79 / mo" : "$99 / mo",
-                  ],
-                  ["Published apps", "1", "5", "Unlimited"],
-                  ["AI iterations", "Unlimited", "Unlimited", "Unlimited"],
-                  ["Native iOS + Android compile", "•", "•", "•"],
-                  ["App Store submission", "•", "•", "•"],
-                  ["Source code export", "—", "•", "•"],
-                  ["Custom domains", "—", "•", "•"],
-                  ["Priority compile queue", "—", "•", "•"],
-                  ["Team workspaces", "—", "—", "•"],
-                  ["Advanced analytics", "—", "—", "•"],
-                  ["Support", "Community", "Email", "Dedicated"],
-                ].map((row, idx) => (
-                  <tr key={row[0]} className={idx % 2 === 0 ? "bg-foreground/[0.02]" : ""}>
-                    <td className="p-4 text-foreground uppercase tracking-wider">{row[0]}</td>
-                    <td className="p-4 text-center text-muted-foreground">{row[1]}</td>
-                    <td className="p-4 text-center text-foreground">{row[2]}</td>
-                    <td className="p-4 text-center text-foreground">{row[3]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mt-6 text-xs font-mono text-muted-foreground uppercase tracking-widest">
+            1 credit ≈ 1 AI chat turn. Image generation and heavy ops may cost more. Credits reset every billing cycle.
+          </p>
         </div>
       </section>
 
@@ -435,8 +436,12 @@ function Index() {
               answer="Yes. Every build includes the full generated project — Xcode workspace, Android Studio project, and backend scaffold. You own everything."
             />
             <FaqItem
+              question="How do AI credits work?"
+              answer="Every AI action — a chat turn, an image generation, a research pass, a code generation — consumes credits from your balance. Free Beta gets 6 credits per day (capped at 35/month). Paid plans get a monthly allowance: Starter 120, Pro 300, Scale 700, Business 2,000. Credits reset on your billing cycle. 1 credit ≈ 1 chat turn; image and heavy ops may cost 2–3."
+            />
+            <FaqItem
               question="Is there a free tier?"
-              answer="Initiate is free during public beta. It includes unlimited AI iterations, one published app, and community support. When we leave beta, existing free users keep their apps running."
+              answer="Yes. Free Beta is free forever during the public beta. It includes 1 published app, 6 daily AI credits, and community support. When we leave beta, existing free users keep their apps running."
               isLast
             />
           </div>
@@ -460,8 +465,8 @@ function Index() {
             </Link>
             <div className="font-mono text-xs uppercase tracking-widest text-background/80">
               [0] No Credit Card Required <br />
-              [1] Unlimited AI Iterations <br />
-              [2] Global CDN Deployment
+              [1] 6 Free AI Credits / Day <br />
+              [2] Native iOS + Android Output
             </div>
           </div>
         </div>
