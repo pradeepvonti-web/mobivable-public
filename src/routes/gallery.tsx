@@ -20,7 +20,7 @@ type App = {
   desc: string; screens: string[]; tags: string[];
 };
 
-const apps = appsData as App[];
+const apps = appsData as readonly App[];
 
 function GalleryPage() {
   return (
