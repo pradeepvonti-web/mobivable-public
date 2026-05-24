@@ -105,6 +105,16 @@ export function AppPromptComposer() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search).get("prompt");
+    if (p) {
+      setPrompt(p);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("prompt");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
   const [defaultModel, setDefaultModel] = useState(FALLBACK_DEFAULT_MODEL);
   const [model, setModelState] = useState(FALLBACK_DEFAULT_MODEL);
   const [userPicked, setUserPicked] = useState(false);
