@@ -187,6 +187,72 @@ export type Database = {
           },
         ]
       }
+      ai_credit_balances: {
+        Row: {
+          daily_granted: number
+          daily_remaining: number
+          last_daily_reset: string
+          monthly_granted: number
+          monthly_remaining: number
+          period_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          daily_granted?: number
+          daily_remaining?: number
+          last_daily_reset?: string
+          monthly_granted?: number
+          monthly_remaining?: number
+          period_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          daily_granted?: number
+          daily_remaining?: number
+          last_daily_reset?: string
+          monthly_granted?: number
+          monthly_remaining?: number
+          period_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_credit_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          daily_after: number
+          id: string
+          monthly_after: number
+          project_id: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          daily_after?: number
+          id?: string
+          monthly_after?: number
+          project_id?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          daily_after?: number
+          id?: string
+          monthly_after?: number
+          project_id?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -847,6 +913,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ai_credit_plan_grant: {
+        Args: { p_plan: string }
+        Returns: {
+          daily: number
+          monthly: number
+        }[]
+      }
+      consume_ai_credits: {
+        Args: {
+          p_amount: number
+          p_project?: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -856,6 +938,7 @@ export type Database = {
         Returns: number
       }
       get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      grant_ai_credits: { Args: { p_user: string }; Returns: undefined }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
