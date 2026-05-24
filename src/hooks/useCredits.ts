@@ -7,7 +7,9 @@ export function useCredits() {
   const query = useQuery({
     queryKey: ["ai-credits"],
     queryFn: () => fetchBalance(),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
   return query;
 }
