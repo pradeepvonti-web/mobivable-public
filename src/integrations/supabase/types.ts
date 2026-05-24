@@ -271,6 +271,112 @@ export type Database = {
         }
         Relationships: []
       }
+      eas_apps: {
+        Row: {
+          created_at: string
+          eas_account_name: string
+          eas_app_id: string
+          eas_slug: string
+          expo_username: string | null
+          id: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          eas_account_name: string
+          eas_app_id: string
+          eas_slug: string
+          expo_username?: string | null
+          id?: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          eas_account_name?: string
+          eas_app_id?: string
+          eas_slug?: string
+          expo_username?: string | null
+          id?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eas_apps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eas_builds: {
+        Row: {
+          archive_url: string | null
+          artifact_url: string | null
+          created_at: string
+          eas_app_id: string
+          eas_build_id: string | null
+          error_text: string | null
+          id: string
+          logs_url: string | null
+          platform: string
+          profile: string
+          project_id: string
+          raw_response: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archive_url?: string | null
+          artifact_url?: string | null
+          created_at?: string
+          eas_app_id: string
+          eas_build_id?: string | null
+          error_text?: string | null
+          id?: string
+          logs_url?: string | null
+          platform: string
+          profile?: string
+          project_id: string
+          raw_response?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archive_url?: string | null
+          artifact_url?: string | null
+          created_at?: string
+          eas_app_id?: string
+          eas_build_id?: string | null
+          error_text?: string | null
+          id?: string
+          logs_url?: string | null
+          platform?: string
+          profile?: string
+          project_id?: string
+          raw_response?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eas_builds_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
