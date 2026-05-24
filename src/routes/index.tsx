@@ -436,8 +436,12 @@ function Index() {
               answer="Yes. Every build includes the full generated project — Xcode workspace, Android Studio project, and backend scaffold. You own everything."
             />
             <FaqItem
+              question="How do AI credits work?"
+              answer="Every AI action — a chat turn, an image generation, a research pass, a code generation — consumes credits from your balance. Free Beta gets 6 credits per day (capped at 35/month). Paid plans get a monthly allowance: Starter 120, Pro 300, Scale 700, Business 2,000. Credits reset on your billing cycle. 1 credit ≈ 1 chat turn; image and heavy ops may cost 2–3."
+            />
+            <FaqItem
               question="Is there a free tier?"
-              answer="Initiate is free during public beta. It includes unlimited AI iterations, one published app, and community support. When we leave beta, existing free users keep their apps running."
+              answer="Yes. Free Beta is free forever during the public beta. It includes 1 published app, 6 daily AI credits, and community support. When we leave beta, existing free users keep their apps running."
               isLast
             />
           </div>
