@@ -9,6 +9,8 @@ import {
   X,
   FileText,
   Sparkles,
+  Github,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateMobileCode } from "@/lib/pixlab.functions";
