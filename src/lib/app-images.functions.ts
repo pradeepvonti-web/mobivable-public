@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { resolveTheme } from "@/lib/mobile-theme";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 const MAX_IMAGES = 8;
 const CONCURRENCY = 3;
