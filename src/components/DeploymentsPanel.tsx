@@ -21,6 +21,7 @@ import {
   pushExpoScaffoldToGithub,
   getGithubBuildStatus,
 } from "@/lib/eas.functions";
+import { startGithubOAuth } from "@/lib/github.functions";
 
 type Platform = "android" | "ios";
 
@@ -74,6 +75,7 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
   const trigger = useServerFn(startEasBuild);
   const refresh = useServerFn(refreshEasBuild);
   const pushScaffold = useServerFn(pushExpoScaffoldToGithub);
+  const startOAuth = useServerFn(startGithubOAuth);
 
   const [platform, setPlatform] = useState<Platform>("android");
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -105,6 +107,15 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
       qc.invalidateQueries({ queryKey: ["ghBuildStatus", projectId] });
     },
     onError: (e: any) => setErrMsg(e?.message || "Push failed."),
+  });
+
+  const oauthMut = useMutation({
+    mutationFn: () => startOAuth({ data: { redirectTo: window.location.pathname } }),
+    onSuccess: (res) => {
+      if (res.ok) window.location.href = res.url;
+      else setErrMsg(res.error);
+    },
+    onError: (e: any) => setErrMsg(e?.message || "GitHub OAuth failed to start."),
   });
 
   const startMut = useMutation({
@@ -185,7 +196,27 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
               ? `GitHub connected as @${status!.githubUsername}`
               : "Connect GitHub"
           }
-          hint={!githubConnected ? "Open Settings → GitHub to authorize." : undefined}
+          hint={!githubConnected ? "Authorize GitHub to push your Expo scaffold." : undefined}
+          action={
+            !githubConnected ? (
+              <button
+                type="button"
+                disabled={oauthMut.isPending}
+                onClick={() => oauthMut.mutate()}
+                className="mt-1 rounded-md px-2.5 py-1 text-[10px] font-medium bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {oauthMut.isPending ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Redirecting…
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-3 w-3" /> Authorize GitHub
+                  </>
+                )}
+              </button>
+            ) : null
+          }
         />
 
         <Step
