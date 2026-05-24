@@ -467,7 +467,7 @@ export function MobileAppRenderer({
             <span>{issuesSummary}</span>
           </div>
         )}
-        <MobileStatusBar />
+        {!hideStatusBar && <MobileStatusBar />}
         {screen && <RenderScreen screen={screen} />}
         {nav?.type === "bottom-tabs" && (
           <MobileBottomNav
