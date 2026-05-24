@@ -4,13 +4,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
 
+// IMPORTANT: GitHub OAuth Apps allow only ONE registered callback URL.
+// Always use the published URL so it matches what's registered, regardless
+// of whether the user starts the flow from preview or production.
+const FIXED_CALLBACK_URL = "https://easy-mobile-ai.lovable.app/api/public/github/callback";
+
 function getCallbackUrl(): string {
-  try {
-    const req = getRequest();
-    return `${new URL(req.url).origin}/api/public/github/callback`;
-  } catch {
-    return "https://easy-mobile-ai.lovable.app/api/public/github/callback";
-  }
+  return FIXED_CALLBACK_URL;
 }
 
 /** Return current GitHub connection status for the user (no token exposed). */
