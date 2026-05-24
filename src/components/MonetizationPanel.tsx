@@ -111,6 +111,7 @@ const MONETIZATION_MODELS: { id: MonetizationModel; label: string; icon: typeof 
   { id: "freemium", label: "Freemium", icon: Zap, desc: "Free tier with paid upgrades" },
   { id: "one_time", label: "One-time Purchase", icon: CreditCard, desc: "Unlock once, use forever" },
   { id: "consumable", label: "Consumable", icon: ShoppingBag, desc: "Credits, tokens, virtual currency" },
+  { id: "ads", label: "Ads", icon: DollarSign, desc: "Banner, interstitial & rewarded via AdMob" },
 ];
 
 /* ─── MonetizationPanel Component ─── */
