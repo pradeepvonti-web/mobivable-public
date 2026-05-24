@@ -75,6 +75,7 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
   const trigger = useServerFn(startEasBuild);
   const refresh = useServerFn(refreshEasBuild);
   const pushScaffold = useServerFn(pushExpoScaffoldToGithub);
+  const startOAuth = useServerFn(startGithubOAuth);
 
   const [platform, setPlatform] = useState<Platform>("android");
   const [errMsg, setErrMsg] = useState<string | null>(null);
