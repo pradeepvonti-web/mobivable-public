@@ -1,0 +1,938 @@
+[
+  {
+    "code": "APP-001",
+    "name": "Solace",
+    "category": "Meditation & Wellness",
+    "rating": "4.8",
+    "downloads": "12.4K",
+    "desc": "Guided meditation with AI-personalized sessions, sleep sounds, and mindfulness journaling.",
+    "screens": [
+      "Home",
+      "Meditate",
+      "Journal",
+      "Sleep",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-002",
+    "name": "Vault",
+    "category": "Crypto Portfolio",
+    "rating": "4.6",
+    "downloads": "8.2K",
+    "desc": "Multi-chain portfolio tracker with real-time alerts, DeFi yield monitoring, and hardware wallet sync.",
+    "screens": [
+      "Dashboard",
+      "Assets",
+      "Alerts",
+      "DeFi",
+      "Settings"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-003",
+    "name": "Atlas",
+    "category": "Travel Journal",
+    "rating": "4.9",
+    "downloads": "21.7K",
+    "desc": "Photo-rich travel log with GPS tagging, trip timelines, and shareable postcards.",
+    "screens": [
+      "Map",
+      "Trips",
+      "Photos",
+      "Timeline",
+      "Share"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-004",
+    "name": "Forge",
+    "category": "Fitness Tracker",
+    "rating": "4.7",
+    "downloads": "15.3K",
+    "desc": "Workout builder with exercise library, progress charts, and Apple Health integration.",
+    "screens": [
+      "Today",
+      "Workouts",
+      "Exercises",
+      "Progress",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-005",
+    "name": "Mercato",
+    "category": "Local Marketplace",
+    "rating": "4.5",
+    "downloads": "6.8K",
+    "desc": "Neighborhood marketplace for buying and selling locally. Chat, reviews, and secure payments.",
+    "screens": [
+      "Browse",
+      "Listings",
+      "Chat",
+      "Sell",
+      "Profile"
+    ],
+    "tags": [
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-006",
+    "name": "Lumen",
+    "category": "Smart Home",
+    "rating": "4.4",
+    "downloads": "4.1K",
+    "desc": "Unified smart home dashboard with scene automation, energy tracking, and voice control.",
+    "screens": [
+      "Home",
+      "Devices",
+      "Scenes",
+      "Energy",
+      "Settings"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-007",
+    "name": "Pulse",
+    "category": "Heart Health",
+    "rating": "4.8",
+    "downloads": "18.9K",
+    "desc": "Continuous heart rate tracking, ECG analysis, and cardiologist-grade insights.",
+    "screens": [
+      "Today",
+      "ECG",
+      "Trends",
+      "Alerts",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-008",
+    "name": "Verse",
+    "category": "Poetry & Writing",
+    "rating": "4.6",
+    "downloads": "3.2K",
+    "desc": "Daily writing prompts, poem editor with rhyme suggestions, and community feed.",
+    "screens": [
+      "Feed",
+      "Write",
+      "Prompts",
+      "Drafts",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-009",
+    "name": "Nimbus",
+    "category": "Weather Forecast",
+    "rating": "4.7",
+    "downloads": "32.1K",
+    "desc": "Hyperlocal forecasts, radar, severe weather alerts with beautiful animated backgrounds.",
+    "screens": [
+      "Today",
+      "Hourly",
+      "Radar",
+      "Alerts",
+      "Cities"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-010",
+    "name": "Mealkit",
+    "category": "Recipe Planner",
+    "rating": "4.5",
+    "downloads": "9.4K",
+    "desc": "Weekly meal planning with auto-generated grocery lists and step-by-step cooking mode.",
+    "screens": [
+      "Plan",
+      "Recipes",
+      "Grocery",
+      "Cook",
+      "Pantry"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-011",
+    "name": "Studio",
+    "category": "Music Production",
+    "rating": "4.7",
+    "downloads": "5.8K",
+    "desc": "Mobile DAW with multitrack recording, virtual instruments, and cloud sync.",
+    "screens": [
+      "Tracks",
+      "Mixer",
+      "Instruments",
+      "Library",
+      "Export"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-012",
+    "name": "Quill",
+    "category": "Note Taking",
+    "rating": "4.8",
+    "downloads": "24.6K",
+    "desc": "Markdown notes with backlinks, daily journals, and end-to-end encryption.",
+    "screens": [
+      "Today",
+      "Notes",
+      "Search",
+      "Graph",
+      "Settings"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-013",
+    "name": "Routes",
+    "category": "Cycling Tracker",
+    "rating": "4.6",
+    "downloads": "11.2K",
+    "desc": "GPS ride tracking with elevation, segment racing, and Strava sync.",
+    "screens": [
+      "Ride",
+      "Map",
+      "Stats",
+      "Routes",
+      "Friends"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-014",
+    "name": "Threads",
+    "category": "Fashion Closet",
+    "rating": "4.4",
+    "downloads": "7.5K",
+    "desc": "Digital closet, outfit planner, and AI styling suggestions based on weather.",
+    "screens": [
+      "Closet",
+      "Outfits",
+      "Plan",
+      "Discover",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-015",
+    "name": "Bloom",
+    "category": "Plant Care",
+    "rating": "4.9",
+    "downloads": "19.3K",
+    "desc": "Watering reminders, plant ID via camera, and care tips for 10,000+ species.",
+    "screens": [
+      "Garden",
+      "Identify",
+      "Calendar",
+      "Discover",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-016",
+    "name": "Penny",
+    "category": "Personal Finance",
+    "rating": "4.7",
+    "downloads": "28.5K",
+    "desc": "Budget tracker with bank sync, smart categorization, and savings goals.",
+    "screens": [
+      "Home",
+      "Budgets",
+      "Transactions",
+      "Goals",
+      "Reports"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-017",
+    "name": "Habit",
+    "category": "Habit Tracker",
+    "rating": "4.6",
+    "downloads": "14.7K",
+    "desc": "Build streaks, track daily habits with reminders, and visualize progress.",
+    "screens": [
+      "Today",
+      "Habits",
+      "Stats",
+      "Calendar",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-018",
+    "name": "Lens",
+    "category": "Photo Editor",
+    "rating": "4.8",
+    "downloads": "42.1K",
+    "desc": "Pro photo editor with film presets, RAW support, and AI sky replacement.",
+    "screens": [
+      "Library",
+      "Edit",
+      "Presets",
+      "Export",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-019",
+    "name": "Loop",
+    "category": "Social Network",
+    "rating": "4.3",
+    "downloads": "56.8K",
+    "desc": "Niche communities around shared interests with rich media posts.",
+    "screens": [
+      "Feed",
+      "Loops",
+      "Post",
+      "Inbox",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-020",
+    "name": "Drift",
+    "category": "Sleep Sounds",
+    "rating": "4.8",
+    "downloads": "33.4K",
+    "desc": "White noise, ambient soundscapes, and sleep stories narrated by celebrities.",
+    "screens": [
+      "Tonight",
+      "Sounds",
+      "Stories",
+      "Mix",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-021",
+    "name": "Hatch",
+    "category": "Egg Timer Kitchen",
+    "rating": "4.5",
+    "downloads": "2.1K",
+    "desc": "Perfect eggs every time with precise timers and doneness guides.",
+    "screens": [
+      "Timer",
+      "Methods",
+      "Recipes",
+      "Settings",
+      "About"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-022",
+    "name": "Anchor",
+    "category": "Sailing Navigation",
+    "rating": "4.7",
+    "downloads": "3.9K",
+    "desc": "Marine charts, weather routing, AIS traffic, and tide predictions.",
+    "screens": [
+      "Chart",
+      "Weather",
+      "Tides",
+      "Routes",
+      "Logs"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-023",
+    "name": "Spark",
+    "category": "Dating App",
+    "rating": "4.2",
+    "downloads": "48.6K",
+    "desc": "Video-first dating with prompts, voice intros, and verified profiles.",
+    "screens": [
+      "Discover",
+      "Matches",
+      "Chat",
+      "Profile",
+      "Settings"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-024",
+    "name": "Mosaic",
+    "category": "Photo Albums",
+    "rating": "4.6",
+    "downloads": "8.7K",
+    "desc": "Smart photo albums by people, places, and trips with collaborative sharing.",
+    "screens": [
+      "Library",
+      "Albums",
+      "People",
+      "Places",
+      "Share"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-025",
+    "name": "Tempo",
+    "category": "Running Coach",
+    "rating": "4.8",
+    "downloads": "22.4K",
+    "desc": "Adaptive training plans, real-time audio coaching, and pace zones.",
+    "screens": [
+      "Today",
+      "Plan",
+      "Run",
+      "Stats",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-026",
+    "name": "Crate",
+    "category": "Vinyl Collection",
+    "rating": "4.5",
+    "downloads": "4.6K",
+    "desc": "Catalog your vinyl, scan album barcodes, and track collection value.",
+    "screens": [
+      "Crate",
+      "Scan",
+      "Wantlist",
+      "Stats",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-027",
+    "name": "Quest",
+    "category": "RPG Habit Game",
+    "rating": "4.6",
+    "downloads": "16.2K",
+    "desc": "Turn real-life tasks into RPG quests with XP, loot, and party challenges.",
+    "screens": [
+      "Quests",
+      "Avatar",
+      "Inventory",
+      "Party",
+      "Map"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-028",
+    "name": "Folio",
+    "category": "Stock Portfolio",
+    "rating": "4.7",
+    "downloads": "19.8K",
+    "desc": "Track stocks across brokerages with dividend tracking and tax reports.",
+    "screens": [
+      "Home",
+      "Holdings",
+      "Watchlist",
+      "News",
+      "Reports"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-029",
+    "name": "Brew",
+    "category": "Coffee Recipes",
+    "rating": "4.7",
+    "downloads": "6.3K",
+    "desc": "Pour-over recipes, bean tasting notes, and brew timers for every method.",
+    "screens": [
+      "Recipes",
+      "Brew",
+      "Beans",
+      "Notes",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-030",
+    "name": "Linger",
+    "category": "Restaurant Journal",
+    "rating": "4.4",
+    "downloads": "5.1K",
+    "desc": "Save restaurants you love, rate dishes, and share lists with friends.",
+    "screens": [
+      "Journal",
+      "Map",
+      "Lists",
+      "Discover",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-031",
+    "name": "Glimpse",
+    "category": "AR Astronomy",
+    "rating": "4.9",
+    "downloads": "11.6K",
+    "desc": "Point your phone at the sky to identify stars, planets, and satellites.",
+    "screens": [
+      "Sky",
+      "Tonight",
+      "Catalog",
+      "Events",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-032",
+    "name": "Mend",
+    "category": "Therapy Journal",
+    "rating": "4.8",
+    "downloads": "13.5K",
+    "desc": "Mood tracking, CBT exercises, and secure messaging with your therapist.",
+    "screens": [
+      "Today",
+      "Mood",
+      "Exercises",
+      "Therapist",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-033",
+    "name": "Tally",
+    "category": "Sports Scorekeeper",
+    "rating": "4.6",
+    "downloads": "7.8K",
+    "desc": "Keep score for any sport, share live game updates, and track stats.",
+    "screens": [
+      "Games",
+      "Score",
+      "Stats",
+      "Teams",
+      "Share"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-034",
+    "name": "Echo",
+    "category": "Voice Memos",
+    "rating": "4.5",
+    "downloads": "9.9K",
+    "desc": "Voice notes with AI transcription, speaker labels, and smart summaries.",
+    "screens": [
+      "Record",
+      "Library",
+      "Search",
+      "Summaries",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-035",
+    "name": "Hatchling",
+    "category": "Baby Tracker",
+    "rating": "4.8",
+    "downloads": "15.7K",
+    "desc": "Track feedings, sleep, diapers, and milestones with both parents synced.",
+    "screens": [
+      "Today",
+      "Log",
+      "Sleep",
+      "Growth",
+      "Milestones"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-036",
+    "name": "Caravan",
+    "category": "RV Travel",
+    "rating": "4.6",
+    "downloads": "4.3K",
+    "desc": "Campground reviews, route planning for big rigs, and dump station finder.",
+    "screens": [
+      "Map",
+      "Trips",
+      "Campgrounds",
+      "Reviews",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-037",
+    "name": "Folio Read",
+    "category": "Reading Tracker",
+    "rating": "4.7",
+    "downloads": "18.2K",
+    "desc": "Track books, set reading goals, and discover what friends are reading.",
+    "screens": [
+      "Reading",
+      "Library",
+      "Goals",
+      "Friends",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-038",
+    "name": "Pitch",
+    "category": "Startup CRM",
+    "rating": "4.5",
+    "downloads": "3.8K",
+    "desc": "Mobile-first CRM for founders. Pipeline, contacts, and meeting notes.",
+    "screens": [
+      "Pipeline",
+      "Contacts",
+      "Deals",
+      "Notes",
+      "Reports"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-039",
+    "name": "Coast",
+    "category": "Surf Forecast",
+    "rating": "4.7",
+    "downloads": "12.9K",
+    "desc": "Surf conditions, swell forecasts, and live spot cams from 8000+ beaches.",
+    "screens": [
+      "Today",
+      "Spots",
+      "Forecast",
+      "Cams",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-040",
+    "name": "Mint",
+    "category": "Receipt Scanner",
+    "rating": "4.4",
+    "downloads": "8.4K",
+    "desc": "Scan receipts, categorize expenses, and export for tax season.",
+    "screens": [
+      "Scan",
+      "Receipts",
+      "Categories",
+      "Export",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-041",
+    "name": "Roost",
+    "category": "Backyard Chickens",
+    "rating": "4.7",
+    "downloads": "2.8K",
+    "desc": "Track eggs, flock health, and coop maintenance for backyard chicken keepers.",
+    "screens": [
+      "Flock",
+      "Eggs",
+      "Health",
+      "Tasks",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-042",
+    "name": "Cipher",
+    "category": "Password Manager",
+    "rating": "4.8",
+    "downloads": "36.7K",
+    "desc": "Zero-knowledge password vault with biometric unlock and breach alerts.",
+    "screens": [
+      "Vault",
+      "Generator",
+      "Alerts",
+      "Sharing",
+      "Settings"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-043",
+    "name": "Yarn",
+    "category": "Knitting Patterns",
+    "rating": "4.8",
+    "downloads": "5.4K",
+    "desc": "Pattern library, row counter, and project tracker for knitters.",
+    "screens": [
+      "Projects",
+      "Patterns",
+      "Counter",
+      "Yarn",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-044",
+    "name": "Range",
+    "category": "Golf GPS",
+    "rating": "4.7",
+    "downloads": "21.5K",
+    "desc": "GPS yardages for 40,000+ courses, scorecard, and shot tracking.",
+    "screens": [
+      "Course",
+      "Scorecard",
+      "Stats",
+      "Clubs",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-045",
+    "name": "Loft",
+    "category": "Apartment Hunt",
+    "rating": "4.5",
+    "downloads": "17.1K",
+    "desc": "Apartment search with virtual tours, neighborhood data, and saved searches.",
+    "screens": [
+      "Search",
+      "Saved",
+      "Tours",
+      "Compare",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-046",
+    "name": "Trek",
+    "category": "Hiking Trails",
+    "rating": "4.8",
+    "downloads": "26.3K",
+    "desc": "Offline trail maps, photo trip reports, and difficulty ratings for 200K+ trails.",
+    "screens": [
+      "Map",
+      "Trails",
+      "Trips",
+      "Saved",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-047",
+    "name": "Slate",
+    "category": "Whiteboard Collab",
+    "rating": "4.6",
+    "downloads": "6.7K",
+    "desc": "Infinite whiteboard for sketching, mind maps, and remote brainstorms.",
+    "screens": [
+      "Boards",
+      "Draw",
+      "Templates",
+      "Team",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-048",
+    "name": "Forecast",
+    "category": "Aviation Weather",
+    "rating": "4.8",
+    "downloads": "4.9K",
+    "desc": "METARs, TAFs, winds aloft, and route briefings for pilots.",
+    "screens": [
+      "Brief",
+      "Map",
+      "Stations",
+      "Routes",
+      "Profile"
+    ],
+    "tags": [
+      "iOS"
+    ]
+  },
+  {
+    "code": "APP-049",
+    "name": "Murmur",
+    "category": "Anonymous Journal",
+    "rating": "4.7",
+    "downloads": "7.2K",
+    "desc": "Anonymous public journal where strangers respond with kindness.",
+    "screens": [
+      "Feed",
+      "Write",
+      "Replies",
+      "Saved",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  },
+  {
+    "code": "APP-050",
+    "name": "Embers",
+    "category": "Camping Recipes",
+    "rating": "4.6",
+    "downloads": "3.6K",
+    "desc": "One-pot recipes, fire-cooking guides, and packable meal plans for campers.",
+    "screens": [
+      "Recipes",
+      "Plan",
+      "Pantry",
+      "Fire",
+      "Profile"
+    ],
+    "tags": [
+      "iOS",
+      "Android"
+    ]
+  }
+]
