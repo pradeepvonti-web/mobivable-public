@@ -58,7 +58,6 @@ export const Route = createFileRoute("/api/public/github/callback")({
             client_id: clientId,
             client_secret: clientSecret,
             code,
-            redirect_uri: `${url.origin}/api/public/github/callback`,
           }),
         });
         if (!tokenRes.ok) return htmlError(`Token exchange failed (${tokenRes.status}).`);
