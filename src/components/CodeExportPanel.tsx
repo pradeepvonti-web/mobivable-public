@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Smartphone,
@@ -9,10 +9,18 @@ import {
   X,
   FileText,
   Sparkles,
+  Github,
+  ExternalLink,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import { generateMobileCode } from "@/lib/pixlab.functions";
+import {
+  getGithubConnection,
+  startGithubOAuth,
+  pushCodeToGithub,
+  disconnectGithub,
+} from "@/lib/github.functions";
 
 type Framework = "react_native" | "flutter" | "swiftui" | "jetpack_compose";
 
@@ -22,6 +30,13 @@ const FRAMEWORKS: { id: Framework; label: string; icon: string; lang: string }[]
   { id: "swiftui", label: "SwiftUI", icon: "🍎", lang: "swift" },
   { id: "jetpack_compose", label: "Jetpack Compose", icon: "🤖", lang: "kotlin" },
 ];
+
+const FRAMEWORK_FILENAME: Record<Framework, string> = {
+  react_native: "App.tsx",
+  flutter: "lib/main.dart",
+  swiftui: "ContentView.swift",
+  jetpack_compose: "MainActivity.kt",
+};
 
 export function CodeExportPanel({
   projectId,
