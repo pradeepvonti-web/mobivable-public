@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/PageShell";
 import { OAuthButtons } from "@/components/OAuthButtons";
 
-const PLAN_VALUES = ["free_beta", "starter", "pro"] as const;
+const PLAN_VALUES = ["free_beta", "starter", "pro", "scale", "business"] as const;
 type PlanValue = (typeof PLAN_VALUES)[number];
 
 const PLAN_LABELS: Record<PlanValue, { name: string; tag: string; blurb: string }> = {
