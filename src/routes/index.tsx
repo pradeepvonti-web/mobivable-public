@@ -465,8 +465,8 @@ function Index() {
             </Link>
             <div className="font-mono text-xs uppercase tracking-widest text-background/80">
               [0] No Credit Card Required <br />
-              [1] Unlimited AI Iterations <br />
-              [2] Global CDN Deployment
+              [1] 6 Free AI Credits / Day <br />
+              [2] Native iOS + Android Output
             </div>
           </div>
         </div>
