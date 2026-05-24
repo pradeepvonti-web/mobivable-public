@@ -10,41 +10,41 @@ import {
 
 const FAQS = [
   {
+    q: "What's an AI credit?",
+    a: "One credit covers one AI action — a chat turn with your agent team, an AI Studio generation, a debug pass, or a research call. Heavier operations like full-project generation or image generation cost a few credits each. The cost is shown next to every action in the editor.",
+  },
+  {
+    q: "Do credits roll over?",
+    a: "No. Monthly credits reset every 30 days on your billing anniversary. Free Beta's daily credits reset every 24 hours. Unused credits do not accumulate — pick a plan that matches how much you build each month.",
+  },
+  {
+    q: "What happens when I run out of credits?",
+    a: "AI actions are blocked until your next reset, or until you upgrade. Your project and code stay safe — only AI generation is paused. One-time credit top-ups are coming soon.",
+  },
+  {
     q: "How does billing work?",
-    a: "Subscriptions are billed via Paddle on the cadence you select at checkout — monthly or yearly. Yearly plans are charged upfront and save roughly 20% versus paying month-to-month. Your card is charged automatically at the start of each billing period, and every payment generates a tax-compliant invoice emailed to you.",
+    a: "Subscriptions are billed via Paddle on the cadence you select — monthly or yearly. Yearly plans are charged upfront and save roughly 20%. Every payment generates a tax-compliant invoice emailed to you.",
   },
   {
     q: "What's your refund policy?",
-    a: "We offer a 14-day money-back guarantee on first-time purchases of any paid plan — email support and we'll process a full refund through Paddle, no questions asked. Renewals after the first period are non-refundable, but you can cancel at any time to stop future charges.",
+    a: "We offer a 14-day money-back guarantee on first-time purchases of any paid plan. Renewals after the first period are non-refundable, but you can cancel any time to stop future charges.",
   },
   {
-    q: "How many apps can I publish on each plan?",
-    a: "Free includes 1 published app with a Mobivable subdomain. Starter raises the limit to 5 published apps with custom domains. Pro is unlimited published apps, white-label deploys, and priority build infrastructure. Draft and unpublished projects don't count toward the limit on any plan.",
-  },
-  {
-    q: "What happens when I upgrade my plan?",
-    a: "Upgrades take effect immediately. You'll be charged a prorated amount for the remainder of the current billing period at the new rate, and all higher-tier features unlock right away — no redeploy required.",
-  },
-  {
-    q: "What happens when I downgrade or cancel?",
-    a: "Downgrades and cancellations take effect at the end of your current billing period, so you keep access to paid features until then. If you exceed the new plan's app limit, existing published apps stay live but you won't be able to publish new ones until you're back within the quota.",
-  },
-  {
-    q: "Can I switch between monthly and yearly?",
-    a: "Yes. Switching from monthly to yearly applies immediately with proration. Switching from yearly to monthly takes effect at the next renewal so you get the full value of the year you already paid for.",
+    q: "What happens when I upgrade or downgrade?",
+    a: "Upgrades take effect immediately with prorated billing, and your credit bucket refills to the new plan's allowance right away. Downgrades take effect at the end of your current billing period.",
   },
 ];
 
-type PlanValue = "free_beta" | "starter" | "pro";
+type PlanValue = "free_beta" | "starter" | "pro" | "scale" | "business";
 
 export const Route = createFileRoute("/pricing")({
   component: PricingPage,
   head: () => ({
     meta: [
       { title: "Pricing — Mobivable" },
-      { name: "description", content: "Free during beta. Simple, transparent plans for solo builders, teams, and enterprise mobile development." },
+      { name: "description", content: "Credit-based plans for building native mobile apps with AI. Free during beta, plans from $29/mo." },
       { property: "og:title", content: "Pricing — Mobivable" },
-      { property: "og:description", content: "Pick a plan that ships native iOS and Android apps from your chat thread." },
+      { property: "og:description", content: "Pick a credit bucket that matches how aggressively you ship native iOS and Android apps." },
     ],
   }),
 });
@@ -55,6 +55,8 @@ const tiers: Array<{
   plan: PlanValue;
   monthly: number;
   yearly: number;
+  credits: string;
+  creditsSub: string;
   freeNote?: string;
   features: string[];
   highlight?: boolean;
@@ -66,8 +68,10 @@ const tiers: Array<{
     plan: "free_beta",
     monthly: 0,
     yearly: 0,
+    credits: "6",
+    creditsSub: "daily credits",
     freeNote: "Free during public beta",
-    features: ["Unlimited AI iterations", "1 published app", "Native iOS + Android builds", "App Store submission", "Community support"],
+    features: ["6 AI credits / day", "1 published app", "Native iOS + Android builds", "Community support"],
     cta: "Start Free",
   },
   {
@@ -76,18 +80,44 @@ const tiers: Array<{
     plan: "starter",
     monthly: 29,
     yearly: 23,
-    features: ["5 published apps", "Source code export", "Custom domains", "Priority compile queue", "Email support"],
-    highlight: true,
+    credits: "120",
+    creditsSub: "monthly credits",
+    features: ["120 AI credits / month", "5 published apps", "Source code export", "Custom domains", "Email support"],
     cta: "Go Starter",
   },
   {
     code: "T-02",
     name: "Pro",
     plan: "pro",
-    monthly: 99,
-    yearly: 79,
-    features: ["Unlimited published apps", "Team workspaces", "Advanced analytics", "Dedicated support", "Everything in Starter"],
+    monthly: 59,
+    yearly: 47,
+    credits: "300",
+    creditsSub: "monthly credits",
+    features: ["300 AI credits / month", "Unlimited published apps", "Priority compile queue", "Advanced AI Studio", "Priority support"],
+    highlight: true,
     cta: "Go Pro",
+  },
+  {
+    code: "T-03",
+    name: "Scale",
+    plan: "scale",
+    monthly: 119,
+    yearly: 95,
+    credits: "700",
+    creditsSub: "monthly credits",
+    features: ["700 AI credits / month", "Everything in Pro", "Team workspaces (3 seats)", "App analytics", "1:1 onboarding"],
+    cta: "Go Scale",
+  },
+  {
+    code: "T-04",
+    name: "Business",
+    plan: "business",
+    monthly: 299,
+    yearly: 239,
+    credits: "2,000",
+    creditsSub: "monthly credits",
+    features: ["2,000 AI credits / month", "Unlimited seats", "SSO + audit log", "Dedicated success manager", "SLA & priority builds"],
+    cta: "Go Business",
   },
 ];
 
