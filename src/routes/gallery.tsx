@@ -76,9 +76,10 @@ function GalleryPage() {
                 </div>
                 <Link
                   to="/dashboard"
+                  search={{ prompt: `Build a ${a.category.toLowerCase()} app called "${a.name}". ${a.desc} Include screens: ${a.screens.join(", ")}. Target platforms: ${a.tags.join(", ")}.` }}
                   className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-primary hover:underline"
                 >
-                  Build similar <ExternalLink className="h-3 w-3" />
+                  Use as template <ExternalLink className="h-3 w-3" />
                 </Link>
               </div>
             </div>
