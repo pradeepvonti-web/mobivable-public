@@ -91,13 +91,25 @@ export function DeploymentsPanel({ projectId, onClose }: { projectId: string; on
                     <span className="text-xs font-semibold">{p.label} Build</span>
                     <span className={`text-[9px] font-mono uppercase tracking-widest ${s.color}`}>{s.label}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1"><GitBranch className="h-2.5 w-2.5" />v{build.version}</span>
                     <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{build.duration}</span>
                     <span>{build.size}</span>
+                    <span className="flex items-center gap-1 font-mono"><Package className="h-2.5 w-2.5" />{build.artifact}</span>
                   </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground whitespace-nowrap">{build.date}</span>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-[9px] text-muted-foreground whitespace-nowrap">{build.date}</span>
+                  {build.status === "success" && (
+                    <button
+                      type="button"
+                      onClick={() => toast.info(`Downloading ${build.artifact}…`, { description: "Signed artifact will be emailed when EAS build completes." })}
+                      className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-primary hover:underline"
+                    >
+                      <Download className="h-2.5 w-2.5" /> {build.platform === "ios" ? "IPA" : build.platform === "android" ? "APK" : "ZIP"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
