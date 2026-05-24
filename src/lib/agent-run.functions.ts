@@ -256,6 +256,11 @@ export const runAgentTask = createServerFn({ method: "POST" })
       `Previous agents' outputs:\n${priorBlock}\n\n` +
       `Now produce YOUR specialized output for this app. Be specific, actionable, and reference prior agents' decisions.`;
 
+    try { await consumeOrThrow(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id); }
+    catch (e) {
+      await supabase.from("agent_tasks").update({ status: "failed", error_text: (e as Error).message }).eq("id", task.id);
+      return { ok: false as const, error: (e as Error).message };
+    }
     const r = await callAI(def.system, userPrompt);
 
     if (!r.ok) {
