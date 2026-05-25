@@ -192,7 +192,103 @@ PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 14. SCREEN BACKGROUNDS — use the screen background property for immersive screens: gradient backgrounds for onboarding, image backgrounds with opacity for hero screens. Keep most screens with the default theme background.
 15. INTERACTIONS — Every app should have at least 2 buttons with navigate actions to create a connected, navigable experience.
 16. DIFFERENTIATION — Use swipe-card for dating/discovery, bank-card for fintech, radar-chart for analytics, gauge-chart for dashboards, calendar-strip for scheduling. These domain-specific elements make apps feel purpose-built.
-17. REUSABILITY — Extract repeated element patterns into components using the components map at the schema root, then reference them with component-ref.`;
+17. REUSABILITY — Extract repeated element patterns into components using the components map at the schema root, then reference them with component-ref.
+
+═══════════════════════════════════════════════
+DESIGN RECIPES — DOMAIN-SPECIFIC COMPOSITION PATTERNS
+═══════════════════════════════════════════════
+
+Follow these proven patterns when designing for specific domains. Each recipe shows EXACTLY which elements to compose on each screen.
+
+RECIPE: FINTECH / NEOBANK
+  Theme: dark mode, electric primary (#00D4AA or similar), Space Grotesk + Inter, tight radius
+  Screen 1 "Home" (bento-grid): bank-card → stat-card-xl (balance + sparkline) → stat-card-xl (spending + sparkline) → line-chart in glass-card (monthly trend) → activity-feed (recent transactions)
+  Screen 2 "Analytics" (split-hero): parallax-hero (portfolio overview) → gauge-chart (savings goal) → progress-bar (budget usage) → bar-chart (spending categories)
+  Screen 3 "Payments" (stack): search-bar → list (recent contacts with avatars) → button (Send Money, navigate action) → button (Request, outline variant)
+  Screen 4 "Cards" (stack): bank-card (primary) → bank-card (secondary, different gradient) → timeline (transaction history) → accordion (card settings/FAQ)
+  Screen 5 "Profile" (stack): avatar + greeting → list (settings items with chevrons) → toggle (notifications) → button (Sign Out, danger variant)
+
+RECIPE: FITNESS / HEALTH TRACKER
+  Theme: dark or light, energetic accent (#FF6B35 or neon green), Outfit + DM Sans, medium radius
+  Screen 1 "Today" (bento-grid): greeting → progress-ring (daily calories/steps) → stat-card-xl (steps + sparkline) → stat-card-xl (calories + sparkline) → progress-bar (water intake) → activity-feed (workout log)
+  Screen 2 "Workouts" (magazine): parallax-hero (featured workout with prompt image) → chip-group (workout categories) → grid-cards (workout plans with icons) → button (Start Workout)
+  Screen 3 "Progress" (stack): calendar-strip (activity days marked) → line-chart (weight/performance trend) → radar-chart (fitness dimensions: strength/cardio/flexibility/endurance/balance) → stat-row (weekly summary)
+  Screen 4 "Nutrition" (stack): gauge-chart (calorie goal) → donut-chart (macros: protein/carbs/fat) → list (recent meals) → button (Log Meal)
+  Screen 5 "Profile" (stack): avatar → stat-row (achievements) → list (settings) → toggle (reminders)
+
+RECIPE: E-COMMERCE / SHOPPING
+  Theme: light or dark, brand accent, Plus Jakarta Sans + Inter, rounded radius
+  Screen 1 "Shop" (magazine): parallax-hero (seasonal sale with prompt image) → marquee ("FREE SHIPPING • NEW ARRIVALS • LIMITED EDITION") → chip-group (categories) → grid-cards (featured products with prices + badges)
+  Screen 2 "Product" (split-hero): parallax-hero (product photo with prompt) → price-tag → rating → chip-group (sizes/colors) → feature-showcase (product details) → button (Add to Cart, tap-scale gesture) → testimonial (customer review)
+  Screen 3 "Cart" (stack): list (cart items with trailing prices) → divider → stat-row (subtotal/shipping/tax) → button (Checkout, primary) → button (Continue Shopping, ghost)
+  Screen 4 "Orders" (stack): step-indicator (order tracking) → timeline (order status events) → empty-state (for no orders) → skeleton (loading state)
+  Screen 5 "Account" (stack): avatar + greeting → list (account settings) → notification (promo alert) → button (Sign Out)
+
+RECIPE: SOCIAL / DATING
+  Theme: dark mode, vibrant primary (#FF3366 or coral), Syne + DM Sans, pillowy radius
+  Screen 1 "Discover" (full-bleed): swipe-card (4+ profile cards with prompt images, badges, action buttons)
+  Screen 2 "Matches" (stack): search-bar → grid-cards (matches with avatars + names) → empty-state (no new matches)
+  Screen 3 "Chat" (stack): chat-bubble (conversation with messages, avatar, timestamps, input bar)
+  Screen 4 "Profile" (split-hero): parallax-hero (user photo) → stat-row (followers/following/likes) → radar-chart (compatibility/interests) → chip-group (interests) → button (Edit Profile)
+  Screen 5 "Settings" (stack): list (preferences with toggles) → slider (distance range) → radio-group (looking for) → button (Upgrade to Premium, gradient style)
+
+RECIPE: FOOD DELIVERY / RESTAURANT
+  Theme: warm palette, appetizing accent (#FF6B35 or tomato), DM Sans + Inter, rounded
+  Screen 1 "Home" (magazine): parallax-hero (featured dish with food photography prompt) → search-bar → chip-group (cuisine filters) → grid-cards (restaurants with ratings) → marquee ("TODAY'S DEALS")
+  Screen 2 "Restaurant" (split-hero): parallax-hero (restaurant interior prompt) → rating → chip-group (menu categories) → list (menu items with prices + badges) → button (View Full Menu)
+  Screen 3 "Cart" (stack): list (ordered items) → price-tag (total) → dropdown (delivery time) → textarea (special instructions) → map-card (delivery address) → button (Place Order)
+  Screen 4 "Orders" (stack): step-indicator → timeline (delivery tracking) → map-card (driver location) → countdown (estimated arrival)
+  Screen 5 "Profile" (stack): avatar + greeting → list (addresses, payment methods) → toggle (notifications) → accordion (help/FAQ)
+
+RECIPE: EDUCATION / LEARNING
+  Theme: calm palette, focus accent (#4F46E5 or sage), Manrope + Inter, comfortable spacing
+  Screen 1 "Home" (bento-grid): greeting → stat-card-xl (streak + sparkline) → progress-bar (course progress) → glass-card (featured course) → calendar-strip (study schedule)
+  Screen 2 "Course" (split-hero): parallax-hero (course banner) → step-indicator (modules) → list (lessons with duration + completion checkmarks) → video-player (current lesson) → button (Continue Learning)
+  Screen 3 "Quiz" (stack): progress-bar (quiz progress) → radio-group (question options) → button (Submit Answer) → stat-row (score summary)
+  Screen 4 "Stats" (stack): line-chart (learning hours trend) → radar-chart (skill areas) → gauge-chart (overall mastery) → donut-chart (time by subject)
+  Screen 5 "Profile" (stack): avatar → stat-row (courses/certificates/hours) → list (achievements with badges) → accordion (settings)
+
+RECIPE: TRAVEL / BOOKING
+  Theme: dark luxury or light cream, gold accent (#D4A574), Cormorant Garamond + Plus Jakarta Sans, large shadows
+  Screen 1 "Explore" (magazine): parallax-hero (destination sunset prompt) → search-bar → chip-group (destinations) → grid-cards (featured trips with pricing badges) → testimonial (traveler review)
+  Screen 2 "Destination" (split-hero): parallax-hero (city skyline prompt) → stat-row (avg temp/flight time/currency) → map-card (location) → carousel (nearby attractions) → pricing-card (trip packages) → button (Book Now)
+  Screen 3 "Trips" (stack): calendar-strip (travel dates) → timeline (itinerary) → accordion (day-by-day plan) → map-card (route overview)
+  Screen 4 "Bookings" (stack): list (upcoming trips with dates) → step-indicator (booking status) → notification (flight reminder) → empty-state (no bookings)
+  Screen 5 "Profile" (stack): avatar → list (passport, preferences, payment) → toggle (travel alerts)
+
+RECIPE: PRODUCTIVITY / TASK MANAGEMENT
+  Theme: cool gray + accent (#6366F1 or teal), Geist or Inter, compact scale
+  Screen 1 "Dashboard" (bento-grid): greeting → stat-card-xl (tasks completed + sparkline) → stat-card-xl (hours tracked) → progress-bar (sprint progress) → donut-chart (task distribution) → activity-feed (recent updates)
+  Screen 2 "Tasks" (stack): search-bar → chip-group (All/Active/Done) → list (tasks with checkboxes, priorities, due dates) → empty-state (all done!) → button (New Task, floating action)
+  Screen 3 "Calendar" (stack): calendar-strip → timeline (today's schedule) → list (upcoming deadlines)
+  Screen 4 "Analytics" (stack): line-chart (productivity trend) → bar-chart (tasks per day) → gauge-chart (focus score) → radar-chart (performance areas)
+  Screen 5 "Settings" (stack): avatar → list (workspace settings) → dropdown (default view) → toggle (dark mode) → toggle (notifications)
+
+RECIPE: HEALTHCARE / MEDICAL
+  Theme: clean light mode, calming primary (#0EA5E9 or sage green), DM Sans + Inter, medium radius
+  Screen 1 "Home" (bento-grid): greeting → glass-card (next appointment) → stat-card-xl (heart rate + sparkline) → stat-card-xl (steps + sparkline) → progress-bar (medication adherence) → button (Book Appointment)
+  Screen 2 "Health" (stack): gauge-chart (health score) → line-chart (vitals trend) → donut-chart (sleep breakdown) → timeline (health events)
+  Screen 3 "Appointments" (stack): calendar-strip → list (upcoming appointments) → map-card (clinic location) → chat-bubble (doctor chat)
+  Screen 4 "Medications" (stack): list (medication schedule with times) → checkbox (taken today) → notification (reminder) → accordion (drug info/side effects)
+  Screen 5 "Profile" (stack): avatar → list (medical records, insurance) → dropdown (blood type) → date-picker (DOB)
+
+RECIPE: MUSIC / MEDIA STREAMING
+  Theme: very dark (#0A0A0A bg), vibrant accent (#1DB954 or gradient), Syne + DM Sans, medium radius, bold motion
+  Screen 1 "Home" (magazine): parallax-hero (featured playlist with abstract art prompt) → marquee ("NOW TRENDING") → carousel (recently played) → grid-cards (playlists) → list (recommended tracks)
+  Screen 2 "Player" (full-bleed): image (album art, large) → text (song + artist) → slider (progress) → stat-row (play/pause/skip controls) → button (Add to Library)
+  Screen 3 "Search" (stack): search-bar → chip-group (genres) → grid-cards (browse categories) → list (top results)
+  Screen 4 "Library" (stack): tab-bar (Playlists/Artists/Albums) → list (library items with artwork) → empty-state (no downloads)
+  Screen 5 "Profile" (stack): avatar → stat-row (listening hours/playlists/followers) → list (settings) → toggle (offline mode)
+
+IMPORTANT COMPOSITION RULES:
+1. Never repeat the same layout on consecutive screens
+2. Every app must have at least 1 bento-grid OR magazine screen
+3. Dashboard screens should combine 2+ chart types
+4. Hero screens MUST have an image prompt for AI-generated imagery
+5. Forms should be wrapped in glass-card or section for visual grouping
+6. Always include navigate actions on key buttons to connect screens
+7. Use entrance animations: "pop" for heroes, "fade-up" for lists, "scale-in" for cards, "blur-in" for glass elements
+8. Match navigation type to app complexity: bottom-tabs for 4-5 screens, drawer for 6+, floating-bottom for minimal creative apps`;
 
 // ──────────────────────────────────────────────────────────────────
 // PASS 1: design brief — opinionated palette, type, mood, references.
@@ -220,7 +316,7 @@ Schema:
   "motion": "subtle"|"medium"|"bold",
   "references": ["3–5 short visual references — real apps/brands/sites whose feel inspires this app"],
   "screens": [
-    { "id":"home", "title":"...", "icon":"<icon name>", "layout":"bento-grid"|"stack"|"magazine"|"split-hero"|"full-bleed", "purpose":"one line", "keyPrimitives":["parallax-hero","stat-card-xl","glass-card","feature-showcase","testimonial","pricing-card","marquee","onboarding-slide"] }
+    { "id":"home", "title":"...", "icon":"<icon name>", "layout":"bento-grid"|"stack"|"magazine"|"split-hero"|"full-bleed", "purpose":"one line", "keyPrimitives":["parallax-hero","stat-card-xl","glass-card","feature-showcase","testimonial","pricing-card","marquee","onboarding-slide","line-chart","sparkline","progress-bar","gauge-chart","radar-chart","bank-card","swipe-card","calendar-strip","chat-bubble","map-card","video-player","timeline","accordion","dropdown","checkbox","radio-group"] }
   ],
   "navigation": ["home","explore","activity","profile"]
 }
