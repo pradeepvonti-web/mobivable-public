@@ -1488,75 +1488,88 @@ function ProjectPage() {
             </div>
           );
           return (
-            <div className="px-4 py-3 border-b border-border bg-card/40">
-              <div className="flex items-start gap-2">
+            <div className="px-4 py-2.5 border-b border-border bg-card/40">
+              <button
+                type="button"
+                onClick={() => setBriefOpen((v) => !v)}
+                className="w-full flex items-center gap-2 text-left"
+                aria-expanded={briefOpen}
+              >
                 <div className="h-6 w-6 rounded-md bg-primary/15 grid place-items-center shrink-0">
                   <Users className="h-3.5 w-3.5 text-primary" />
                 </div>
-                <div className="min-w-0">
-                  <p className="font-display text-sm leading-tight">{a.name}</p>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{a.short}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-sm leading-tight truncate">{a.name}</p>
+                  <p className="text-[11px] text-muted-foreground leading-snug truncate">{a.short}</p>
                 </div>
-              </div>
-              <div className="mt-3">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
-                  Functionalities
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {a.tasks.map((t) => (
-                    <span
-                      key={t}
-                      className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-primary/30 bg-primary/5 text-primary/90"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {recents.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Recent
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${briefOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {briefOpen && (
+                <>
+                  <div className="mt-3">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+                      Functionalities
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRecentTemplates((prev) => {
-                          const updated = { ...prev, [selectedAgent]: [] };
-                          if (typeof window !== "undefined") {
-                            try {
-                              window.localStorage.setItem(recentTemplatesKey, JSON.stringify(updated));
-                            } catch {
-                              // ignore
-                            }
-                          }
-                          return updated;
-                        });
-                      }}
-                      className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
-                    >
-                      Clear
-                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {a.tasks.map((t) => (
+                        <span
+                          key={t}
+                          className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-primary/30 bg-primary/5 text-primary/90"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    {recents.map((tpl) => renderRow(tpl, true))}
-                  </div>
-                </div>
-              )}
-              {rest.length > 0 && (
-                <div className="mt-3">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
-                    {recents.length > 0 ? "More templates" : "Templates"}
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {rest.map((tpl) => renderRow(tpl, false))}
-                  </div>
-                </div>
+                  {recents.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Recent
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecentTemplates((prev) => {
+                              const updated = { ...prev, [selectedAgent]: [] };
+                              if (typeof window !== "undefined") {
+                                try {
+                                  window.localStorage.setItem(recentTemplatesKey, JSON.stringify(updated));
+                                } catch {
+                                  // ignore
+                                }
+                              }
+                              return updated;
+                            });
+                          }}
+                          className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {recents.map((tpl) => renderRow(tpl, true))}
+                      </div>
+                    </div>
+                  )}
+                  {rest.length > 0 && (
+                    <div className="mt-3">
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+                        {recents.length > 0 ? "More templates" : "Templates"}
+                      </p>
+                      <div className="flex flex-col gap-1.5">
+                        {rest.map((tpl) => renderRow(tpl, false))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );
         })()}
+
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative scroll-smooth">
           {loading && (
