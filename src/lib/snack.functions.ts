@@ -13,6 +13,12 @@ export type SnackPayload = {
   sdkVersion: string;
 };
 
+type StoredSnackPayload = {
+  hashId: string;
+  dependencies: Record<string, { version: string }>;
+  sdkVersion: string;
+};
+
 const SDK_VERSION = "52.0.0";
 const SnackGenerationSchema = z.object({
   files: z.record(z.string()),
@@ -188,7 +194,12 @@ export const generateExpoSnack = createServerFn({ method: "POST" })
     });
 
     const payload: SnackPayload = { hashId, files, dependencies, sdkVersion: SDK_VERSION };
-    const nextResult = { ...((project.result as object | null) ?? {}), snack: payload };
+    const storedSnack: StoredSnackPayload = {
+      hashId,
+      dependencies,
+      sdkVersion: SDK_VERSION,
+    };
+    const nextResult = { ...((project.result as object | null) ?? {}), snack: storedSnack };
 
     const { error: upErr } = await supabaseAdmin
       .from("projects")
@@ -212,6 +223,13 @@ export const getExpoSnack = createServerFn({ method: "POST" })
       .single();
     if (error || !project) throw new Error("Project not found");
     if (project.user_id !== userId) throw new Error("Forbidden");
-    const snack = (project.result as { snack?: SnackPayload } | null)?.snack ?? null;
-    return { snack };
+    const storedSnack = (project.result as { snack?: StoredSnackPayload } | null)?.snack ?? null;
+    return {
+      snack: storedSnack
+        ? {
+            ...storedSnack,
+            files: { "App.tsx": { type: "CODE", contents: "// Source available in Expo Snack" } },
+          }
+        : null,
+    };
   });
