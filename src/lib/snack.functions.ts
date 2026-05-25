@@ -67,11 +67,20 @@ Keep total output under 8 files, ~6KB max.`;
   };
   const content = data.choices?.[0]?.message?.content ?? "{}";
   let parsed: { files?: Record<string, string>; dependencies?: Record<string, string> };
+  // Strip markdown fences and extract first JSON object
+  const cleaned = content
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+  const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned;
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(jsonStr);
   } catch {
-    throw new Error("AI returned non-JSON output");
+    throw new Error(`AI returned non-JSON output: ${content.slice(0, 200)}`);
   }
+
   if (!parsed.files || !parsed.files["App.tsx"]) {
     throw new Error("AI output missing App.tsx");
   }
