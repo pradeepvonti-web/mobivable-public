@@ -1,70 +1,84 @@
-# Mobivable → Lovable-grade roadmap
+# Pivot to GitHub-triggered EAS Builds
 
-Goal: turn Mobivable from a schema-renderer into a true codegen + live-sandbox
-mobile-app platform (Lovable-grade, but for React Native / Expo).
+## The flow
 
-## Phase 1 — Real Expo codegen + Snack live preview  *(scaffolded this turn)*
-- Server fn `generateExpoProject(projectId)` — uses Lovable AI Gateway
-  (`google/gemini-2.5-pro`) to convert the existing project prompt + schema into
-  a real Expo file map: `App.tsx`, `app/screens/*`, `app/components/*`,
-  `package.json`. Stored under `project.result.snack = { files, dependencies, hashId }`.
-- Server fn `pushToSnack({ files, dependencies })` — POSTs to
-  `https://exp.host/--/api/v2/snack/save` and returns `{ id, hashId }`. No API
-  key needed for anonymous snacks.
-- Route `/projects/$projectId/live` — "Generate live app" button + embedded
-  `<iframe src="https://snack.expo.dev/embedded/@snack/{hashId}?platform=web">`.
-  Lets users see and interact with the *real* RN app running in the browser.
+```
+Lovable                    GitHub                   Expo (EAS)
+-------                    ------                   ----------
+1. Push Expo scaffold  →   New repo created
+   (multi-file commit)     `lovable-<slug>`
 
-Why Snack first (not WebContainers): zero install, runs RN web bundles
-out-of-the-box, free, mobile QR-code scanning included.
+2. User clicks         →   (one-time)          →    Install Expo GitHub App
+   "Connect to Expo"        Install app on repo     on selected repo
 
-## Phase 2 — Conversational agent loop over the codebase
-- New `agent_messages` table per project (role, content, file_diffs jsonb).
-- Server fn `chatEditFiles(projectId, instruction)`:
-  1. Loads current `snack.files`,
-  2. Sends to Gemini with tools `read_file`, `write_file`, `delete_file`
-     (AI SDK `tool()` + `stepCountIs(50)`),
-  3. Applies returned diffs, re-pushes to Snack,
-  4. Streams thoughts + diffs back via `/api/chat`.
-- UI: split view — left: chat with diff bubbles + accept/revert, right: live
-  Snack iframe that hot-reloads.
+3. Server links EAS app                         →   setGitHubRepositoryOnEasApp
+   to that repo
 
-## Phase 3 — Project history & restore points
-- `project_snapshots` table (project_id, label, files jsonb, created_at).
-- Auto-snapshot before every agent edit. UI: timeline with "Restore" button.
-- Share links: `/p/{shortId}` read-only preview of any snapshot.
+4. Build button        →                        →   createGitHubBuildAsync
+                                                     (EAS pulls from GitHub,
+                                                      runs `eas build`,
+                                                      handles all schema)
 
-## Phase 4 — Self-hosted WebContainer (escape Snack limits)
-- Add `@webcontainer/api` for in-browser Node — runs full Expo bundler client-side
-  for projects that outgrow Snack (custom native modules, larger deps, private
-  packages). Snack stays the default; WebContainer is opt-in per project.
+5. Poll status         ←                        ←   builds.byId
+   Download APK / logs
+```
 
-## Phase 5 — Backend provisioning parity
-- Per-project Supabase: button "Add backend" provisions a child Supabase
-  project via the management API, injects `EXPO_PUBLIC_SUPABASE_*` into the
-  Snack files, generates typed client.
-- Per-project secrets vault (already partially built via `secrets` table on
-  Lovable Cloud).
+## What changes
 
-## Phase 6 — Deployment dashboard
-- One-click EAS Build + Submit (already scaffolded in `eas.functions.ts`).
-- Add OTA update channel mgmt, build history, store-listing metadata editor,
-  TestFlight/Play-Internal invite UI.
+**1. Push multi-file commit to GitHub** (extend `pushCodeToGithub`)
+- Current: PUTs a single file via Contents API
+- New: use Git Data API (createTree + createCommit + updateRef) to commit
+  the whole Expo scaffold (package.json, app.json, eas.json, App.js,
+  index.js, assets/*, babel.config.js, .gitignore, eas-hook README) in
+  one commit. Reuse `scaffoldExpoProject()` from `eas.server.ts`.
 
-## Phase 7 — Workspaces & collaboration
-- `workspaces`, `workspace_members` (with `app_role` enum already exists).
-- Realtime cursors on the chat panel using Supabase Realtime.
-- Comments anchored to file ranges.
+**2. New `eas_apps` columns** (migration)
+- `github_repo_owner text`
+- `github_repo_name text`
+- `github_repo_installed boolean default false`  (whether Expo GitHub app
+  is installed on this repo — we detect via EAS API)
 
----
+**3. New server functions in `eas.functions.ts`**
+- `pushExpoScaffoldToGithub({ projectId })` — creates repo + commits
+  scaffold + records repo in `eas_apps`.
+- `linkEasAppToGithub({ projectId })` — calls EAS
+  `setGitHubRepositoryAndBaseDirectory` mutation; returns
+  `{ ok, needsAppInstall, installUrl }` if the Expo GitHub App isn't
+  installed yet.
+- Rewrite `startEasBuild` to use `createGitHubBuildAsync` (or current
+  equivalent) — no more tarball upload, no more `AndroidJobInput`.
 
-### Out of scope (intentional)
-- Custom domain hosting — Snack URLs cover preview; EAS covers production.
-- Visual drag-and-drop editor — keep chat-first. The existing schema editor stays
-  for theme/screen tweaks only.
+**4. UI changes in `DeploymentsPanel`**
+- Three-step gate before the Build button:
+  1. ✓ Expo connected
+  2. ✓ GitHub connected (link to `/settings` if not)
+  3. ✓ Repo created & linked (button: "Push to GitHub & link to EAS")
+     - If Expo GitHub App not installed → show clear CTA with
+       `https://github.com/apps/expo/installations/new` link.
+- Once all three green: enable "Build APK on EAS".
 
-### Risks
-- Snack API is undocumented but stable (used by snack.expo.dev itself).
-  Mitigation: WebContainer fallback in Phase 4.
-- AI cost: full-codebase regen on every chat is expensive. Mitigation in
-  Phase 2: only send changed-file context + diff-based edits.
+**5. Drop the tarball path**
+- Remove `makeTarGz`, `uploadProjectArchive`, `archive_url` writes.
+  Keep `scaffoldExpoProject` (still used for the GitHub commit content).
+
+## Manual step the user must do once
+
+Install **Expo's GitHub App** on the repo:
+- We surface a deep link directly to the install page in the UI
+- Takes ~10 seconds; only required first time per repo
+
+After that, every rebuild is one click — EAS pulls latest `main` from
+GitHub and runs `eas build` natively. No more reverse-engineering EAS's
+private GraphQL shape.
+
+## What we keep
+- EXPO_TOKEN, `easGraphql()` client, `eas_builds` table, polling, status UI.
+- `scaffoldExpoProject()` (used to generate files for the GitHub commit).
+- All RLS, all secret handling.
+
+## Tradeoffs
+- One-time manual GitHub-App install per repo (clear UI link).
+- We commit a working Expo project to the user's GitHub — they can also
+  clone & build locally if they want (a nice bonus).
+- ~1 build cycle to verify the EAS GraphQL mutation name is current
+  (the EAS schema for GitHub builds is public-stable, unlike `AndroidJobInput`).

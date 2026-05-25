@@ -3,7 +3,6 @@ import { useServerFn } from '@tanstack/react-start';
 import { ClipboardList, Palette, Code, ShieldCheck, Rocket, Check, Loader2 } from 'lucide-react';
 import { getProjectProgress, SDLC_PHASES, PHASE_ORDER, type SDLCPhase } from '@/lib/sdlc.functions';
 import { supabase } from '@/integrations/supabase/client';
-import { getRestoredSession } from '@/lib/require-auth';
 
 /** Map each SDLC phase to a distinct Lucide icon */
 const PHASE_ICONS: Record<SDLCPhase, typeof Check> = {
@@ -26,28 +25,17 @@ export function SDLCProgressBar({ projectId }: { projectId: string }) {
 
   // Initial fetch
   useEffect(() => {
-    let active = true;
-
     (async () => {
-      const session = await getRestoredSession();
-      if (!active || !session) return;
       const res = await getProgress({ data: { projectId } });
-      if (active && res.ok) {
+      if (res.ok) {
         setPhases(res.phases);
         setCurrentPhase(res.currentPhase);
       }
-    })().catch(() => {
-      /* auth or network race; leave bar hidden until next valid refresh */
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [getProgress, projectId]);
+    })();
+  }, [projectId]);
 
   // Subscribe to realtime updates on project_phases
   useEffect(() => {
-    let active = true;
     const ch = supabase.channel(`sdlc_${projectId}`)
       .on('postgres_changes', {
         event: '*',
@@ -55,24 +43,16 @@ export function SDLCProgressBar({ projectId }: { projectId: string }) {
         table: 'project_phases',
         filter: `project_id=eq.${projectId}`,
       }, () => {
-        void getRestoredSession().then((session) => {
-          if (!active || !session) return;
-          return getProgress({ data: { projectId } });
-        }).then((res) => {
-          if (active && res?.ok) {
+        getProgress({ data: { projectId } }).then(res => {
+          if (res.ok) {
             setPhases(res.phases);
             setCurrentPhase(res.currentPhase);
           }
-        }).catch(() => {
-          /* ignore transient auth races during session refresh */
         });
       })
       .subscribe();
-    return () => {
-      active = false;
-      void supabase.removeChannel(ch);
-    };
-  }, [getProgress, projectId]);
+    return () => { void supabase.removeChannel(ch); };
+  }, [projectId]);
 
   if (phases.length === 0) return null;
 
