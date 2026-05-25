@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parseAppSchema } from "@/lib/code-gen";
 import { exportToExpo } from "@/lib/export-project";
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
@@ -33,10 +32,10 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     z.object({ projectId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context;
+    const { supabase, userId } = context;
 
     // Load the project
-    const { data: project, error: projErr } = await supabaseAdmin
+    const { data: project, error: projErr } = await supabase
       .from("projects")
       .select("id, name, result, user_id")
       .eq("id", data.projectId)
@@ -62,7 +61,7 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     }
 
     // Load integrations for Supabase options
-    const { data: integ } = await supabaseAdmin
+    const { data: integ } = await supabase
       .from("project_integrations")
       .select("supabase_url, supabase_anon_key")
       .eq("project_id", data.projectId)
@@ -80,7 +79,7 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     const exportedFiles = exportToExpo(schema as MobileAppSchema, options);
 
     // Load any user overrides
-    const { data: overrides } = await supabaseAdmin
+    const { data: overrides } = await supabase
       .from("project_file_overrides")
       .select("file_path, content")
       .eq("project_id", data.projectId)
@@ -115,10 +114,10 @@ export const saveFileOverride = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context;
+    const { supabase, userId } = context;
 
     // Verify project ownership
-    const { data: project } = await supabaseAdmin
+    const { data: project } = await supabase
       .from("projects")
       .select("id, user_id")
       .eq("id", data.projectId)
@@ -128,7 +127,7 @@ export const saveFileOverride = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found" };
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from("project_file_overrides")
       .upsert(
         {
@@ -161,10 +160,10 @@ export const deleteFileOverride = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context;
+    const { supabase, userId } = context;
 
     // Verify project ownership
-    const { data: project } = await supabaseAdmin
+    const { data: project } = await supabase
       .from("projects")
       .select("id, user_id")
       .eq("id", data.projectId)
@@ -174,7 +173,7 @@ export const deleteFileOverride = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found" };
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from("project_file_overrides")
       .delete()
       .eq("project_id", data.projectId)
