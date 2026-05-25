@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
+import { PlanSummary } from "@/components/PlanSummary";
 import {
   ArrowLeft,
   MessageSquare,
