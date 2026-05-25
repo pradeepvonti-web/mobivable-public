@@ -1557,7 +1557,7 @@ function ProjectPage() {
           );
         })()}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative scroll-smooth">
           {loading && (
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               [···] Loading
@@ -1573,8 +1573,8 @@ function ProjectPage() {
           {project && (
             <>
               {/* Initial user prompt */}
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-4">
+              <div className="flex justify-end gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+                <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 px-4 py-3 shadow-sm">
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">
                     {project.prompt}
                   </p>
@@ -1597,7 +1597,7 @@ function ProjectPage() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
                     {new Date(project.created_at).toLocaleTimeString()} ·{" "}
                     {project.model}
                   </p>
@@ -1607,7 +1607,7 @@ function ProjectPage() {
               {/* Initial plan from generation */}
               {(isBuilding || isFailed || (isReady && project.result)) && (
                 <div className="flex justify-start">
-                  <div className="max-w-[90%] w-full rounded-2xl border border-border bg-card/60 p-4">
+                  <div className="max-w-[90%] w-full rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-5 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <span
                         className={`h-2 w-2 rounded-full ${
@@ -1658,8 +1658,8 @@ function ProjectPage() {
               {messages.map((m) => {
                 if (m.role === "user") {
                   return (
-                    <div key={m.id} className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl border border-primary/30 bg-card p-3">
+                    <div key={m.id} className="flex justify-end gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+                      <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 px-4 py-3 shadow-sm">
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
                       </div>
                     </div>
@@ -1669,18 +1669,18 @@ function ProjectPage() {
                 const badge = role ? AGENT_BADGE[role] : null;
                 const name = m.agentName ?? (role ? AGENTS[role].name : "Assistant");
                 return (
-                  <div key={m.id} className="flex justify-start gap-2">
+                  <div key={m.id} className="flex justify-start gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
                     <div
-                      className={`h-8 w-8 shrink-0 rounded-full border grid place-items-center text-base ${
+                      className={`h-9 w-9 shrink-0 rounded-full border-2 grid place-items-center text-lg shadow-sm ${
                         badge?.tint ?? "bg-muted/40 text-muted-foreground border-border"
                       }`}
                       aria-hidden
                     >
                       {badge?.emoji ?? "🤖"}
                     </div>
-                    <div className="max-w-[85%] w-full rounded-2xl border border-border bg-card/60 p-3">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className={`text-[10px] font-display uppercase tracking-widest px-1.5 py-0.5 rounded border ${badge?.tint ?? "border-border text-muted-foreground"}`}>
+                    <div className="max-w-[85%] w-full rounded-2xl border-l-2 border-primary/40 bg-card/80 backdrop-blur-sm p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className={`text-[11px] font-display uppercase tracking-widest px-2 py-0.5 rounded-md border ${badge?.tint ?? "border-border text-muted-foreground"}`}>
                           {name}
                         </span>
                         {m.phase && (
@@ -1691,7 +1691,11 @@ function ProjectPage() {
                       </div>
                       {m.pending && !m.content ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <div className="flex gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
                           <span>{name} is thinking…</span>
                         </div>
                       ) : (
@@ -1706,9 +1710,13 @@ function ProjectPage() {
 
               {/* Live "team is collaborating" banner */}
               {teamBanner && (
-                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
+                <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4 shadow-sm" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    <div className="flex gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
                     <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
                       {teamBanner.phaseLabel} team is collaborating
                     </span>
@@ -1719,7 +1727,7 @@ function ProjectPage() {
                       return (
                         <span
                           key={a.role}
-                          className={`inline-flex items-center gap-1 text-[10px] font-display uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${b.tint}`}
+                          className={`inline-flex items-center gap-1 text-[10px] font-display uppercase tracking-widest px-2 py-1 rounded-full border shadow-sm ${b.tint}`}
                         >
                           <span aria-hidden>{b.emoji}</span>
                           {a.name}
@@ -1737,7 +1745,7 @@ function ProjectPage() {
         {/* Composer */}
         <form
           onSubmit={handleSend}
-          className="border-t border-border p-3 bg-background"
+          className="border-t border-border/50 p-4 bg-gradient-to-t from-background via-background to-transparent"
         >
           {selectedEl && (
             <div className="mb-2 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs space-y-2">
@@ -1879,7 +1887,7 @@ function ProjectPage() {
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
-          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur px-4 py-3 focus-within:border-primary/60 transition-colors">
+          <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md px-4 py-3 shadow-lg transition-all duration-200 focus-within:border-primary/50 focus-within:shadow-primary/5 focus-within:shadow-xl">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -2109,7 +2117,7 @@ function ProjectPage() {
                     type="submit"
                     disabled={(!input.trim() && pending.filter((p) => p.status === "ready").length === 0) || !project || pending.some((p) => p.status === "uploading")}
                     aria-label="Send message"
-                    className="h-8 w-8 grid place-items-center rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="h-9 w-9 grid place-items-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
                   >
                     <ArrowUp className="h-4 w-4" />
                   </button>
