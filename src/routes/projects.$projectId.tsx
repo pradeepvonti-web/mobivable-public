@@ -309,6 +309,7 @@ function ProjectPage() {
     })();
   }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [briefOpen, setBriefOpen] = useState(false);
   const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents" | "export" | "screenshots">("preview");
   const { theme, setTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
