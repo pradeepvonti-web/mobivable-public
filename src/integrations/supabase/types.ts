@@ -271,6 +271,54 @@ export type Database = {
         }
         Relationships: []
       }
+      app_templates: {
+        Row: {
+          author_id: string | null
+          category: string
+          created_at: string
+          description: string | null
+          feature_list: string[] | null
+          id: string
+          is_community: boolean | null
+          is_featured: boolean | null
+          name: string
+          preview_image_url: string | null
+          schema: Json
+          tags: string[] | null
+          use_count: number | null
+        }
+        Insert: {
+          author_id?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
+          feature_list?: string[] | null
+          id?: string
+          is_community?: boolean | null
+          is_featured?: boolean | null
+          name: string
+          preview_image_url?: string | null
+          schema: Json
+          tags?: string[] | null
+          use_count?: number | null
+        }
+        Update: {
+          author_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          feature_list?: string[] | null
+          id?: string
+          is_community?: boolean | null
+          is_featured?: boolean | null
+          name?: string
+          preview_image_url?: string | null
+          schema?: Json
+          tags?: string[] | null
+          use_count?: number | null
+        }
+        Relationships: []
+      }
       eas_apps: {
         Row: {
           created_at: string
@@ -716,6 +764,33 @@ export type Database = {
         }
         Relationships: []
       }
+      project_file_overrides: {
+        Row: {
+          content: string
+          file_path: string
+          id: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          file_path: string
+          id?: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          file_path?: string
+          id?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_integrations: {
         Row: {
           connected_at: string | null
@@ -922,6 +997,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      project_secrets: {
+        Row: {
+          category: string
+          created_at: string
+          encrypted_value: string
+          id: string
+          key_name: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          encrypted_value: string
+          id?: string
+          key_name: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          encrypted_value?: string
+          id?: string
+          key_name?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_snapshots: {
+        Row: {
+          created_at: string
+          element_count: number | null
+          id: string
+          label: string
+          project_id: string
+          schema: Json
+          screen_count: number | null
+          source: string
+          user_id: string
+          visual_edits: Json | null
+        }
+        Insert: {
+          created_at?: string
+          element_count?: number | null
+          id?: string
+          label?: string
+          project_id: string
+          schema: Json
+          screen_count?: number | null
+          source?: string
+          user_id: string
+          visual_edits?: Json | null
+        }
+        Update: {
+          created_at?: string
+          element_count?: number | null
+          id?: string
+          label?: string
+          project_id?: string
+          schema?: Json
+          screen_count?: number | null
+          source?: string
+          user_id?: string
+          visual_edits?: Json | null
+        }
+        Relationships: []
       }
       projects: {
         Row: {
