@@ -54,11 +54,11 @@ export function DeviceToolbar({
   const tablets = DEVICE_PRESETS.filter((d) => d.category === "tablet");
 
   return (
-    <div className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-1.5 shadow-lg backdrop-blur text-xs">
+    <div className="flex min-w-0 items-center gap-2 rounded-full border border-border bg-background/90 px-2.5 py-1 shadow-lg backdrop-blur text-xs">
       <select
         value={selectedDevice}
         onChange={(e) => onDeviceChange(e.target.value)}
-        className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4"
+        className="min-w-0 max-w-[7.25rem] bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4 sm:max-w-[8.75rem]"
         style={{
           backgroundImage:
             "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E\")",
@@ -87,7 +87,7 @@ export function DeviceToolbar({
       <button
         type="button"
         onClick={onLandscapeToggle}
-        className={`p-1 rounded-md transition-colors ${landscape ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}
+        className={`shrink-0 p-1 rounded-md transition-colors ${landscape ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}
         title={landscape ? "Switch to portrait" : "Switch to landscape"}
       >
         <RotateCcw className="h-3.5 w-3.5" />
@@ -95,7 +95,7 @@ export function DeviceToolbar({
 
       <div className="w-px h-4 bg-border" />
 
-      <span className="text-muted-foreground font-mono tabular-nums whitespace-nowrap">
+      <span className="hidden text-muted-foreground font-mono tabular-nums whitespace-nowrap sm:inline">
         {w} × {h}
       </span>
     </div>
