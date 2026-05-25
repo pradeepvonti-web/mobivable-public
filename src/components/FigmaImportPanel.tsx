@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { extractFigmaDesign, exportFigmaImage, saveFigmaTokens, type FigmaDesignTokens } from "@/lib/figma.functions";
+import { extractFigmaDesign, exportFigmaImage, saveFigmaTokens, compileFigmaToSchema, type FigmaDesignTokens } from "@/lib/figma.functions";
 
 const TOKEN_KEY = "mobivable:figmaToken";
 
@@ -34,10 +34,12 @@ export function FigmaImportPanel({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [compiling, setCompiling] = useState(false);
 
   const extractFn = useServerFn(extractFigmaDesign);
   const exportFn = useServerFn(exportFigmaImage);
   const saveTokensFn = useServerFn(saveFigmaTokens);
+  const compileFn = useServerFn(compileFigmaToSchema);
 
   // Load saved token from localStorage
   useEffect(() => {
@@ -125,6 +127,31 @@ export function FigmaImportPanel({
     }
   }, [tokens, projectId, saveTokensFn]);
 
+  const handleCompile = useCallback(async () => {
+    if (!figmaUrl.trim() || !figmaToken.trim()) {
+      toast.error("Please enter both a Figma URL and token");
+      return;
+    }
+    setCompiling(true);
+    try {
+      const res = await compileFn({
+        data: { projectId, figmaUrl: figmaUrl.trim(), figmaToken: figmaToken.trim() },
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+      } else {
+        toast.success("Successfully compiled Figma design into interactive schema!");
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Compile failed");
+    } finally {
+      setCompiling(false);
+    }
+  }, [figmaUrl, figmaToken, projectId, compileFn]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -199,24 +226,36 @@ export function FigmaImportPanel({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={loading || compiling || !figmaUrl.trim() || !figmaToken.trim()}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary/10 text-primary border border-primary/20 px-4 py-2 text-xs font-medium hover:bg-primary/20 disabled:opacity-50 transition-all"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              {loading ? "Importing…" : "Extract Tokens"}
+            </button>
+            <button
+              type="button"
+              onClick={handlePreview}
+              disabled={previewLoading || compiling || !figmaUrl.trim() || !figmaToken.trim()}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-50 transition-all"
+            >
+              {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+              Preview
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={handleImport}
-            disabled={loading || !figmaUrl.trim() || !figmaToken.trim()}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-all"
+            onClick={handleCompile}
+            disabled={compiling || loading || !figmaUrl.trim() || !figmaToken.trim()}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2.5 text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all shadow-md"
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {loading ? "Importing…" : "Import Design"}
-          </button>
-          <button
-            type="button"
-            onClick={handlePreview}
-            disabled={previewLoading || !figmaUrl.trim() || !figmaToken.trim()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-50 transition-all"
-          >
-            {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
-            Preview
+            {compiling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {compiling ? "Compiling Figma Design…" : "Compile Figma to App"}
           </button>
         </div>
       </div>

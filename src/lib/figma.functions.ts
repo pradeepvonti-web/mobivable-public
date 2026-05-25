@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { callAI } from "./ai-provider";
+import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 // ---------------------------------------------------------------------------
 // Figma URL parser
@@ -359,5 +361,215 @@ export const saveFigmaTokens = createServerFn({ method: "POST" })
       return { ok: false as const, error: error.message };
     }
     return { ok: true as const };
+  });
+
+function simplifyFigmaNode(node: any): any {
+  if (!node) return null;
+
+  const result: any = {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+  };
+
+  if (node.layoutMode) result.layoutMode = node.layoutMode;
+  if (typeof node.itemSpacing === "number") result.itemSpacing = node.itemSpacing;
+
+  const padding = {
+    top: node.paddingTop ?? 0,
+    right: node.paddingRight ?? 0,
+    bottom: node.paddingBottom ?? 0,
+    left: node.paddingLeft ?? 0,
+  };
+  if (padding.top || padding.right || padding.bottom || padding.left) {
+    result.padding = padding;
+  }
+
+  if (node.absoluteBoundingBox) {
+    result.width = Math.round(node.absoluteBoundingBox.width);
+    result.height = Math.round(node.absoluteBoundingBox.height);
+  }
+
+  if (node.type === "TEXT" && node.characters) {
+    result.text = node.characters.slice(0, 300);
+  }
+
+  if (node.fills) {
+    const imageFill = node.fills.find((f: any) => f.type === "IMAGE");
+    if (imageFill) {
+      result.isImage = true;
+    }
+    const solidFill = node.fills.find((f: any) => f.type === "SOLID");
+    if (solidFill && solidFill.color) {
+      const toHex = (n: number) =>
+        Math.round(n * 255)
+          .toString(16)
+          .padStart(2, "0");
+      const { r, g, b } = solidFill.color;
+      result.color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+  }
+
+  if (node.children && node.children.length > 0) {
+    result.children = node.children
+      .map((c: any) => simplifyFigmaNode(c))
+      .filter(Boolean)
+      .slice(0, 30);
+  }
+
+  return result;
+}
+
+export const compileFigmaToSchema = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        projectId: z.string().uuid(),
+        figmaUrl: z.string().url(),
+        figmaToken: z.string().min(1),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const parsed = parseFigmaUrl(data.figmaUrl);
+    if (!parsed) {
+      return { ok: false as const, error: "Invalid Figma URL" };
+    }
+
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id, prompt, name, result, user_id")
+      .eq("id", data.projectId)
+      .single();
+    if (!project || project.user_id !== userId) {
+      return { ok: false as const, error: "Project not found or access denied" };
+    }
+
+    try {
+      let rootNode: any;
+      let fileName = "";
+
+      if (parsed.nodeId) {
+        const nodeData = await figmaFetch<any>(
+          `/files/${parsed.fileKey}/nodes?ids=${encodeURIComponent(parsed.nodeId)}`,
+          data.figmaToken,
+        );
+        fileName = nodeData.name ?? parsed.fileKey;
+        const nodes = nodeData.nodes ?? {};
+        const firstKey = Object.keys(nodes)[0];
+        rootNode = nodes[firstKey]?.document;
+      } else {
+        const fileData = await figmaFetch<any>(
+          `/files/${parsed.fileKey}?depth=3`,
+          data.figmaToken,
+        );
+        fileName = fileData.name ?? parsed.fileKey;
+        rootNode = fileData.document;
+      }
+
+      if (!rootNode) {
+        return { ok: false as const, error: "No document node found in Figma response" };
+      }
+
+      const simplified = simplifyFigmaNode(rootNode);
+
+      if (project.result) {
+        try {
+          await supabase.from("project_snapshots").insert({
+            project_id: project.id,
+            user_id: userId,
+            label: "Before Figma Compile",
+            schema: JSON.parse(project.result),
+            source: "system",
+          });
+        } catch (snapErr) {
+          console.warn("[compileFigmaToSchema] Failed to save snapshot:", snapErr);
+        }
+      }
+
+      try {
+        await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
+      } catch (e) {
+        return { ok: false as const, error: (e as Error).message };
+      }
+
+      const compilerPrompt = `You are a Figma-to-MobileAppSchema compiler.
+Given a simplified Figma node layout tree, translate it into a valid, production-ready MobileAppSchema JSON object.
+
+## Target Schema Specifications
+- You must reply with ONLY a single valid JSON object matching MobileAppSchema.
+- The schema is a JSON structure:
+  {
+    "name": "App Name",
+    "theme": {
+      "mode": "dark|light",
+      "palette": { "primary": "#hex", "accent": "#hex", "background": "#hex", "card": "#hex", "text": "#hex", "muted": "#hex", "gradient": ["#hex", "#hex"] },
+      "typography": { "headingFont": "font-name", "bodyFont": "font-name" }
+    },
+    "screens": [
+      {
+        "id": "screen_id",
+        "title": "Screen Title",
+        "icon": "icon-name",
+        "layout": "bento-grid|stack|magazine|split-hero|full-bleed",
+        "transition": "slide|fade|zoom|none",
+        "elements": [
+          // valid screen element objects
+        ]
+      }
+    ]
+  }
+
+## Element Types Catalog
+- Core: greeting, text, button, input, image, card, list, divider, spacer, header, section, search-bar, avatar, badge, toggle, slider, tab-bar, carousel, rating, chip-group, notification, price-tag, step-indicator, countdown, grid-cards, hero-banner
+- Premium: glass-card, gradient-mesh-bg, parallax-hero, marquee, stat-card-xl, feature-showcase, testimonial, pricing-card, onboarding-slide
+- Charts: donut-chart, bar-chart, line-chart, sparkline, progress-bar, progress-ring, radar-chart, gauge-chart
+- Forms: dropdown, date-picker, checkbox, radio-group, textarea
+- Interactive: map-card, chat-bubble, video-player, timeline, accordion, bottom-sheet
+- Differentiators: swipe-card, calendar-strip, bank-card, component-ref
+- States: skeleton, empty-state
+
+## Instructions
+1. Map Figma frames and groups to logical layout constructs. Look for nested layouts. If a frame has layoutMode=HORIZONTAL, arrange elements side-by-side (using grids or inline wrappers).
+2. Map text layers to text, greeting, or button labels. Look at layout modes and padding to identify buttons (rounded background with centered text).
+3. Detect image layers (isImage=true) and map them to image, hero-banner, or avatar components.
+4. Detect lists of identical frames and compile them into a list or activity-feed.
+5. Translate colors and text styles from the nodes into the theme.palette and typography.
+6. Provide navigation configurations linking the generated screens.
+7. Return ONLY valid JSON. No markdown backticks, no markdown formatting, no explanation. Just raw JSON.`;
+
+      const userPrompt = `Figma Node Layout Tree:\n${JSON.stringify(simplified, null, 2)}\n\nOriginal App Prompt: ${project.prompt}`;
+
+      const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
+      const result = await callAI(compilerPrompt, userPrompt);
+
+      if (!result.ok) {
+        return { ok: false as const, error: "AI compiler failed: " + result.error };
+      }
+
+      const parsedSchema = parseAppSchema(result.text);
+      if (!parsedSchema) {
+        return { ok: false as const, error: "Malformed JSON returned from AI compiler." };
+      }
+
+      const { validateAndFixSchema } = await import("./schema-validator");
+      const { schema: fixed } = validateAndFixSchema(parsedSchema);
+
+      const finalJson = JSON.stringify(fixed ?? parsedSchema);
+
+      await supabase
+        .from("projects")
+        .update({ result: finalJson, status: "ready", error_text: null })
+        .eq("id", project.id);
+
+      return { ok: true as const, schema: fixed ?? parsedSchema };
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : "Figma compile failed",
+      };
+    }
   });
 
