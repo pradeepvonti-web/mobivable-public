@@ -13,11 +13,34 @@ export type SnackPayload = {
   sdkVersion: string;
 };
 
+type StoredSnackPayload = {
+  hashId: string;
+  dependencies: Record<string, { version: string }>;
+  sdkVersion: string;
+};
+
 const SDK_VERSION = "52.0.0";
 const SnackGenerationSchema = z.object({
   files: z.record(z.string()),
   dependencies: z.record(z.string()).default({}),
 });
+
+function parseProjectResult(result: unknown): Record<string, unknown> {
+  if (!result) return {};
+  if (typeof result === "object" && !Array.isArray(result)) {
+    return result as Record<string, unknown>;
+  }
+  if (typeof result !== "string") return {};
+
+  try {
+    const parsed = JSON.parse(result);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
 
 
 
@@ -174,10 +197,12 @@ export const generateExpoSnack = createServerFn({ method: "POST" })
     if (error || !project) throw new Error("Project not found");
     if (project.user_id !== userId) throw new Error("Forbidden");
 
+    const projectResult = parseProjectResult(project.result);
+
     const { files, dependencies } = await generateExpoFilesFromPrompt({
       prompt: project.prompt ?? "",
       appName: project.name ?? "Mobivable App",
-      schema: (project.result as { schema?: unknown } | null)?.schema ?? {},
+      schema: projectResult.schema ?? {},
     });
 
     const { hashId } = await saveSnack({
@@ -188,11 +213,16 @@ export const generateExpoSnack = createServerFn({ method: "POST" })
     });
 
     const payload: SnackPayload = { hashId, files, dependencies, sdkVersion: SDK_VERSION };
-    const nextResult = { ...((project.result as object | null) ?? {}), snack: payload };
+    const storedSnack: StoredSnackPayload = {
+      hashId,
+      dependencies,
+      sdkVersion: SDK_VERSION,
+    };
+    const nextResult = { ...projectResult, snack: storedSnack };
 
     const { error: upErr } = await supabaseAdmin
       .from("projects")
-      .update({ result: nextResult as unknown as string, updated_at: new Date().toISOString() })
+      .update({ result: JSON.stringify(nextResult), updated_at: new Date().toISOString() })
       .eq("id", project.id);
     if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
@@ -212,6 +242,13 @@ export const getExpoSnack = createServerFn({ method: "POST" })
       .single();
     if (error || !project) throw new Error("Project not found");
     if (project.user_id !== userId) throw new Error("Forbidden");
-    const snack = (project.result as { snack?: SnackPayload } | null)?.snack ?? null;
-    return { snack };
+    const storedSnack = (parseProjectResult(project.result).snack as StoredSnackPayload | undefined) ?? null;
+    return {
+      snack: storedSnack
+        ? {
+            ...storedSnack,
+            files: { "App.tsx": { type: "CODE", contents: "// Source available in Expo Snack" } },
+          }
+        : null,
+    };
   });
