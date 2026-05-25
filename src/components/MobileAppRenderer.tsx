@@ -15,8 +15,32 @@ import {
 } from "./MobileComponents";
 
 
-/** Renders a single element from the schema */
+/** Map shadow size to CSS box-shadow value */
+const SHADOW_MAP: Record<string, string> = {
+  sm: "0 1px 2px rgba(0,0,0,0.08)",
+  md: "0 8px 24px rgba(0,0,0,0.20)",
+  lg: "0 24px 60px rgba(0,0,0,0.30)",
+};
+
+/** Map padding token to pixel value */
+const PAD_MAP: Record<string, number> = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
+
+/** Renders a single element from the schema, applying per-element style overrides */
 function RenderElement({ el }: { el: MElement }) {
+  const inner = renderElementInner(el);
+  const s = el.style;
+  if (!s) return inner;
+  const wrapStyle: React.CSSProperties = {};
+  if (s.backgroundColor) wrapStyle.backgroundColor = s.backgroundColor;
+  if (s.gradient) wrapStyle.background = `linear-gradient(135deg, ${s.gradient[0]}, ${s.gradient[1]})`;
+  if (s.borderRadius != null) wrapStyle.borderRadius = s.borderRadius;
+  if (s.shadow) wrapStyle.boxShadow = SHADOW_MAP[s.shadow];
+  if (s.opacity != null) wrapStyle.opacity = s.opacity;
+  if (s.padding) wrapStyle.padding = PAD_MAP[s.padding] ?? 12;
+  return <div style={wrapStyle}>{inner}</div>;
+}
+
+function renderElementInner(el: MElement): React.ReactNode {
   switch (el.type) {
     case "greeting": {
       const { name, subtitle } = el.props;
@@ -234,6 +258,204 @@ function RenderElement({ el }: { el: MElement }) {
       return <PricingCard {...el.props} />;
     case "onboarding-slide":
       return <OnboardingSlide {...el.props} />;
+    case "line-chart": {
+      const { series = [], labels = [], height = 140, fill = true, showDots = false, showGrid = true } = el.props;
+      const allData = series.flatMap((s: { data: number[] }) => s.data);
+      const maxVal = Math.max(...allData, 1);
+      const minVal = Math.min(...allData, 0);
+      const range = maxVal - minVal || 1;
+      const svgW = 280;
+      const svgH = height;
+      const padT = 8, padB = 20, padL = 30, padR = 8;
+      const chartW = svgW - padL - padR;
+      const chartH = svgH - padT - padB;
+      const uid = `lc-${Math.random().toString(36).slice(2, 8)}`;
+      return (
+        <div style={{ width: "100%", height }}>
+          <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: "100%", height: "100%" }} preserveAspectRatio="none">
+            {showGrid && Array.from({ length: 5 }).map((_, gi) => {
+              const y = padT + (chartH / 4) * gi;
+              return <line key={gi} x1={padL} y1={y} x2={svgW - padR} y2={y} stroke="var(--m-border)" strokeWidth={0.5} />;
+            })}
+            <defs>
+              {series.map((s: { label: string; data: number[]; color?: string }, si: number) => (
+                <linearGradient key={si} id={`${uid}-g${si}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={s.color ?? "var(--m-primary)"} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={s.color ?? "var(--m-primary)"} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
+            {series.map((s: { label: string; data: number[]; color?: string }, si: number) => {
+              const pts = s.data.map((v: number, di: number) => {
+                const x = padL + (chartW / Math.max(s.data.length - 1, 1)) * di;
+                const y = padT + chartH - ((v - minVal) / range) * chartH;
+                return `${x},${y}`;
+              });
+              const polyStr = pts.join(" ");
+              const lastPt = pts[pts.length - 1];
+              const firstX = padL;
+              const lastX = padL + chartW;
+              const fillPath = fill
+                ? `M ${firstX},${padT + chartH} L ${polyStr} L ${lastX},${padT + chartH} Z`
+                : undefined;
+              const c = s.color ?? "var(--m-primary)";
+              return (
+                <g key={si}>
+                  {fillPath && <path d={fillPath} fill={`url(#${uid}-g${si})`} />}
+                  <polyline points={polyStr} fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  {showDots && s.data.map((_v: number, di: number) => {
+                    const [cx, cy] = pts[di].split(",").map(Number);
+                    return <circle key={di} cx={cx} cy={cy} r={2.5} fill={c} />;
+                  })}
+                  {lastPt && (() => { const [cx, cy] = lastPt.split(",").map(Number); return <circle cx={cx} cy={cy} r={3} fill={c} stroke="var(--m-bg)" strokeWidth={1.5} />; })()}
+                </g>
+              );
+            })}
+            {labels.length > 0 && labels.map((l: string, li: number) => {
+              const x = padL + (chartW / Math.max(labels.length - 1, 1)) * li;
+              return <text key={li} x={x} y={svgH - 4} textAnchor="middle" fontSize={8} fill="var(--m-muted)">{l}</text>;
+            })}
+            {Array.from({ length: 5 }).map((_, gi) => {
+              const val = minVal + (range / 4) * (4 - gi);
+              const y = padT + (chartH / 4) * gi;
+              return <text key={gi} x={padL - 4} y={y + 3} textAnchor="end" fontSize={7} fill="var(--m-muted)">{Math.round(val)}</text>;
+            })}
+          </svg>
+        </div>
+      );
+    }
+    case "sparkline": {
+      const { data = [], color = "var(--m-primary)", height: spH = 32, fill: spFill = true, showLastDot = true } = el.props;
+      if (!data.length) return <div style={{ height: spH }} />;
+      const maxV = Math.max(...data, 1);
+      const minV = Math.min(...data, 0);
+      const rangeV = maxV - minV || 1;
+      const w = 120;
+      const uid = `sp-${Math.random().toString(36).slice(2, 8)}`;
+      const pts = data.map((v: number, i: number) => {
+        const x = (w / Math.max(data.length - 1, 1)) * i;
+        const y = spH - 4 - ((v - minV) / rangeV) * (spH - 8);
+        return `${x},${y}`;
+      });
+      const polyStr = pts.join(" ");
+      const lastPt = pts[pts.length - 1];
+      return (
+        <svg viewBox={`0 0 ${w} ${spH}`} style={{ width: "100%", height: spH }} preserveAspectRatio="none">
+          {spFill && (
+            <>
+              <defs>
+                <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <path d={`M 0,${spH} L ${polyStr} L ${w},${spH} Z`} fill={`url(#${uid})`} />
+            </>
+          )}
+          <polyline points={polyStr} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          {showLastDot && lastPt && (() => { const [cx, cy] = lastPt.split(",").map(Number); return <circle cx={cx} cy={cy} r={2.5} fill={color} stroke="var(--m-bg)" strokeWidth={1} />; })()}
+        </svg>
+      );
+    }
+    case "progress-bar": {
+      const { value = 0, max: pbMax = 100, label: pbLabel, color: pbColor, showPercent = false, height: pbH = 8 } = el.props;
+      const pct = Math.min(100, Math.max(0, (value / (pbMax || 1)) * 100));
+      const barColor = pbColor ?? "var(--m-primary)";
+      return (
+        <div>
+          {(pbLabel || showPercent) && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              {pbLabel && <span style={{ fontSize: 12, color: "var(--m-text)", fontWeight: 500 }}>{pbLabel}</span>}
+              {showPercent && <span style={{ fontSize: 12, color: "var(--m-muted)" }}>{Math.round(pct)}%</span>}
+            </div>
+          )}
+          <div style={{ width: "100%", height: pbH, borderRadius: pbH / 2, background: "var(--m-border)", overflow: "hidden" }}>
+            <div style={{
+              width: `${pct}%`, height: "100%", borderRadius: pbH / 2,
+              background: `linear-gradient(90deg, ${barColor}, color-mix(in srgb, ${barColor} 70%, white))`,
+              transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)",
+            }} />
+          </div>
+        </div>
+      );
+    }
+    case "skeleton": {
+      const { variant = "text", lines: skLines = 3, height: skelH } = el.props;
+      const shimmerStyle: React.CSSProperties = {
+        background: "linear-gradient(90deg, var(--m-border) 25%, color-mix(in srgb, var(--m-border) 60%, var(--m-card)) 50%, var(--m-border) 75%)",
+        backgroundSize: "200% 100%",
+        animation: "m-shimmer 1.5s infinite ease-in-out",
+        borderRadius: 6,
+      };
+      const renderSkLines = (count: number) =>
+        Array.from({ length: count }).map((_, i) => (
+          <div key={i} style={{ ...shimmerStyle, height: 12, marginBottom: 8, width: i === count - 1 ? "60%" : i === 0 ? "90%" : "75%" }} />
+        ));
+      let skContent: React.ReactNode;
+      switch (variant) {
+        case "text":
+          skContent = <div>{renderSkLines(skLines)}</div>;
+          break;
+        case "card":
+          skContent = <div style={{ ...shimmerStyle, height: skelH ?? 120, borderRadius: 14 }} />;
+          break;
+        case "avatar":
+          skContent = <div style={{ ...shimmerStyle, width: skelH ?? 48, height: skelH ?? 48, borderRadius: "50%" }} />;
+          break;
+        case "image":
+          skContent = <div style={{ ...shimmerStyle, height: skelH ?? 160, borderRadius: 10 }} />;
+          break;
+        case "list":
+          skContent = (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {Array.from({ length: skLines }).map((_, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ ...shimmerStyle, width: 36, height: 36, borderRadius: "50%", flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ ...shimmerStyle, height: 12, marginBottom: 6, width: "70%" }} />
+                    <div style={{ ...shimmerStyle, height: 10, width: "40%" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+          break;
+        default:
+          skContent = <div>{renderSkLines(skLines)}</div>;
+      }
+      return (
+        <>
+          <style>{`@keyframes m-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+          {skContent}
+        </>
+      );
+    }
+    case "empty-state": {
+      const { icon, title, description, actionLabel, actionIcon } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 16px", textAlign: "center" }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: "50%",
+            background: "var(--m-primary)11", display: "grid", placeItems: "center", marginBottom: 16,
+          }}>
+            <MIcon name={icon} size={28} />
+          </div>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--m-text)", margin: "0 0 6px" }}>{title}</h3>
+          {description && <p style={{ fontSize: 12, color: "var(--m-muted)", margin: "0 0 16px", maxWidth: 220, lineHeight: 1.5 }}>{description}</p>}
+          {actionLabel && (
+            <button type="button" style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 18px", borderRadius: 10, border: "none",
+              background: "var(--m-primary)", color: "#fff",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}>
+              {actionIcon && <MIcon name={actionIcon} size={14} />}
+              {actionLabel}
+            </button>
+          )}
+        </div>
+      );
+    }
     default:
       return null;
   }

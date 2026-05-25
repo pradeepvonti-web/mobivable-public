@@ -99,6 +99,12 @@ AVAILABLE ELEMENT TYPES:
   • testimonial       — quote + author + rating. props: { quote, name, role?, rating? }
   • pricing-card      — pricing tier. props: { name, price, period?, description?, features: string[], buttonLabel?, highlighted?, badge? }
   • onboarding-slide  — full slide with illustration. props: { title, body, image?, prompt?, icon?, step?, totalSteps?, buttonLabel? }
+- Phase 2 data & state elements (USE for dashboards, analytics, loading states, and empty views):
+  • line-chart       — time-series line chart with multi-series support. props: { series: [{label, data: number[], color?}], labels?: string[], height?, fill?, showDots?, showGrid? }
+  • sparkline        — inline mini chart for stat cards. props: { data: number[], color?, height?, fill?, showLastDot? }
+  • progress-bar     — linear progress bar with gradient fill. props: { value, max?, label?, color?, showPercent?, height? }
+  • skeleton         — animated loading placeholder with shimmer. props: { variant: "text"|"card"|"avatar"|"image"|"list", lines?, height? }
+  • empty-state      — empty list/section placeholder with icon + CTA. props: { icon, title, description?, actionLabel?, actionIcon? }
 
 SCREEN LAYOUT TEMPLATES — set "layout" on each screen to compose elements:
 - "stack"       (default) — vertical scroll with padding. Good for forms, settings, feeds.
@@ -117,17 +123,34 @@ PICK A LAYOUT PER SCREEN BASED ON CONTENT:
 AVAILABLE ICONS: home, search, user, settings, bell, heart, star, plus, minus, check, x, chevron-right, chevron-left, arrow-up, arrow-down, calendar, clock, map-pin, camera, image, mic, play, pause, skip-forward, volume, wifi, battery, sun, moon, cloud, umbrella, zap, flame, target, trophy, gift, tag, bookmark, message, mail, phone, video, file, folder, edit, trash, download, upload, share, lock, unlock, eye, eye-off, refresh, filter, list, grid, bar-chart, pie-chart, activity, trending-up, trending-down, dollar-sign, credit-card, shopping-cart, shopping-bag, package, truck, map, compass, navigation, globe, coffee, utensils, dumbbell, bike, footprints, waves, leaf, sparkles, wand, robot
 
 ═══════════════════════════════════════════════
+PER-ELEMENT STYLE OVERRIDE
+═══════════════════════════════════════════════
+
+Any element may include an optional "style" object to override visual properties:
+"style": {
+  "backgroundColor": "#hex",               // solid background color
+  "gradient": ["#hex", "#hex"],             // linear-gradient(135deg, from, to)
+  "borderRadius": 16,                       // custom border radius in px
+  "shadow": "sm" | "md" | "lg",             // box shadow intensity
+  "opacity": 0.9,                           // element opacity 0–1
+  "padding": "xs" | "sm" | "md" | "lg" | "xl"  // wrapper padding
+}
+Use style overrides sparingly to create visual hierarchy — e.g., tinted card backgrounds, gradient wrappers for hero stats, or subtle shadows on featured content.
+
+═══════════════════════════════════════════════
 PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 ═══════════════════════════════════════════════
 
 1. ALWAYS PICK A LAYOUT per screen (not just "stack"). Use bento-grid, magazine, split-hero, full-bleed where appropriate.
-2. USE PREMIUM PRIMITIVES — every app should use at least 3 of: glass-card, parallax-hero, stat-card-xl, feature-showcase, testimonial, pricing-card, marquee.
+2. USE PREMIUM PRIMITIVES — every app should use at least 3 of: glass-card, parallax-hero, stat-card-xl, feature-showcase, testimonial, pricing-card, marquee, line-chart, sparkline.
 3. VISUAL LAYERING — wrap hero areas in gradient-mesh-bg or glass-card; never produce a flat list of text.
 4. DATA DENSITY — believable specific data, never "Item 1, Item 2".
-5. COLOR STRATEGY — stat-row items get distinct colors; chips/badges use semantic colors; pricing-cards mark one as highlighted.
+5. COLOR STRATEGY — stat-row items get distinct colors; chips/badges use semantic colors; pricing-cards mark one as highlighted. Use progress-bar for completion metrics. Use skeleton elements for loading screens.
 6. SCREEN VARIETY — every screen feels different in layout AND primitives used, not just content.
 7. MOTION — every element MAY include "entrance" ("fade-up"|"fade-in"|"scale-in"|"slide-left"|"slide-right"|"pop"|"blur-in"|"none") and "gesture" ("tap-scale"|"press-glow"|"swipe-hint"). Heroes/cards → "pop" or "blur-in"; lists → "fade-up"; CTAs → gesture "tap-scale"; carousels/swipe rows → gesture "swipe-hint". Pick "theme.motion.intensity" to match brand mood (wellness=subtle, fintech=medium, sports/playful=bold).
-8. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart, ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline.`;
+8. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart (donut/bar/line-chart), ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline, ≥1 empty-state for empty views.
+9. LOADING STATES — use skeleton elements to show loading placeholders in at least one screen. Vary the variant (text, card, list) to match the content being loaded.
+10. CHARTS — use line-chart for trends/time-series, sparkline inside stat-card-xl or glass-card for inline data, progress-bar for goals/completion metrics.`;
 
 // ──────────────────────────────────────────────────────────────────
 // PASS 1: design brief — opinionated palette, type, mood, references.

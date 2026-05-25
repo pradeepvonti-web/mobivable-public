@@ -64,7 +64,12 @@ export type MElement =
   | MFeatureShowcase
   | MTestimonial
   | MPricingCard
-  | MOnboardingSlide;
+  | MOnboardingSlide
+  | MLineChart
+  | MSparkline
+  | MProgressBar
+  | MSkeleton
+  | MEmptyState;
 
 export type MEntrance =
   | "none" | "fade-up" | "fade-in" | "scale-in"
@@ -80,6 +85,15 @@ type BaseElement = {
   entrance?: MEntrance;
   /** Gesture affordance hint (interactive feedback). */
   gesture?: MGesture;
+  /** Per-element style override applied as a wrapper. */
+  style?: {
+    backgroundColor?: string;
+    gradient?: [string, string];
+    borderRadius?: number;
+    shadow?: "sm" | "md" | "lg";
+    opacity?: number;
+    padding?: "xs" | "sm" | "md" | "lg" | "xl";
+  };
 };
 
 
@@ -557,7 +571,60 @@ export type MOnboardingSlide = BaseElement & {
 };
 
 
+export type MLineChart = BaseElement & {
+  type: "line-chart";
+  props: {
+    series: Array<{ label: string; data: number[]; color?: string }>;
+    labels?: string[];
+    height?: number;
+    fill?: boolean;
+    showDots?: boolean;
+    showGrid?: boolean;
+  };
+};
 
+export type MSparkline = BaseElement & {
+  type: "sparkline";
+  props: {
+    data: number[];
+    color?: string;
+    height?: number;
+    fill?: boolean;
+    showLastDot?: boolean;
+  };
+};
+
+export type MProgressBar = BaseElement & {
+  type: "progress-bar";
+  props: {
+    value: number;
+    max?: number;
+    label?: string;
+    color?: string;
+    showPercent?: boolean;
+    height?: number;
+  };
+};
+
+export type MSkeleton = BaseElement & {
+  type: "skeleton";
+  props: {
+    variant: "text" | "card" | "avatar" | "image" | "list";
+    lines?: number;
+    height?: number;
+  };
+};
+
+export type MEmptyState = BaseElement & {
+  type: "empty-state";
+  props: {
+    icon: MIconName;
+    title: string;
+    description?: string;
+    actionLabel?: string;
+    actionIcon?: MIconName;
+  };
+};
 
 // ─── Backend (per-project Supabase) ─────────────────────────────
 export type MColumnType =

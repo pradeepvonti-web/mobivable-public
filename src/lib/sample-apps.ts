@@ -13,6 +13,9 @@ export const SAMPLE_FITTRACK: MobileAppSchema = {
       title: "Home",
       icon: "home",
       elements: [
+        { type: "parallax-hero", props: { title: "Today's Workout", subtitle: "Push yourself further" } },
+        { type: "progress-bar", props: { value: 7500, max: 10000, label: "Daily Step Goal" } },
+        { type: "glass-card", props: { title: "Activity Sparkline", children: [{ type: "sparkline", props: { data: [30, 45, 28, 55, 42, 60, 38], color: "#6366f1" } }] } },
         { type: "greeting", props: { name: "Alex", subtitle: "Let's crush your goals today!" } },
         { type: "progress-ring", props: { value: 1240, max: 2000, label: "Daily Calorie Goal", unit: "kcal", size: "lg" } },
         {
@@ -240,6 +243,9 @@ export const SAMPLE_SHOPLUX: MobileAppSchema = {
     {
       id: "home", title: "Home", icon: "home",
       elements: [
+        { type: "parallax-hero", props: { title: "Summer Collection", subtitle: "Up to 50% off" } },
+        { type: "marquee", props: { items: ["FREE SHIPPING ON ORDERS $50+", "NEW ARRIVALS DAILY"] } },
+        { type: "glass-card", props: { title: "Today's Deals" } },
         { type: "hero-banner", props: { title: "Summer Sale", subtitle: "Up to 60% off premium brands", gradient: "linear-gradient(135deg, #f59e0b, #d97706)", icon: "tag", buttonLabel: "Shop Now" } },
         { type: "spacer", props: { height: 8 } },
         { type: "chip-group", props: { chips: [{ label: "All", active: true }, { label: "Clothing" }, { label: "Shoes" }, { label: "Accessories" }, { label: "Electronics" }] } },
@@ -333,6 +339,9 @@ export const SAMPLE_WEALTHFLOW: MobileAppSchema = {
     {
       id: "home", title: "Home", icon: "home",
       elements: [
+        { type: "glass-card", props: { title: "Balance Overview" } },
+        { type: "line-chart", props: { series: [{ label: "Portfolio", data: [42, 45, 41, 48, 52, 49, 55, 58, 54, 62, 59, 67], color: "#10b981" }], labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] } },
+        { type: "stat-card-xl", props: { label: "Net Worth", value: "$127,450", delta: "+12.4%", deltaDirection: "up" } },
         { type: "greeting", props: { name: "Marcus", subtitle: "Your portfolio is up 3.2% today" } },
         { type: "card", props: { title: "Total Balance", children: [
           { type: "text", props: { content: "$124,850.00", size: "2xl", weight: "bold" } },

@@ -142,6 +142,8 @@ const TEMPLATE_SOCIALCONNECT: MobileAppSchema = {
       title: "Feed",
       icon: "home",
       elements: [
+        { type: "gradient-mesh-bg", props: { colors: ["#6366f1", "#8b5cf6", "#a855f7", "#6366f1"] } },
+        { type: "glass-card", props: { title: "Stories" } },
         { type: "greeting", props: { name: "Taylor", subtitle: "See what's happening" } },
         { type: "search-bar", props: { placeholder: "Search posts, people, tags..." } },
         { type: "spacer", props: { height: 8 } },
@@ -189,6 +191,7 @@ const TEMPLATE_SOCIALCONNECT: MobileAppSchema = {
           },
         },
         { type: "button", props: { label: "Create Post", icon: "plus", variant: "primary" } },
+        { type: "testimonial", props: { quote: "This app changed how I connect with friends!", name: "Sarah M.", role: "Community Leader", rating: 5 } },
       ],
     },
     {
@@ -307,6 +310,8 @@ const TEMPLATE_TASKMASTER: MobileAppSchema = {
       title: "Board",
       icon: "grid",
       elements: [
+        { type: "stat-card-xl", props: { label: "Tasks Completed", value: "24", delta: "+8 this week", deltaDirection: "up" } },
+        { type: "progress-bar", props: { value: 24, max: 35, label: "Weekly Goal" } },
         { type: "header", props: { title: "Project Board", subtitle: "Sprint 14" } },
         { type: "chip-group", props: { chips: [{ label: "All", active: true }, { label: "In Progress" }, { label: "Review" }, { label: "Done" }] } },
         { type: "spacer", props: { height: 8 } },
@@ -348,6 +353,7 @@ const TEMPLATE_TASKMASTER: MobileAppSchema = {
           },
         },
         { type: "button", props: { label: "Add Task", icon: "plus", variant: "primary" } },
+        { type: "empty-state", props: { icon: "list", title: "No tasks yet", description: "Create your first task to get started" } },
       ],
     },
     {
@@ -477,6 +483,9 @@ const TEMPLATE_FOODIEHUB: MobileAppSchema = {
       title: "Home",
       icon: "home",
       elements: [
+        { type: "parallax-hero", props: { title: "Chef's Specials", subtitle: "Handpicked by our top chefs", prompt: "gourmet food platter" } },
+        { type: "glass-card", props: { title: "Top Picks" } },
+        { type: "feature-showcase", props: { title: "Farm to Table", description: "Fresh ingredients sourced daily", icon: "leaf" } },
         { type: "greeting", props: { name: "Jamie", subtitle: "What are you craving today?" } },
         { type: "search-bar", props: { placeholder: "Search restaurants, cuisines..." } },
         { type: "spacer", props: { height: 8 } },
@@ -632,6 +641,9 @@ const TEMPLATE_LEARNPATH: MobileAppSchema = {
       title: "Home",
       icon: "home",
       elements: [
+        { type: "stat-card-xl", props: { label: "Hours Learned", value: "47.5", delta: "+3.2h this week", deltaDirection: "up" } },
+        { type: "progress-bar", props: { value: 65, max: 100, label: "Current Course" } },
+        { type: "feature-showcase", props: { title: "AI-Powered Learning", description: "Personalized study paths", icon: "sparkles" } },
         { type: "greeting", props: { name: "Sam", subtitle: "Continue your learning journey" } },
         { type: "spacer", props: { height: 8 } },
         {
@@ -820,6 +832,10 @@ const TEMPLATE_MEDTRACK: MobileAppSchema = {
       title: "Dashboard",
       icon: "home",
       elements: [
+        { type: "glass-card", props: { title: "Health Overview" } },
+        { type: "line-chart", props: { series: [{ label: "Heart Rate", data: [72, 75, 68, 71, 74, 69, 73], color: "#ef4444" }], labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] } },
+        { type: "stat-card-xl", props: { label: "Blood Pressure", value: "120/80", delta: "Normal", deltaDirection: "up" } },
+        { type: "progress-bar", props: { value: 5, max: 7, label: "Medication Adherence" } },
         { type: "greeting", props: { name: "Dr. Patel", subtitle: "Today's health overview" } },
         {
           type: "stat-row",
@@ -986,6 +1002,10 @@ const TEMPLATE_TRAVELMATE: MobileAppSchema = {
       title: "Explore",
       icon: "compass",
       elements: [
+        { type: "parallax-hero", props: { title: "Discover Paradise", subtitle: "Your next adventure awaits", prompt: "tropical beach sunset" } },
+        { type: "glass-card", props: { title: "Hot Deals" } },
+        { type: "marquee", props: { items: ["SUMMER DEALS: UP TO 40% OFF", "BOOK NOW"] } },
+        { type: "feature-showcase", props: { title: "Local Experiences", description: "Curated by travel experts", icon: "compass" } },
         { type: "greeting", props: { name: "Riley", subtitle: "Where to next?" } },
         { type: "search-bar", props: { placeholder: "Search destinations, hotels..." } },
         { type: "spacer", props: { height: 8 } },
@@ -1139,6 +1159,9 @@ const TEMPLATE_CRYPTOWALLET: MobileAppSchema = {
       title: "Portfolio",
       icon: "home",
       elements: [
+        { type: "glass-card", props: { title: "Total Balance" } },
+        { type: "line-chart", props: { series: [{ label: "BTC", data: [42000, 44500, 41000, 48000, 52000, 49000, 55000, 58000, 54000, 62000, 59000, 67000], color: "#f7931a" }], labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] } },
+        { type: "stat-card-xl", props: { label: "Top Gainer", value: "ETH", delta: "+18.7%", deltaDirection: "up" } },
         { type: "greeting", props: { name: "Morgan", subtitle: "Market is up 2.4% today" } },
         {
           type: "card",

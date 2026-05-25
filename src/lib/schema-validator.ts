@@ -22,6 +22,8 @@ const VALID_ELEMENT_TYPES = new Set([
   "glass-card", "gradient-mesh-bg", "parallax-hero", "marquee",
   "stat-card-xl", "feature-showcase", "testimonial", "pricing-card",
   "onboarding-slide",
+  // Phase 2 data & state
+  "line-chart", "sparkline", "progress-bar", "skeleton", "empty-state",
 ]);
 
 const VALID_SCREEN_LAYOUTS = new Set([
@@ -160,6 +162,22 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
   }
   if (e.type === "stat-card-xl" && props.sparkline && !Array.isArray(props.sparkline)) {
     props.sparkline = []; issues.push({ severity: "warning", path, message: "stat-card-xl sparkline reset", autoFixed: true });
+  }
+
+  // Phase 2 elements
+  if (e.type === "line-chart" && !Array.isArray(props.series)) {
+    props.series = []; issues.push({ severity: "warning", path, message: "line-chart missing series array", autoFixed: true });
+  }
+  if (e.type === "sparkline" && !Array.isArray(props.data)) {
+    props.data = []; issues.push({ severity: "warning", path, message: "sparkline missing data array", autoFixed: true });
+  }
+  if (e.type === "progress-bar" && typeof props.value !== "number") {
+    props.value = Number(props.value) || 0;
+    issues.push({ severity: "info", path, message: "Coerced progress-bar value to number", autoFixed: true });
+  }
+  if (e.type === "empty-state") {
+    if (!props.title) { props.title = "Nothing here yet"; issues.push({ severity: "info", path, message: "Added default empty-state title", autoFixed: true }); }
+    if (!props.icon) { props.icon = "sparkles"; issues.push({ severity: "info", path, message: "Added default empty-state icon", autoFixed: true }); }
   }
 
   return el as MElement;
