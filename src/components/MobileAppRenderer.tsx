@@ -22,21 +22,25 @@ const SHADOW_MAP: Record<string, string> = {
   lg: "0 24px 60px rgba(0,0,0,0.30)",
 };
 
-/** Map padding token to pixel value */
-const PAD_MAP: Record<string, number> = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
+/** Map padding / margin token to pixel value */
+const PAD_MAP: Record<string, number> = { none: 0, xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
 
 /** Renders a single element from the schema, applying per-element style overrides */
 function RenderElement({ el }: { el: MElement }) {
   const inner = renderElementInner(el);
   const s = el.style;
-  if (!s) return inner;
+  const hasMargin = el.margin != null;
+  if (!s && !hasMargin) return inner;
   const wrapStyle: React.CSSProperties = {};
-  if (s.backgroundColor) wrapStyle.backgroundColor = s.backgroundColor;
-  if (s.gradient) wrapStyle.background = `linear-gradient(135deg, ${s.gradient[0]}, ${s.gradient[1]})`;
-  if (s.borderRadius != null) wrapStyle.borderRadius = s.borderRadius;
-  if (s.shadow) wrapStyle.boxShadow = SHADOW_MAP[s.shadow];
-  if (s.opacity != null) wrapStyle.opacity = s.opacity;
-  if (s.padding) wrapStyle.padding = PAD_MAP[s.padding] ?? 12;
+  if (hasMargin) wrapStyle.margin = PAD_MAP[el.margin!] ?? 0;
+  if (s) {
+    if (s.backgroundColor) wrapStyle.backgroundColor = s.backgroundColor;
+    if (s.gradient) wrapStyle.background = `linear-gradient(135deg, ${s.gradient[0]}, ${s.gradient[1]})`;
+    if (s.borderRadius != null) wrapStyle.borderRadius = s.borderRadius;
+    if (s.shadow) wrapStyle.boxShadow = SHADOW_MAP[s.shadow];
+    if (s.opacity != null) wrapStyle.opacity = s.opacity;
+    if (s.padding) wrapStyle.padding = PAD_MAP[s.padding] ?? 12;
+  }
   return <div style={wrapStyle}>{inner}</div>;
 }
 
@@ -456,6 +460,281 @@ function renderElementInner(el: MElement): React.ReactNode {
         </div>
       );
     }
+    case "map-card": {
+      const { address, subtitle, actionLabel } = el.props;
+      return (
+        <div style={{
+          borderRadius: 14, overflow: "hidden",
+          background: "linear-gradient(135deg, #0d9488, #2563eb)",
+          padding: 16, position: "relative", minHeight: 120,
+        }}>
+          <div style={{ display: "grid", placeItems: "center", marginBottom: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "grid", placeItems: "center" }}>
+              <MIcon name="map-pin" size={20} />
+            </div>
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", textAlign: "center", margin: 0 }}>{address}</p>
+          {subtitle && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", textAlign: "center", margin: "4px 0 0" }}>{subtitle}</p>}
+          {actionLabel && (
+            <button type="button" style={{
+              display: "block", margin: "12px auto 0", padding: "6px 16px",
+              borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)",
+              background: "rgba(255,255,255,0.15)", color: "#fff",
+              fontSize: 12, fontWeight: 500, cursor: "pointer",
+            }}>{actionLabel}</button>
+          )}
+        </div>
+      );
+    }
+    case "chat-bubble": {
+      const { messages = [], showInput, placeholder: cbPlaceholder } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {messages.map((msg: { content: string; sender: string; isUser?: boolean; time?: string; avatar?: string }, i: number) => {
+            const isUser = msg.isUser ?? false;
+            return (
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexDirection: isUser ? "row-reverse" : "row" }}>
+                  {msg.avatar && (
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%",
+                      background: "var(--m-primary)", display: "grid", placeItems: "center",
+                      color: "#fff", fontSize: 10, fontWeight: 600, flexShrink: 0,
+                    }}>{msg.avatar.charAt(0).toUpperCase()}</div>
+                  )}
+                  <div style={{
+                    maxWidth: "75%", padding: "8px 12px", borderRadius: 14,
+                    background: isUser ? "var(--m-primary)" : "var(--m-card)",
+                    color: isUser ? "#fff" : "var(--m-text)",
+                    fontSize: 13, lineHeight: 1.4,
+                    borderBottomRightRadius: isUser ? 4 : 14,
+                    borderBottomLeftRadius: isUser ? 14 : 4,
+                  }}>{msg.content}</div>
+                </div>
+                {msg.time && <span style={{ fontSize: 9, color: "var(--m-muted)", marginTop: 2, padding: "0 4px" }}>{msg.time}</span>}
+              </div>
+            );
+          })}
+          {showInput && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, marginTop: 4,
+              padding: "8px 12px", borderRadius: 20,
+              background: "var(--m-card)", border: "1px solid var(--m-border)",
+            }}>
+              <span style={{ flex: 1, fontSize: 12, color: "var(--m-muted)" }}>{cbPlaceholder ?? "Type a message..."}</span>
+              <MIcon name="message" size={16} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "video-player": {
+      const { title, duration, progress } = el.props;
+      return (
+        <div style={{
+          position: "relative", borderRadius: 14, overflow: "hidden",
+          background: "#111", height: 180,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {/* Play button */}
+          <div style={{
+            width: 52, height: 52, borderRadius: "50%",
+            background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)",
+            display: "grid", placeItems: "center", cursor: "pointer",
+          }}>
+            <svg width="20" height="22" viewBox="0 0 20 22" fill="none">
+              <polygon points="0,0 20,11 0,22" fill="white" />
+            </svg>
+          </div>
+          {/* Title */}
+          {title && (
+            <span style={{
+              position: "absolute", bottom: 12, left: 12,
+              fontSize: 12, fontWeight: 600, color: "#fff",
+            }}>{title}</span>
+          )}
+          {/* Duration badge */}
+          {duration && (
+            <span style={{
+              position: "absolute", bottom: 12, right: 12,
+              fontSize: 10, color: "#fff", padding: "2px 8px",
+              borderRadius: 6, background: "rgba(0,0,0,0.6)",
+            }}>{duration}</span>
+          )}
+          {/* Progress bar */}
+          {progress != null && (
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.2)" }}>
+              <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, progress))}%`, background: "var(--m-primary)", transition: "width 0.4s ease" }} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "timeline": {
+      const { events = [] } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {events.map((ev: { title: string; description?: string; time?: string; icon?: string; color?: string }, i: number) => (
+            <div key={i} style={{ display: "flex", gap: 12, minHeight: 60 }}>
+              {/* Left: dot + connector */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 20 }}>
+                <div style={{
+                  width: 12, height: 12, borderRadius: "50%", flexShrink: 0,
+                  background: ev.color ?? "var(--m-primary)",
+                  border: "2px solid var(--m-bg)",
+                  boxShadow: `0 0 0 2px ${ev.color ?? "var(--m-primary)"}44`,
+                }} />
+                {i < events.length - 1 && (
+                  <div style={{ width: 2, flex: 1, background: "var(--m-border)", marginTop: 4 }} />
+                )}
+              </div>
+              {/* Right: content card */}
+              <div style={{
+                flex: 1, background: "var(--m-card)", borderRadius: 10,
+                border: "1px solid var(--m-border)", padding: "10px 12px", marginBottom: 8,
+              }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "var(--m-text)", margin: 0 }}>{ev.title}</p>
+                {ev.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "4px 0 0", lineHeight: 1.4 }}>{ev.description}</p>}
+                {ev.time && <span style={{ fontSize: 9, color: "var(--m-muted)", marginTop: 4, display: "inline-block" }}>{ev.time}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "accordion": {
+      const { sections = [] } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {sections.map((sec: { title: string; content: string; expanded?: boolean }, i: number) => (
+            <div key={i} style={{
+              background: "var(--m-card)", borderRadius: 10,
+              border: "1px solid var(--m-border)", overflow: "hidden",
+            }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", cursor: "pointer",
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--m-text)" }}>{sec.title}</span>
+                <MIcon name={sec.expanded ? "chevron-left" : "chevron-right"} size={14} />
+              </div>
+              {sec.expanded && (
+                <div style={{ padding: "0 14px 12px", fontSize: 12, color: "var(--m-muted)", lineHeight: 1.5 }}>
+                  {sec.content}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "dropdown": {
+      const { label, placeholder, selectedValue } = el.props;
+      return (
+        <div>
+          {label && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", display: "block", marginBottom: 4 }}>{label}</label>}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", borderRadius: 10,
+            border: "1px solid var(--m-border)", background: "var(--m-card)",
+            cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 13, color: selectedValue ? "var(--m-text)" : "var(--m-muted)" }}>{selectedValue ?? placeholder ?? "Select..."}</span>
+            <MIcon name="chevron-right" size={14} />
+          </div>
+        </div>
+      );
+    }
+    case "date-picker": {
+      const { label: dpLabel, value: dpValue, placeholder: dpPlaceholder } = el.props;
+      return (
+        <div>
+          {dpLabel && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", display: "block", marginBottom: 4 }}>{dpLabel}</label>}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", borderRadius: 10,
+            border: "1px solid var(--m-border)", background: "var(--m-card)",
+          }}>
+            <span style={{ fontSize: 13, color: dpValue ? "var(--m-text)" : "var(--m-muted)" }}>{dpValue ?? dpPlaceholder ?? "Select date..."}</span>
+            <MIcon name="calendar" size={16} />
+          </div>
+        </div>
+      );
+    }
+    case "checkbox": {
+      const { items = [] } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {items.map((item: { label: string; checked?: boolean; description?: string }, i: number) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
+                background: item.checked ? "var(--m-primary)" : "transparent",
+                border: item.checked ? "none" : "2px solid var(--m-border)",
+                display: "grid", placeItems: "center",
+              }}>
+                {item.checked && <MIcon name="check" size={13} />}
+              </div>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{item.label}</span>
+                {item.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{item.description}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "radio-group": {
+      const { label: rgLabel, options = [], selectedValue: rgSelected } = el.props;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rgLabel && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", marginBottom: 2 }}>{rgLabel}</label>}
+          {options.map((opt: { value: string; label: string; description?: string }, i: number) => {
+            const isSelected = opt.value === rgSelected;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+                  border: isSelected ? "none" : "2px solid var(--m-border)",
+                  background: isSelected ? "var(--m-primary)" : "transparent",
+                  display: "grid", placeItems: "center",
+                }}>
+                  {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+                </div>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{opt.label}</span>
+                  {opt.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{opt.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    case "textarea": {
+      const { label: taLabel, placeholder: taPlaceholder, value: taValue, rows = 4, helper, maxLength } = el.props;
+      const charCount = (taValue ?? "").length;
+      return (
+        <div>
+          {taLabel && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", display: "block", marginBottom: 4 }}>{taLabel}</label>}
+          <div style={{
+            padding: "10px 14px", borderRadius: 10,
+            border: "1px solid var(--m-border)", background: "var(--m-card)",
+            minHeight: rows * 20,
+          }}>
+            <span style={{ fontSize: 13, color: taValue ? "var(--m-text)" : "var(--m-muted)", lineHeight: 1.5 }}>
+              {taValue ?? taPlaceholder ?? ""}
+            </span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            {helper && <span style={{ fontSize: 10, color: "var(--m-muted)" }}>{helper}</span>}
+            {maxLength != null && (
+              <span style={{ fontSize: 10, color: "var(--m-muted)", marginLeft: "auto" }}>{charCount}/{maxLength}</span>
+            )}
+          </div>
+        </div>
+      );
+    }
     default:
       return null;
   }
@@ -492,14 +771,36 @@ function MotionItem({ el, index, block }: { el: MElement; index: number; block?:
   );
 }
 
+/** Compute CSS style for a screen background */
+function screenBgStyle(bg?: MScreen["background"]): React.CSSProperties {
+  if (!bg) return {};
+  switch (bg.type) {
+    case "solid":
+      return { backgroundColor: bg.color };
+    case "gradient": {
+      const dir = bg.direction ?? "to bottom";
+      return { background: `linear-gradient(${dir}, ${bg.colors.join(", ")})` };
+    }
+    case "image":
+      return {
+        backgroundImage: `linear-gradient(${bg.overlay ?? "rgba(0,0,0,0.45)"}, ${bg.overlay ?? "rgba(0,0,0,0.45)"}), url(${bg.url})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    default:
+      return {};
+  }
+}
+
 /** Renders a full screen using the chosen composition template. */
 function RenderScreen({ screen }: { screen: MScreen }) {
   const elements = screen.elements ?? [];
   const layout = screen.layout ?? "stack";
+  const bgStyle = screenBgStyle(screen.background);
 
   if (layout === "full-bleed") {
     return (
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0 }}>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0, ...bgStyle }}>
         {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
       </div>
     );
@@ -508,7 +809,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "split-hero") {
     const [hero, ...rest] = elements;
     return (
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", ...bgStyle }}>
         {hero && <MotionItem el={hero} index={0} />}
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
           {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
@@ -520,7 +821,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "magazine") {
     const [feature, ...rest] = elements;
     return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, ...bgStyle }}>
         {feature && <MotionItem el={feature} index={0} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
@@ -534,6 +835,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
       <div style={{
         flex: 1, overflowY: "auto", padding: "12px 16px",
         display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
+        ...bgStyle,
       }}>
         {elements.map((el, i) => {
           const w = motionWrapProps(el, i);
@@ -556,6 +858,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
     <div style={{
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
+      ...bgStyle,
     }}>
       {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
     </div>
@@ -690,14 +993,183 @@ export function MobileAppRenderer({
           </div>
         )}
         {!hideStatusBar && <MobileStatusBar />}
+        {/* Drawer: hamburger icon + slide panel */}
+        {nav?.type === "drawer" && (
+          <>
+            <div style={{
+              padding: "8px 16px", display: "flex", alignItems: "center", gap: 10,
+              borderBottom: "1px solid var(--m-border)",
+            }}>
+              <div style={{ cursor: "pointer", display: "grid", placeItems: "center" }}>
+                <svg width="20" height="14" viewBox="0 0 20 14" fill="var(--m-text)">
+                  <rect y="0" width="20" height="2" rx="1" />
+                  <rect y="6" width="20" height="2" rx="1" />
+                  <rect y="12" width="20" height="2" rx="1" />
+                </svg>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--m-text)" }}>{screen?.title ?? ""}</span>
+            </div>
+            {/* Drawer panel (always visible in preview as a compact sidebar list) */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, bottom: 0, width: "70%",
+              background: "var(--m-card)", borderRight: "1px solid var(--m-border)",
+              zIndex: 50, padding: "48px 0 16px",
+              transform: "translateX(-100%)", pointerEvents: "none",
+            }}>
+              {(nav.items ?? []).map((item) => (
+                <div key={item.screen} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 20px", cursor: "pointer",
+                  background: item.screen === current ? "var(--m-primary)11" : "transparent",
+                  color: item.screen === current ? "var(--m-primary)" : "var(--m-text)",
+                }}>
+                  <MIcon name={item.icon} size={18} />
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         {screen && <RenderScreen screen={screen} />}
-        {nav?.type === "bottom-tabs" && (
+        {/* Bottom tabs (standard) */}
+        {nav?.type === "bottom-tabs" && nav.navStyle !== "floating" && nav.navStyle !== "pill" && nav.navStyle !== "notched" && (
           <MobileBottomNav
             items={nav.items}
             activeId={current}
             onSelect={setActiveScreen}
           />
         )}
+        {/* Bottom tabs with floating navStyle */}
+        {nav?.type === "bottom-tabs" && nav.navStyle === "floating" && (
+          <div style={{
+            margin: "0 12px 10px", borderRadius: 20,
+            background: "var(--m-card)", border: "1px solid var(--m-border)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+            display: "flex", padding: 4,
+          }}>
+            {(nav.items ?? []).map((item) => (
+              <button key={item.screen} type="button" onClick={() => setActiveScreen(item.screen)} style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                padding: "8px 0", border: "none", background: "transparent", cursor: "pointer",
+                color: item.screen === current ? "var(--m-primary)" : "var(--m-muted)",
+                fontSize: 9, fontWeight: 500,
+              }}>
+                <MIcon name={item.icon} size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {/* Bottom tabs with pill navStyle */}
+        {nav?.type === "bottom-tabs" && nav.navStyle === "pill" && (
+          <div style={{
+            display: "flex", padding: "6px 12px 10px", gap: 6,
+            background: "var(--m-card)", borderTop: "1px solid var(--m-border)",
+          }}>
+            {(nav.items ?? []).map((item) => {
+              const active = item.screen === current;
+              return (
+                <button key={item.screen} type="button" onClick={() => setActiveScreen(item.screen)} style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                  padding: "6px 10px", border: "none", cursor: "pointer",
+                  borderRadius: 20,
+                  background: active ? "var(--m-primary)" : "transparent",
+                  color: active ? "#fff" : "var(--m-muted)",
+                  fontSize: 11, fontWeight: 500,
+                }}>
+                  <MIcon name={item.icon} size={16} />
+                  {active && <span>{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* Bottom tabs with notched navStyle */}
+        {nav?.type === "bottom-tabs" && nav.navStyle === "notched" && (
+          <div style={{
+            display: "flex", padding: "4px 8px 8px", gap: 4,
+            background: "var(--m-card)", borderTop: "1px solid var(--m-border)",
+            position: "relative",
+          }}>
+            {(nav.items ?? []).map((item, idx) => {
+              const total = nav.items.length;
+              const centerIdx = Math.floor(total / 2);
+              const isCenter = idx === centerIdx;
+              return (
+                <button key={item.screen} type="button" onClick={() => setActiveScreen(item.screen)} style={
+                  isCenter
+                    ? {
+                        flex: "0 0 48px", display: "grid", placeItems: "center",
+                        border: "none", cursor: "pointer",
+                        marginTop: -18,
+                        background: "var(--m-primary)", color: "#fff",
+                        width: 48, height: 48, borderRadius: "50%",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                        padding: 0, fontSize: 9, fontWeight: 500,
+                      }
+                    : {
+                        flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center" as const, gap: 2,
+                        border: "none", cursor: "pointer", background: "transparent",
+                        color: item.screen === current ? "var(--m-primary)" : "var(--m-muted)",
+                        fontSize: 9, fontWeight: 500, padding: "8px 0",
+                      }
+                }>
+                  <MIcon name={item.icon} size={isCenter ? 22 : 18} />
+                  {!isCenter && <span>{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* Floating bottom nav */}
+        {nav?.type === "floating-bottom" && (
+          <div style={{
+            margin: "0 16px 12px", borderRadius: 24,
+            background: "var(--m-card)", border: "1px solid var(--m-border)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
+            display: "flex", padding: "6px 8px",
+          }}>
+            {(nav.items ?? []).map((item) => (
+              <button key={item.screen} type="button" onClick={() => setActiveScreen(item.screen)} style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                padding: "8px 0", border: "none", background: "transparent", cursor: "pointer",
+                color: item.screen === current ? "var(--m-primary)" : "var(--m-muted)",
+                fontSize: 9, fontWeight: 500,
+              }}>
+                <MIcon name={item.icon} size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {/* Top tabs */}
+        {nav?.type === "top-tabs" && (
+          <div style={{
+            display: "flex", padding: "0 12px", gap: 0,
+            borderBottom: "1px solid var(--m-border)",
+            background: "var(--m-card)",
+            position: "absolute", top: hideStatusBar ? 0 : 36, left: 0, right: 0,
+            zIndex: 10,
+          }}>
+            {(nav.items ?? []).map((item) => {
+              const active = item.screen === current;
+              return (
+                <button key={item.screen} type="button" onClick={() => setActiveScreen(item.screen)} style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                  padding: "10px 0", border: "none", cursor: "pointer",
+                  background: "transparent",
+                  color: active ? "var(--m-primary)" : "var(--m-muted)",
+                  fontSize: 12, fontWeight: active ? 600 : 400,
+                  borderBottom: active ? "2px solid var(--m-primary)" : "2px solid transparent",
+                }}>
+                  <MIcon name={item.icon} size={14} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* nav.type === "none" renders nothing */}
       </div>
     </MobileErrorBoundary>
   );

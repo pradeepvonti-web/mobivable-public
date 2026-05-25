@@ -24,6 +24,9 @@ const VALID_ELEMENT_TYPES = new Set([
   "onboarding-slide",
   // Phase 2 data & state
   "line-chart", "sparkline", "progress-bar", "skeleton", "empty-state",
+  // Phase 2 interactive & form
+  "map-card", "chat-bubble", "video-player", "timeline", "accordion",
+  "dropdown", "date-picker", "checkbox", "radio-group", "textarea",
 ]);
 
 const VALID_SCREEN_LAYOUTS = new Set([
@@ -180,6 +183,44 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     if (!props.icon) { props.icon = "sparkles"; issues.push({ severity: "info", path, message: "Added default empty-state icon", autoFixed: true }); }
   }
 
+  // Phase 2 interactive & form elements
+  if (e.type === "map-card" && !props.address) {
+    props.address = "123 Main Street";
+    issues.push({ severity: "info", path, message: "Added default map-card address", autoFixed: true });
+  }
+  if (e.type === "chat-bubble" && !Array.isArray(props.messages)) {
+    props.messages = [];
+    issues.push({ severity: "warning", path, message: "chat-bubble missing messages array", autoFixed: true });
+  }
+  if (e.type === "video-player" && !props.title) {
+    props.title = "Video";
+    issues.push({ severity: "info", path, message: "Added default video-player title", autoFixed: true });
+  }
+  if (e.type === "timeline" && !Array.isArray(props.events)) {
+    props.events = [];
+    issues.push({ severity: "warning", path, message: "timeline missing events array", autoFixed: true });
+  }
+  if (e.type === "accordion" && !Array.isArray(props.sections)) {
+    props.sections = [];
+    issues.push({ severity: "warning", path, message: "accordion missing sections array", autoFixed: true });
+  }
+  if (e.type === "dropdown" && !Array.isArray(props.options)) {
+    props.options = [];
+    issues.push({ severity: "warning", path, message: "dropdown missing options array", autoFixed: true });
+  }
+  if (e.type === "date-picker" && !props.label) {
+    props.label = "Date";
+    issues.push({ severity: "info", path, message: "Added default date-picker label", autoFixed: true });
+  }
+  if (e.type === "checkbox" && !Array.isArray(props.items)) {
+    props.items = [];
+    issues.push({ severity: "warning", path, message: "checkbox missing items array", autoFixed: true });
+  }
+  if (e.type === "radio-group" && !Array.isArray(props.options)) {
+    props.options = [];
+    issues.push({ severity: "warning", path, message: "radio-group missing options array", autoFixed: true });
+  }
+
   return el as MElement;
 }
 
@@ -281,6 +322,7 @@ export function validateAndFixSchema(
   }
 
   // Fix navigation
+  const VALID_NAV_TYPES = new Set(["bottom-tabs", "drawer", "floating-bottom", "top-tabs", "none"]);
   if (!obj.navigation || typeof obj.navigation !== "object") {
     const screens = obj.screens as MScreen[];
     obj.navigation = {
@@ -288,6 +330,12 @@ export function validateAndFixSchema(
       items: screens.slice(0, 5).map(s => ({ screen: s.id, label: s.title, icon: s.icon })),
     };
     issues.push({ severity: "warning", path: "navigation", message: "Auto-generated navigation from screens", autoFixed: true });
+  } else {
+    const nav = obj.navigation as Record<string, unknown>;
+    if (nav.type && !VALID_NAV_TYPES.has(nav.type as string)) {
+      issues.push({ severity: "warning", path: "navigation.type", message: `Unknown nav type "${String(nav.type)}", using bottom-tabs`, autoFixed: true });
+      nav.type = "bottom-tabs";
+    }
   }
 
   return { schema: obj as unknown as MobileAppSchema, issues };

@@ -69,7 +69,17 @@ export type MElement =
   | MSparkline
   | MProgressBar
   | MSkeleton
-  | MEmptyState;
+  | MEmptyState
+  | MMapCard
+  | MChatBubble
+  | MVideoPlayer
+  | MTimeline
+  | MAccordion
+  | MDropdown
+  | MDatePicker
+  | MCheckbox
+  | MRadioGroup
+  | MTextarea;
 
 export type MEntrance =
   | "none" | "fade-up" | "fade-in" | "scale-in"
@@ -85,6 +95,8 @@ type BaseElement = {
   entrance?: MEntrance;
   /** Gesture affordance hint (interactive feedback). */
   gesture?: MGesture;
+  /** Per-element margin token. */
+  margin?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
   /** Per-element style override applied as a wrapper. */
   style?: {
     backgroundColor?: string;
@@ -356,6 +368,11 @@ export type MScreenLayout =
   | "magazine"     // first element featured large, remainder in 2-col grid
   | "full-bleed";  // no horizontal padding; edge-to-edge
 
+export type MScreenBackground =
+  | { type: "solid"; color: string }
+  | { type: "gradient"; colors: string[]; direction?: string }
+  | { type: "image"; url: string; overlay?: string };
+
 export type MScreen = {
   id: string;
   title: string;
@@ -365,6 +382,8 @@ export type MScreen = {
   headerStyle?: "default" | "large" | "transparent";
   /** Composition template for the screen body. Defaults to "stack". */
   layout?: MScreenLayout;
+  /** Optional screen background. */
+  background?: MScreenBackground;
 };
 
 
@@ -375,9 +394,13 @@ export type MNavItem = {
   icon: MIconName;
 };
 
+export type MNavStyle = "default" | "floating" | "pill" | "notched";
+
 export type MNavigation = {
-  type: "bottom-tabs";
+  type: "bottom-tabs" | "drawer" | "floating-bottom" | "top-tabs" | "none";
   items: MNavItem[];
+  navStyle?: MNavStyle;
+  showLabels?: boolean;
 };
 
 // ─── New Phase 3 Elements ───────────────────────────────────────
@@ -623,6 +646,133 @@ export type MEmptyState = BaseElement & {
     description?: string;
     actionLabel?: string;
     actionIcon?: MIconName;
+  };
+};
+
+// ─── Phase 2 Interactive & Form Elements ────────────────────────
+
+export type MMapCard = BaseElement & {
+  type: "map-card";
+  props: {
+    address: string;
+    title?: string;
+    subtitle?: string;
+    latitude?: number;
+    longitude?: number;
+    icon?: MIconName;
+    actionLabel?: string;
+  };
+};
+
+export type MChatBubble = BaseElement & {
+  type: "chat-bubble";
+  props: {
+    messages: Array<{
+      sender: string;
+      content: string;
+      time?: string;
+      isUser?: boolean;
+      avatar?: string;
+    }>;
+    showInput?: boolean;
+    placeholder?: string;
+  };
+};
+
+export type MVideoPlayer = BaseElement & {
+  type: "video-player";
+  props: {
+    title: string;
+    thumbnail?: string;
+    prompt?: string;
+    duration?: string;
+    channel?: string;
+    progress?: number;
+  };
+};
+
+export type MTimeline = BaseElement & {
+  type: "timeline";
+  props: {
+    events: Array<{
+      title: string;
+      description?: string;
+      time?: string;
+      icon?: MIconName;
+      color?: string;
+      completed?: boolean;
+    }>;
+  };
+};
+
+export type MAccordion = BaseElement & {
+  type: "accordion";
+  props: {
+    sections: Array<{
+      title: string;
+      content: string;
+      icon?: MIconName;
+      expanded?: boolean;
+    }>;
+  };
+};
+
+export type MDropdown = BaseElement & {
+  type: "dropdown";
+  props: {
+    label: string;
+    placeholder?: string;
+    options: Array<{ label: string; value: string }>;
+    selectedValue?: string;
+    icon?: MIconName;
+  };
+};
+
+export type MDatePicker = BaseElement & {
+  type: "date-picker";
+  props: {
+    label: string;
+    value?: string;
+    placeholder?: string;
+    mode?: "date" | "time" | "datetime";
+    icon?: MIconName;
+  };
+};
+
+export type MCheckbox = BaseElement & {
+  type: "checkbox";
+  props: {
+    items: Array<{
+      label: string;
+      checked?: boolean;
+      description?: string;
+    }>;
+    label?: string;
+  };
+};
+
+export type MRadioGroup = BaseElement & {
+  type: "radio-group";
+  props: {
+    label: string;
+    options: Array<{
+      label: string;
+      value: string;
+      description?: string;
+    }>;
+    selectedValue?: string;
+  };
+};
+
+export type MTextarea = BaseElement & {
+  type: "textarea";
+  props: {
+    label?: string;
+    placeholder?: string;
+    value?: string;
+    rows?: number;
+    maxLength?: number;
+    helper?: string;
   };
 };
 

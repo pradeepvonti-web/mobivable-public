@@ -12,8 +12,8 @@ The JSON schema:
 {
   "name": "App Name",
   "theme": { ...full custom theme object — see THEME below },
-  "screens": [ { "id": "...", "title": "...", "icon": "...", "elements": [...] } ],
-  "navigation": { "type": "bottom-tabs", "items": [ { "screen": "...", "label": "...", "icon": "..." } ] }
+  "screens": [ { "id": "...", "title": "...", "icon": "...", "elements": [...], "background?": { "type": "solid|gradient|image", "color?": "#hex", "colors?": ["#hex","#hex"], "direction?": "to-bottom|to-right|to-bottom-right", "image?": "url", "prompt?": "AI image prompt", "opacity?": 0.5 } } ],
+  "navigation": { "type": "bottom-tabs"|"drawer"|"floating-bottom"|"top-tabs"|"none", "items": [ { "screen": "...", "label": "...", "icon": "..." } ], "navStyle?": { "background?": "#hex", "activeColor?": "#hex", "inactiveColor?": "#hex", "blur?": true }, "showLabels?": true }
 }
 
 ═══════════════════════════════════════════════
@@ -105,6 +105,17 @@ AVAILABLE ELEMENT TYPES:
   • progress-bar     — linear progress bar with gradient fill. props: { value, max?, label?, color?, showPercent?, height? }
   • skeleton         — animated loading placeholder with shimmer. props: { variant: "text"|"card"|"avatar"|"image"|"list", lines?, height? }
   • empty-state      — empty list/section placeholder with icon + CTA. props: { icon, title, description?, actionLabel?, actionIcon? }
+- Phase 2 — Interactive & Form Elements (USE for forms, settings, conversations, maps, media):
+  • map-card         — map/location preview card. props: { address, title?, subtitle?, latitude?, longitude?, icon?, actionLabel? }
+  • chat-bubble      — chat conversation view. props: { messages: [{sender, content, time?, isUser?, avatar?}], showInput?, placeholder? }
+  • video-player     — video thumbnail with play overlay. props: { title, thumbnail?, prompt?, duration?, channel?, progress? }
+  • timeline         — vertical timeline with connected nodes. props: { events: [{title, description?, time?, icon?, color?, completed?}] }
+  • accordion        — expandable/collapsible sections. props: { sections: [{title, content, icon?, expanded?}] }
+  • dropdown         — select/dropdown field. props: { label, placeholder?, options: [{label, value}], selectedValue?, icon? }
+  • date-picker      — date/time picker field. props: { label, value?, placeholder?, mode?: "date"|"time"|"datetime", icon? }
+  • checkbox         — checkbox list. props: { items: [{label, checked?, description?}], label? }
+  • radio-group      — radio button group. props: { label, options: [{label, value, description?}], selectedValue? }
+  • textarea         — multi-line text input. props: { label?, placeholder?, value?, rows?, maxLength?, helper? }
 
 SCREEN LAYOUT TEMPLATES — set "layout" on each screen to compose elements:
 - "stack"       (default) — vertical scroll with padding. Good for forms, settings, feeds.
@@ -135,6 +146,7 @@ Any element may include an optional "style" object to override visual properties
   "opacity": 0.9,                           // element opacity 0–1
   "padding": "xs" | "sm" | "md" | "lg" | "xl"  // wrapper padding
 }
+Any element may also include "margin": "none" | "xs" | "sm" | "md" | "lg" | "xl" to control vertical spacing between elements.
 Use style overrides sparingly to create visual hierarchy — e.g., tinted card backgrounds, gradient wrappers for hero stats, or subtle shadows on featured content.
 
 ═══════════════════════════════════════════════
@@ -150,7 +162,11 @@ PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 7. MOTION — every element MAY include "entrance" ("fade-up"|"fade-in"|"scale-in"|"slide-left"|"slide-right"|"pop"|"blur-in"|"none") and "gesture" ("tap-scale"|"press-glow"|"swipe-hint"). Heroes/cards → "pop" or "blur-in"; lists → "fade-up"; CTAs → gesture "tap-scale"; carousels/swipe rows → gesture "swipe-hint". Pick "theme.motion.intensity" to match brand mood (wellness=subtle, fintech=medium, sports/playful=bold).
 8. MINIMUM: 4–5 screens, 6–10 elements per screen, 4–5 nav tabs, ≥1 chart (donut/bar/line-chart), ≥1 parallax-hero or hero-banner WITH a prompt, ≥1 bento-grid screen, ≥1 stat-card-xl with sparkline, ≥1 empty-state for empty views.
 9. LOADING STATES — use skeleton elements to show loading placeholders in at least one screen. Vary the variant (text, card, list) to match the content being loaded.
-10. CHARTS — use line-chart for trends/time-series, sparkline inside stat-card-xl or glass-card for inline data, progress-bar for goals/completion metrics.`;
+10. CHARTS — use line-chart for trends/time-series, sparkline inside stat-card-xl or glass-card for inline data, progress-bar for goals/completion metrics.
+11. FORM ELEMENTS — use dropdown, date-picker, checkbox, radio-group, textarea, and input for forms and settings screens. Group form elements inside glass-card or section for visual cohesion. Prefer accordion for FAQ/help screens and collapsible settings.
+12. INTERACTIVE CONTENT — use chat-bubble for messaging/support screens, video-player for media, map-card for location features, timeline for order tracking/history. These make apps feel alive and functional.
+13. NAVIGATION — pick the right navigation type for the app domain: bottom-tabs (default), drawer (complex apps), floating-bottom (minimal/creative), top-tabs (content categories), none (single-screen/onboarding). Customize navStyle to match theme.
+14. SCREEN BACKGROUNDS — use the screen background property for immersive screens: gradient backgrounds for onboarding, image backgrounds with opacity for hero screens. Keep most screens with the default theme background.`;
 
 // ──────────────────────────────────────────────────────────────────
 // PASS 1: design brief — opinionated palette, type, mood, references.
