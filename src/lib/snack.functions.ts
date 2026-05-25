@@ -157,7 +157,7 @@ export const generateExpoSnack = createServerFn({ method: "POST" })
 
     const { error: upErr } = await supabaseAdmin
       .from("projects")
-      .update({ result: nextResult, updated_at: new Date().toISOString() })
+      .update({ result: nextResult as unknown as string, updated_at: new Date().toISOString() })
       .eq("id", project.id);
     if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
