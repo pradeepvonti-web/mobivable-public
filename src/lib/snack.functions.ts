@@ -73,14 +73,16 @@ async function generateExpoFilesFromPrompt(opts: {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("LOVABLE_API_KEY missing");
 
-  const system = `You are an expert React Native + Expo engineer.
-Output ONLY a JSON object: { "files": { "<path>": "<contents>" }, "dependencies": { "<pkg>": "<semver>" } }
+  const system = `You output ONLY JSON. Generate a tiny Expo SDK ${SDK_VERSION} app.
+Shape: {"files":{"App.tsx":"<full TSX>"},"dependencies":{}}
 Rules:
-- ALWAYS include "App.tsx" as the entry point.
-- Keep it SMALL: 1-3 files total, under 4KB combined.
-- Use only built-in Expo SDK ${SDK_VERSION} APIs + @expo/vector-icons + expo-linear-gradient. Avoid react-navigation unless trivially needed.
-- Do NOT include react, react-native, or expo in dependencies (Snack provides them).
-- Use StyleSheet, polished modern UI.`;
+- ONE file: App.tsx only.
+- Under 2KB. Single screen, no navigation.
+- Use only react-native + expo-linear-gradient + @expo/vector-icons (already in Snack — leave dependencies empty {}).
+- StyleSheet, polished modern UI, gradient background, nice typography.
+- No comments, no markdown fences.`;
+
+  const userMsg = `Build: ${opts.appName} — ${opts.prompt}`.slice(0, 500);
 
   const userMsg = `App name: ${opts.appName}
 Idea: ${opts.prompt}`;
