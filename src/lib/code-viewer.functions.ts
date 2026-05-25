@@ -80,7 +80,7 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     const exportedFiles = exportToExpo(schema as MobileAppSchema, options);
 
     // Load any user overrides
-    const { data: overrides } = await (supabaseAdmin as any)
+    const { data: overrides } = await supabaseAdmin
       .from("project_file_overrides")
       .select("file_path, content")
       .eq("project_id", data.projectId)
@@ -128,7 +128,7 @@ export const saveFileOverride = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found" };
     }
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("project_file_overrides")
       .upsert(
         {
@@ -174,7 +174,7 @@ export const deleteFileOverride = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found" };
     }
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("project_file_overrides")
       .delete()
       .eq("project_id", data.projectId)
