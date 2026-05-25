@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { extractFigmaDesign, exportFigmaImage, type FigmaDesignTokens } from "@/lib/figma.functions";
+import { extractFigmaDesign, exportFigmaImage, saveFigmaTokens, type FigmaDesignTokens } from "@/lib/figma.functions";
 
 const TOKEN_KEY = "mobivable:figmaToken";
 
@@ -37,6 +37,7 @@ export function FigmaImportPanel({
 
   const extractFn = useServerFn(extractFigmaDesign);
   const exportFn = useServerFn(exportFigmaImage);
+  const saveTokensFn = useServerFn(saveFigmaTokens);
 
   // Load saved token from localStorage
   useEffect(() => {
@@ -97,18 +98,32 @@ export function FigmaImportPanel({
     }
   }, [figmaUrl, figmaToken, exportFn]);
 
-  const handleApply = useCallback(() => {
+  const handleApply = useCallback(async () => {
     if (!tokens) return;
-    // Store tokens in localStorage for the project agents to pick up
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        `mobivable:figmaTokens:${projectId}`,
-        JSON.stringify(tokens),
-      );
+    setLoading(true);
+    try {
+      const res = await saveTokensFn({
+        data: { projectId, tokens },
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      // Store tokens in localStorage for client-side queries
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          `mobivable:figmaTokens:${projectId}`,
+          JSON.stringify(tokens),
+        );
+      }
+      setApplied(true);
+      toast.success("Design tokens applied and saved to project database!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply tokens");
+    } finally {
+      setLoading(false);
     }
-    setApplied(true);
-    toast.success("Design tokens applied to project!");
-  }, [tokens, projectId]);
+  }, [tokens, projectId, saveTokensFn]);
 
   return (
     <div className="flex flex-col h-full">

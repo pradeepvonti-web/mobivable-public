@@ -1087,6 +1087,7 @@ export type Database = {
           updated_at: string
           user_id: string
           visual_edits: Json
+          figma_tokens: Json | null
         }
         Insert: {
           agents_md?: string | null
@@ -1104,6 +1105,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           visual_edits?: Json
+          figma_tokens?: Json | null
         }
         Update: {
           agents_md?: string | null
@@ -1121,6 +1123,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visual_edits?: Json
+          figma_tokens?: Json | null
         }
         Relationships: []
       }

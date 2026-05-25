@@ -336,3 +336,28 @@ export const exportFigmaImage = createServerFn({ method: "POST" })
       };
     }
   });
+
+export const saveFigmaTokens = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        projectId: z.string().uuid(),
+        tokens: z.any(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("projects")
+      .update({ figma_tokens: data.tokens })
+      .eq("id", data.projectId)
+      .eq("user_id", userId);
+
+    if (error) {
+      return { ok: false as const, error: error.message };
+    }
+    return { ok: true as const };
+  });
+

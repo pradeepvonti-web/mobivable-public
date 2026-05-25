@@ -137,7 +137,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
 
     const { data: project } = await supabase
       .from("projects")
-      .select("prompt, name")
+      .select("prompt, name, figma_tokens")
       .eq("id", task.project_id)
       .single();
 
@@ -250,9 +250,30 @@ export const runAgentTask = createServerFn({ method: "POST" })
         `If you are the UI/UX Designer, you MUST specify exact element types from the catalog (parallax-hero, glass-card, stat-card-xl, line-chart, bank-card, etc.) with their props. Generic descriptions like 'card component' are NOT acceptable.`
       : `You are the first agent on this project. Set the foundation for the team.`;
 
+    let figmaContext = "";
+    if (project?.figma_tokens) {
+      try {
+        const tokens = typeof project.figma_tokens === "string" 
+          ? JSON.parse(project.figma_tokens) 
+          : project.figma_tokens;
+        if (tokens.colors?.length || tokens.typography?.length || tokens.components?.length) {
+          figmaContext = `## Figma Design Tokens (Imported by User)\n` +
+            `Use the following exact tokens for colors, fonts, layouts, and components:\n` +
+            (tokens.colors?.length ? `- Colors: ${tokens.colors.join(", ")}\n` : "") +
+            (tokens.typography?.length ? `- Typography: ${tokens.typography.map((t: any) => `${t.fontFamily} (${t.fontSize}px w${t.fontWeight})`).join(", ")}\n` : "") +
+            (tokens.components?.length ? `- Figma Components: ${tokens.components.map((c: any) => c.name).join(", ")}\n` : "") +
+            (tokens.layout?.length ? `- Layout Spacing Gaps: ${tokens.layout.map((l: any) => `${l.name} (${l.layoutMode} gap ${l.gap})`).join(", ")}\n` : "") +
+            `\n`;
+        }
+      } catch (e) {
+        console.warn("[runAgentTask] Failed to parse figma_tokens:", e);
+      }
+    }
+
     const userPrompt =
       `App idea: ${project?.prompt ?? ""}\n\n` +
       `Project name: ${project?.name ?? ""}\n\n` +
+      (figmaContext ? `${figmaContext}\n` : "") +
       `${teamInstruction}\n\n` +
       `Previous agents' outputs:\n${priorBlock}\n\n` +
       `Now produce YOUR specialized output for this app. Be specific, actionable, and reference prior agents' decisions.`;
@@ -359,7 +380,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
 
         const { data: project } = await supabase
           .from("projects")
-          .select("id, prompt, name, result")
+          .select("id, prompt, name, result, figma_tokens")
           .eq("id", runRow.project_id)
           .single();
         if (!project) throw new Error("Project not found");
@@ -414,24 +435,44 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
         catch (e) { throw new Error((e as Error).message); }
 
+        let figmaPromptSnippet = "";
+        if (project.figma_tokens) {
+          try {
+            const tokens = typeof project.figma_tokens === "string" 
+              ? JSON.parse(project.figma_tokens) 
+              : project.figma_tokens;
+            if (tokens.colors?.length || tokens.typography?.length) {
+              figmaPromptSnippet = `## Figma Design Context\n` +
+                `The user imported these tokens from Figma. You MUST prioritize using them:\n` +
+                (tokens.colors?.length ? `- Palette Colors: ${tokens.colors.slice(0, 10).join(", ")}\n` : "") +
+                (tokens.typography?.length ? `- Heading/Body Fonts: ${tokens.typography.slice(0, 5).map((t: any) => t.fontFamily).join(", ")}\n` : "") +
+                `\n`;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
         const userPrompt =
           `Build a premium mobile app based on the following specifications.\n\n` +
           `## App Idea\n${project.prompt}\n\n` +
+          (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
           `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
           designBrief + `\n\n` +
           `## CRITICAL INSTRUCTIONS\n` +
           `1. Use the UI/UX Designer's EXACT element choices if they specified element types (parallax-hero, glass-card, stat-card-xl, etc.)\n` +
-          `2. Use the Designer's EXACT color palette if hex values were provided\n` +
-          `3. Include ALL screens the Product Manager identified\n` +
-          `4. Add navigate actions on buttons to connect screens as the UX Researcher mapped\n` +
-          `5. Include reusable components in the components map if the Frontend Developer identified them\n` +
-          `6. Add skeleton loading states and empty-state elements where appropriate\n` +
-          `7. Every screen MUST have 6-10 elements minimum\n` +
-          `8. Use at least 3 premium elements (glass-card, parallax-hero, stat-card-xl, feature-showcase, etc.)\n` +
-          `9. Include at least 1 chart element and 1 hero element with an image prompt\n` +
-          `10. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow)\n` +
-          `11. Set a page transition (slide, fade, zoom) on each screen\n` +
-          `12. Use screen backgrounds (gradient or image) on at least 1 immersive screen\n\n` +
+          `2. Use the Designer's EXACT color palette if hex values were provided. If Figma tokens were imported (listed above), map theme.palette.primary, theme.palette.accent, theme.palette.background, and theme.palette.card to the exact hex values from Figma.\n` +
+          `3. Map typography.headingFont and typography.bodyFont to the fonts extracted from Figma if available.\n` +
+          `4. Include ALL screens the Product Manager identified\n` +
+          `5. Add navigate actions on buttons to connect screens as the UX Researcher mapped\n` +
+          `6. Include reusable components in the components map if the Frontend Developer identified them\n` +
+          `7. Add skeleton loading states and empty-state elements where appropriate\n` +
+          `8. Every screen MUST have 6-10 elements minimum\n` +
+          `9. Use at least 3 premium elements (glass-card, parallax-hero, stat-card-xl, feature-showcase, etc.)\n` +
+          `10. Include at least 1 chart element and 1 hero element with an image prompt\n` +
+          `11. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow)\n` +
+          `12. Set a page transition (slide, fade, zoom) on each screen\n` +
+          `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen\n\n` +
           `Generate the COMPLETE app JSON now. Make it PREMIUM — this should look like a Dribbble featured shot.`;
 
         const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
