@@ -449,63 +449,6 @@ export type Database = {
           },
         ]
       }
-      eas_test_runs: {
-        Row: {
-          build_id: string | null
-          created_at: string
-          error_text: string | null
-          id: string
-          logs: string | null
-          project_id: string
-          screenshots: string[]
-          status: string
-          updated_at: string
-          user_id: string
-          yaml_flow: string
-        }
-        Insert: {
-          build_id?: string | null
-          created_at?: string
-          error_text?: string | null
-          id?: string
-          logs?: string | null
-          project_id: string
-          screenshots?: string[]
-          status?: string
-          updated_at?: string
-          user_id: string
-          yaml_flow: string
-        }
-        Update: {
-          build_id?: string | null
-          created_at?: string
-          error_text?: string | null
-          id?: string
-          logs?: string | null
-          project_id?: string
-          screenshots?: string[]
-          status?: string
-          updated_at?: string
-          user_id?: string
-          yaml_flow?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "eas_test_runs_build_id_fkey"
-            columns: ["build_id"]
-            isOneToOne: false
-            referencedRelation: "eas_builds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "eas_test_runs_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       email_send_log: {
         Row: {
           created_at: string
@@ -1144,7 +1087,6 @@ export type Database = {
           updated_at: string
           user_id: string
           visual_edits: Json
-          figma_tokens: Json | null
         }
         Insert: {
           agents_md?: string | null
@@ -1162,7 +1104,6 @@ export type Database = {
           updated_at?: string
           user_id: string
           visual_edits?: Json
-          figma_tokens?: Json | null
         }
         Update: {
           agents_md?: string | null
@@ -1180,7 +1121,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visual_edits?: Json
-          figma_tokens?: Json | null
         }
         Relationships: []
       }
