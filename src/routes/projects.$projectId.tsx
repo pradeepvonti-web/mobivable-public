@@ -2608,6 +2608,37 @@ function ProjectPage() {
           </div>
           {/* Right: live status + restart + preview on device */}
           <div className="pointer-events-auto flex items-center gap-2">
+            {/* iOS / Android toggle */}
+            <div className="inline-flex items-center gap-0.5 h-9 p-0.5 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={() => setDeviceOS("ios")}
+                className={`h-8 px-3 rounded-full transition-colors ${deviceOS === "ios" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                title="iOS device frame"
+              >
+                iOS
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeviceOS("android")}
+                className={`h-8 px-3 rounded-full transition-colors ${deviceOS === "android" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                title="Android device frame"
+              >
+                Android
+              </button>
+            </div>
+            {/* Regenerate assets */}
+            <button
+              type="button"
+              onClick={() => regenerateAssets()}
+              disabled={genAssetsState === "running"}
+              title={genAssetsMsg || "Regenerate hero images, icons, and illustrations with AI"}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${genAssetsState === "running" ? "animate-pulse" : ""}`} />
+              {genAssetsState === "running" ? "Generating..." : "Regenerate assets"}
+            </button>
+
             <div className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
