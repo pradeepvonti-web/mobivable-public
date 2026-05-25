@@ -78,7 +78,7 @@ function LivePreviewPage() {
                 ))}
               </div>
               <a
-                href={`https://snack.expo.dev/@snack/${snack.hashId}`}
+                href={`https://snack.expo.dev/${snack.hashId}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono uppercase border border-border rounded-md hover:bg-muted"
