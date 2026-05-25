@@ -83,7 +83,7 @@ export const createSnapshot = createServerFn({ method: "POST" })
         project_id: data.projectId,
         user_id: userId,
         label,
-        schema: schemaJson,
+        schema: schemaJson as never,
         visual_edits: project.visual_edits ?? null,
         source,
         element_count: countElements(schemaJson),
