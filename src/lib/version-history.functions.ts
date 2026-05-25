@@ -203,7 +203,7 @@ export const restoreSnapshot = createServerFn({ method: "POST" })
         project_id: data.projectId,
         user_id: userId,
         label: "Before restore",
-        schema: currentSchema,
+        schema: currentSchema as never,
         visual_edits: project.visual_edits ?? null,
         source: "auto",
         element_count: countElements(currentSchema),
