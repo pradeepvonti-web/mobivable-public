@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getRequest } from "@tanstack/react-start/server";
 import type { Database } from "@/integrations/supabase/types";
 
 function createUserScopedCreditClient(accessToken: string) {
@@ -35,9 +36,15 @@ export async function consumeOrThrow(
   userId: string,
   amount: number,
   reason: string,
-  accessToken: string,
   projectId?: string,
 ): Promise<{ daily_remaining: number; monthly_remaining: number }> {
+  const authHeader = getRequest()?.headers.get("authorization");
+  const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!accessToken) {
+    throw new Error("Unauthorized: No authorization header provided");
+  }
+
   const args: { p_user: string; p_amount: number; p_reason: string; p_project?: string } = {
     p_user: userId,
     p_amount: amount,
