@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2, Sparkles, Smartphone, ExternalLink } from "lucide-react";
 import { generateExpoSnack, getExpoSnack, type SnackPayload } from "@/lib/snack.functions";
+import { getRestoredSession } from "@/lib/require-auth";
 
 export const Route = createFileRoute("/projects/$projectId_/live")({
   component: LivePreviewPage,
@@ -20,16 +21,32 @@ function LivePreviewPage() {
   const [platform, setPlatform] = useState<"web" | "ios" | "android">("web");
 
   useEffect(() => {
-    getFn({ data: { projectId } })
-      .then((r) => setSnack(r.snack))
-      .catch((e) => setError(String(e?.message ?? e)))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    let active = true;
+
+    void (async () => {
+      try {
+        const session = await getRestoredSession();
+        if (!active || !session) return;
+        const r = await getFn({ data: { projectId } });
+        if (active) setSnack(r.snack);
+      } catch (e) {
+        if (active) setError(String((e as Error)?.message ?? e));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [getFn, projectId]);
 
   async function handleGenerate() {
     setGenerating(true);
     setError(null);
     try {
+      const session = await getRestoredSession();
+      if (!session) throw new Error("Please sign in again.");
       const result = await generateFn({ data: { projectId } });
       setSnack(result);
     } catch (e) {
