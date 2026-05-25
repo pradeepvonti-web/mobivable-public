@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Schema types for the AI-generated mobile app structure.
  * The AI produces JSON conforming to these types; the MobileAppRenderer consumes them.
  */
 
-// ─── Icon name union ────────────────────────────────────────────
+// â”€â”€â”€ Icon name union â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MIconName =
   | "home" | "search" | "user" | "settings" | "bell" | "heart"
   | "star" | "plus" | "minus" | "check" | "x" | "chevron-right"
@@ -22,7 +22,7 @@ export type MIconName =
   | "coffee" | "utensils" | "dumbbell" | "bike" | "footprints"
   | "waves" | "leaf" | "sparkles" | "wand" | "robot";
 
-// ─── Element types ──────────────────────────────────────────────
+// â”€â”€â”€ Element types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MElement =
   | MGreeting
   | MProgressRing
@@ -79,13 +79,26 @@ export type MElement =
   | MDatePicker
   | MCheckbox
   | MRadioGroup
-  | MTextarea;
+  | MTextarea
+  | MSwipeCard
+  | MCalendarStrip
+  | MBankCard
+  | MRadarChart
+  | MGaugeChart
+  | MComponentRef;
 
 export type MEntrance =
   | "none" | "fade-up" | "fade-in" | "scale-in"
   | "slide-left" | "slide-right" | "pop" | "blur-in";
 
 export type MGesture = "tap-scale" | "press-glow" | "swipe-hint";
+
+/** Action that fires when the element is tapped / clicked. */
+export type MAction =
+  | { type: "navigate"; screen: string }
+  | { type: "url"; href: string }
+  | { type: "dialog"; title?: string; message: string }
+  | { type: "sheet"; content?: string };
 
 type BaseElement = {
   id?: string;
@@ -106,6 +119,10 @@ type BaseElement = {
     opacity?: number;
     padding?: "xs" | "sm" | "md" | "lg" | "xl";
   };
+  /** Action to fire when the element is tapped. */
+  action?: MAction;
+  /** Set to false to hide this element (conditional visibility). */
+  visible?: boolean;
 };
 
 
@@ -360,7 +377,7 @@ export type MCarousel = BaseElement & {
 };
 
 
-// ─── Screen ─────────────────────────────────────────────────────
+// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MScreenLayout =
   | "stack"        // default vertical scroll
   | "split-hero"   // first element full-bleed hero, rest stacked
@@ -373,6 +390,8 @@ export type MScreenBackground =
   | { type: "gradient"; colors: string[]; direction?: string }
   | { type: "image"; url: string; overlay?: string };
 
+export type MScreenTransition = "slide" | "fade" | "zoom" | "none";
+
 export type MScreen = {
   id: string;
   title: string;
@@ -384,10 +403,12 @@ export type MScreen = {
   layout?: MScreenLayout;
   /** Optional screen background. */
   background?: MScreenBackground;
+  /** Transition animation when navigating to this screen. */
+  transition?: MScreenTransition;
 };
 
 
-// ─── Navigation ─────────────────────────────────────────────────
+// â”€â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MNavItem = {
   screen: string;
   label: string;
@@ -403,7 +424,7 @@ export type MNavigation = {
   showLabels?: boolean;
 };
 
-// ─── New Phase 3 Elements ───────────────────────────────────────
+// â”€â”€â”€ New Phase 3 Elements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MRating = BaseElement & {
   type: "rating";
   props: { value: number; max?: number; label?: string; size?: "sm" | "md" | "lg" };
@@ -480,7 +501,7 @@ export type MHeroBanner = BaseElement & {
   };
 };
 
-// ─── Premium primitives ─────────────────────────────────────────
+// â”€â”€â”€ Premium primitives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type MGlassCard = BaseElement & {
   type: "glass-card";
@@ -617,6 +638,7 @@ export type MSparkline = BaseElement & {
   };
 };
 
+
 export type MProgressBar = BaseElement & {
   type: "progress-bar";
   props: {
@@ -649,7 +671,7 @@ export type MEmptyState = BaseElement & {
   };
 };
 
-// ─── Phase 2 Interactive & Form Elements ────────────────────────
+// â”€â”€â”€ Phase 2 Interactive & Form Elements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type MMapCard = BaseElement & {
   type: "map-card";
@@ -776,7 +798,78 @@ export type MTextarea = BaseElement & {
   };
 };
 
-// ─── Backend (per-project Supabase) ─────────────────────────────
+// â”€â”€â”€ Phase 3 Advanced Elements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export type MSwipeCard = BaseElement & {
+  type: "swipe-card";
+  props: {
+    cards: Array<{
+      title: string;
+      subtitle?: string;
+      image?: string;
+      prompt?: string;
+      badge?: string;
+      gradient?: string;
+    }>;
+    showActions?: boolean;
+  };
+};
+
+export type MCalendarStrip = BaseElement & {
+  type: "calendar-strip";
+  props: {
+    month?: string;
+    year?: number;
+    selectedDate?: number;
+    markedDates?: number[];
+    startDay?: number;
+  };
+};
+
+export type MBankCard = BaseElement & {
+  type: "bank-card";
+  props: {
+    bankName: string;
+    cardNumber?: string;
+    holderName: string;
+    expiry: string;
+    network?: string;
+    gradient?: [string, string];
+  };
+};
+
+export type MRadarChart = BaseElement & {
+  type: "radar-chart";
+  props: {
+    labels: string[];
+    data: number[];
+    maxValue?: number;
+    color?: string;
+    size?: number;
+  };
+};
+
+export type MGaugeChart = BaseElement & {
+  type: "gauge-chart";
+  props: {
+    value: number;
+    max?: number;
+    label?: string;
+    unit?: string;
+    color?: string;
+    size?: number;
+  };
+};
+
+export type MComponentRef = BaseElement & {
+  type: "component-ref";
+  props: {
+    name: string;
+    overrides?: Record<string, string | number | boolean>;
+  };
+};
+
+// â”€â”€â”€ Backend (per-project Supabase) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MColumnType =
   | "text" | "int" | "float" | "bool" | "timestamp" | "jsonb" | "uuid";
 
@@ -805,11 +898,13 @@ export type MBackend = {
   push?: boolean;
 };
 
-// ─── Full App Schema ────────────────────────────────────────────
+// â”€â”€â”€ Full App Schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type MobileAppSchema = {
   name: string;
   theme: string | import("./mobile-theme").MobileTheme;
   screens: MScreen[];
   navigation: MNavigation;
   backend?: MBackend;
+  /** Reusable component definitions (name -> element array). */
+  components?: Record<string, MElement[]>;
 };

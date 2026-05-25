@@ -116,6 +116,29 @@ AVAILABLE ELEMENT TYPES:
   • checkbox         — checkbox list. props: { items: [{label, checked?, description?}], label? }
   • radio-group      — radio button group. props: { label, options: [{label, value, description?}], selectedValue? }
   • textarea         — multi-line text input. props: { label?, placeholder?, value?, rows?, maxLength?, helper? }
+- Phase 3 — Differentiator Elements (USE for domain-specific premium experiences):
+  • swipe-card       — Tinder-style swipeable card stack. props: { cards: [{title, subtitle?, image?, prompt?, badge?, color?}], showActions?, acceptLabel?, rejectLabel? }
+  • calendar-strip   — Horizontal scrollable day/week strip. props: { selectedDate?, startDate?, markedDates?: string[], showMonth?, accentColor? }
+  • bank-card        — Credit/debit card visual with masked number. props: { cardNumber, holderName, expiry, network?: "visa"|"mastercard"|"amex"|"discover", gradient?: [string,string], bankName? }
+  • radar-chart      — Spider/radar chart for multi-axis data. props: { axes: [{label, value, max?}], color?, fillOpacity?, height?, showLabels? }
+  • gauge-chart      — Semicircular gauge meter. props: { value, max, label, unit?, color?, thresholds?: [{value, color, label?}], size? }
+  • component-ref    — Reference a reusable component. props: { name, overrides? }
+
+ACTIONS ON ANY ELEMENT (BaseElement):
+Any element may include an optional "action" to make it interactive:
+  action?: { type: "navigate", screen: string } | { type: "sheet", content: string } | { type: "dialog", title: string, message: string } | { type: "url", href: string } | { type: "dismiss" }
+
+CONDITIONAL VISIBILITY (BaseElement):
+Any element may include "visible" to control its visibility:
+  visible?: boolean | string  // false hides the element, string for data-binding expressions
+
+PAGE TRANSITIONS (MScreen):
+Each screen may specify a transition for when it becomes active:
+  transition?: "slide" | "fade" | "zoom" | "none"
+
+REUSABLE COMPONENTS (MobileAppSchema):
+Define reusable element groups at the schema root, reference them with component-ref:
+  components?: { [name: string]: MElement[] }  // Define once, reference with component-ref
 
 SCREEN LAYOUT TEMPLATES — set "layout" on each screen to compose elements:
 - "stack"       (default) — vertical scroll with padding. Good for forms, settings, feeds.
@@ -166,7 +189,10 @@ PREMIUM DESIGN RULES — FOLLOW THESE STRICTLY
 11. FORM ELEMENTS — use dropdown, date-picker, checkbox, radio-group, textarea, and input for forms and settings screens. Group form elements inside glass-card or section for visual cohesion. Prefer accordion for FAQ/help screens and collapsible settings.
 12. INTERACTIVE CONTENT — use chat-bubble for messaging/support screens, video-player for media, map-card for location features, timeline for order tracking/history. These make apps feel alive and functional.
 13. NAVIGATION — pick the right navigation type for the app domain: bottom-tabs (default), drawer (complex apps), floating-bottom (minimal/creative), top-tabs (content categories), none (single-screen/onboarding). Customize navStyle to match theme.
-14. SCREEN BACKGROUNDS — use the screen background property for immersive screens: gradient backgrounds for onboarding, image backgrounds with opacity for hero screens. Keep most screens with the default theme background.`;
+14. SCREEN BACKGROUNDS — use the screen background property for immersive screens: gradient backgrounds for onboarding, image backgrounds with opacity for hero screens. Keep most screens with the default theme background.
+15. INTERACTIONS — Every app should have at least 2 buttons with navigate actions to create a connected, navigable experience.
+16. DIFFERENTIATION — Use swipe-card for dating/discovery, bank-card for fintech, radar-chart for analytics, gauge-chart for dashboards, calendar-strip for scheduling. These domain-specific elements make apps feel purpose-built.
+17. REUSABILITY — Extract repeated element patterns into components using the components map at the schema root, then reference them with component-ref.`;
 
 // ──────────────────────────────────────────────────────────────────
 // PASS 1: design brief — opinionated palette, type, mood, references.

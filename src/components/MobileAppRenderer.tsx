@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import type { MobileAppSchema, MElement, MScreen } from "@/lib/mobile-app-schema";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { MobileAppSchema, MElement, MScreen, MAction } from "@/lib/mobile-app-schema";
 import { resolveTheme, themeToCSSVars, themeFontHref } from "@/lib/mobile-theme";
 
 import { MobileErrorBoundary } from "./MobileErrorBoundary";
@@ -25,12 +25,72 @@ const SHADOW_MAP: Record<string, string> = {
 /** Map padding / margin token to pixel value */
 const PAD_MAP: Record<string, number> = { none: 0, xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
 
+/** React context to pass the full schema down for component-ref resolution */
+const SchemaCtx = createContext<MobileAppSchema | null>(null);
+
+/** Wrap element content with action support (navigate, url, dialog, sheet) */
+function ActionWrapper({ action, children }: { action?: MAction; children: React.ReactNode }) {
+  if (!action) return <>{children}</>;
+  const baseStyle: React.CSSProperties = { cursor: "pointer", transition: "filter 0.15s ease" };
+
+  switch (action.type) {
+    case "url":
+      return (
+        <a
+          href={action.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ ...baseStyle, textDecoration: "none", color: "inherit", display: "block" }}
+          className="m-action-wrap"
+        >
+          {children}
+        </a>
+      );
+    case "navigate":
+      return (
+        <div
+          style={baseStyle}
+          className="m-action-wrap"
+          title={`Navigate → ${action.screen}`}
+        >
+          {children}
+        </div>
+      );
+    case "dialog":
+      return (
+        <div
+          style={baseStyle}
+          className="m-action-wrap"
+          onClick={() => alert(action.message)}
+        >
+          {children}
+        </div>
+      );
+    case "sheet":
+      return (
+        <div
+          style={{ ...baseStyle, borderBottom: "2px solid var(--m-primary)" }}
+          className="m-action-wrap"
+          title="Opens bottom sheet"
+        >
+          {children}
+        </div>
+      );
+    default:
+      return <>{children}</>;
+  }
+}
+
 /** Renders a single element from the schema, applying per-element style overrides */
 function RenderElement({ el }: { el: MElement }) {
+  /* ─── Conditional visibility ─── */
+  if (el.visible === false) return null;
+
   const inner = renderElementInner(el);
   const s = el.style;
   const hasMargin = el.margin != null;
-  if (!s && !hasMargin) return inner;
+  const hasAction = el.action != null;
+  if (!s && !hasMargin && !hasAction) return inner;
   const wrapStyle: React.CSSProperties = {};
   if (hasMargin) wrapStyle.margin = PAD_MAP[el.margin!] ?? 0;
   if (s) {
@@ -41,7 +101,11 @@ function RenderElement({ el }: { el: MElement }) {
     if (s.opacity != null) wrapStyle.opacity = s.opacity;
     if (s.padding) wrapStyle.padding = PAD_MAP[s.padding] ?? 12;
   }
-  return <div style={wrapStyle}>{inner}</div>;
+  return (
+    <ActionWrapper action={el.action}>
+      <div style={wrapStyle}>{inner}</div>
+    </ActionWrapper>
+  );
 }
 
 function renderElementInner(el: MElement): React.ReactNode {
@@ -735,6 +799,256 @@ function renderElementInner(el: MElement): React.ReactNode {
         </div>
       );
     }
+    case "swipe-card": {
+      const { cards = [], showActions = true } = el.props;
+      return (
+        <div style={{ position: "relative", height: 320, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ position: "relative", width: "85%", height: 250 }}>
+            {cards.slice(0, 3).reverse().map((card: { title: string; subtitle?: string; badge?: string; gradient?: string }, ci: number) => {
+              const idx = cards.slice(0, 3).length - 1 - ci;
+              const isTop = idx === 0;
+              return (
+                <div key={ci} style={{
+                  position: "absolute", top: idx * 8, left: idx * 6, right: idx * 6,
+                  bottom: 0, borderRadius: 18,
+                  background: card.gradient ?? "linear-gradient(135deg, var(--m-gradient-from), var(--m-gradient-to))",
+                  opacity: isTop ? 1 : 0.7 - idx * 0.15,
+                  transform: `rotate(${idx * -2}deg)`,
+                  boxShadow: isTop ? "0 12px 40px rgba(0,0,0,0.25)" : "0 4px 12px rgba(0,0,0,0.1)",
+                  display: "flex", flexDirection: "column", justifyContent: "flex-end",
+                  padding: 20, overflow: "hidden", transition: "all 0.3s ease",
+                }}>
+                  {card.badge && (
+                    <span style={{
+                      position: "absolute", top: 14, right: 14,
+                      fontSize: 10, fontWeight: 600, padding: "3px 10px",
+                      borderRadius: 8, background: "rgba(255,255,255,0.2)",
+                      color: "#fff", backdropFilter: "blur(4px)",
+                    }}>{card.badge}</span>
+                  )}
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", margin: 0 }}>{card.title}</h3>
+                  {card.subtitle && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", margin: "4px 0 0" }}>{card.subtitle}</p>}
+                </div>
+              );
+            })}
+          </div>
+          {showActions && (
+            <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
+              <button type="button" style={{
+                width: 48, height: 48, borderRadius: "50%", border: "2px solid var(--m-danger)",
+                background: "transparent", cursor: "pointer", display: "grid", placeItems: "center",
+                color: "var(--m-danger)", fontSize: 20,
+              }}>✕</button>
+              <button type="button" style={{
+                width: 48, height: 48, borderRadius: "50%", border: "2px solid var(--m-success)",
+                background: "transparent", cursor: "pointer", display: "grid", placeItems: "center",
+                color: "var(--m-success)", fontSize: 20,
+              }}>✓</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "calendar-strip": {
+      const { month, year, selectedDate, markedDates = [], startDay = 1 } = el.props;
+      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const dates = Array.from({ length: 7 }, (_, i) => startDay + i);
+      return (
+        <div>
+          {(month || year) && (
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--m-text)", margin: "0 0 8px", textAlign: "center" }}>
+              {month ?? ""} {year ?? ""}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 4 }}>
+            {dates.map((d, i) => {
+              const isSelected = d === selectedDate;
+              const isMarked = markedDates.includes(d);
+              return (
+                <div key={i} style={{
+                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+                  gap: 4, padding: "8px 0", borderRadius: 12,
+                  background: isSelected ? "var(--m-primary)" : "transparent",
+                  cursor: "pointer", transition: "background 0.2s ease",
+                }}>
+                  <span style={{ fontSize: 10, color: isSelected ? "#fff" : "var(--m-muted)", fontWeight: 500 }}>
+                    {dayNames[i % 7]}
+                  </span>
+                  <span style={{
+                    fontSize: 15, fontWeight: 600,
+                    color: isSelected ? "#fff" : "var(--m-text)",
+                    width: 28, height: 28, display: "grid", placeItems: "center",
+                    borderRadius: "50%",
+                  }}>{d}</span>
+                  {isMarked && !isSelected && (
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--m-primary)" }} />
+                  )}
+                  {!isMarked && <div style={{ width: 4, height: 4 }} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    case "bank-card": {
+      const { bankName, cardNumber, holderName, expiry, network, gradient } = el.props;
+      const bg = gradient
+        ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`
+        : "linear-gradient(135deg, #1a1a2e, #16213e)";
+      const masked = cardNumber ?? "•••• •••• •••• 1234";
+      return (
+        <div style={{
+          aspectRatio: "1.6", borderRadius: 16, padding: "20px 22px",
+          background: bg, color: "#fff", position: "relative",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+          fontFamily: "'Inter', sans-serif", overflow: "hidden",
+        }}>
+          {/* Decorative circles */}
+          <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ position: "absolute", bottom: -40, left: -20, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.5 }}>{bankName}</span>
+            {network && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>{network}</span>}
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 500, letterSpacing: 3, margin: 0, textAlign: "center" }}>{masked}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div>
+              <span style={{ fontSize: 8, opacity: 0.6, display: "block", textTransform: "uppercase" }}>Card Holder</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{holderName}</span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: 8, opacity: 0.6, display: "block", textTransform: "uppercase" }}>Expires</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{expiry}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    case "radar-chart": {
+      const { labels = [], data = [], maxValue = 100, color = "var(--m-primary)", size = 160 } = el.props;
+      const n = labels.length;
+      if (n < 3) return null;
+      const cx = size / 2, cy = size / 2, r = size * 0.38;
+      const angleStep = (2 * Math.PI) / n;
+      const startAngle = -Math.PI / 2;
+      const ringLevels = [0.25, 0.5, 0.75, 1];
+      const pointsForPoly = (radius: number) =>
+        Array.from({ length: n }, (_, i) => {
+          const angle = startAngle + angleStep * i;
+          return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`;
+        }).join(" ");
+      const dataPoints = data.map((v: number, i: number) => {
+        const ratio = Math.min(v / maxValue, 1);
+        const angle = startAngle + angleStep * i;
+        return `${cx + Math.cos(angle) * r * ratio},${cy + Math.sin(angle) * r * ratio}`;
+      }).join(" ");
+      return (
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            {/* Axis lines */}
+            {Array.from({ length: n }, (_, i) => {
+              const angle = startAngle + angleStep * i;
+              return (
+                <line key={`ax-${i}`} x1={cx} y1={cy}
+                  x2={cx + Math.cos(angle) * r} y2={cy + Math.sin(angle) * r}
+                  stroke="var(--m-border)" strokeWidth={0.8} />
+              );
+            })}
+            {/* Concentric rings */}
+            {ringLevels.map((lev) => (
+              <polygon key={lev} points={pointsForPoly(r * lev)}
+                fill="none" stroke="var(--m-border)" strokeWidth={0.5} />
+            ))}
+            {/* Data polygon */}
+            <polygon points={dataPoints} fill={`color-mix(in srgb, ${color} 25%, transparent)`}
+              stroke={color} strokeWidth={1.5} />
+            {/* Data dots */}
+            {data.map((v: number, i: number) => {
+              const ratio = Math.min(v / maxValue, 1);
+              const angle = startAngle + angleStep * i;
+              return (
+                <circle key={`dot-${i}`}
+                  cx={cx + Math.cos(angle) * r * ratio}
+                  cy={cy + Math.sin(angle) * r * ratio}
+                  r={3} fill={color} />
+              );
+            })}
+            {/* Labels */}
+            {labels.map((label: string, i: number) => {
+              const angle = startAngle + angleStep * i;
+              const lx = cx + Math.cos(angle) * (r + 14);
+              const ly = cy + Math.sin(angle) * (r + 14);
+              return (
+                <text key={`lb-${i}`} x={lx} y={ly}
+                  textAnchor="middle" dominantBaseline="central"
+                  fontSize={9} fill="var(--m-muted)">{label}</text>
+              );
+            })}
+          </svg>
+        </div>
+      );
+    }
+    case "gauge-chart": {
+      const { value = 0, max = 100, label, unit, color = "var(--m-primary)", size = 160 } = el.props;
+      const svgSize = size;
+      const cx = svgSize / 2, cy = svgSize / 2 + 10;
+      const radius = svgSize * 0.38;
+      const strokeW = 12;
+      const startA = Math.PI;
+      const endA = 2 * Math.PI;
+      const ratio = Math.min(Math.max(value / (max || 1), 0), 1);
+      const describeArc = (start: number, end: number) => {
+        const x1 = cx + radius * Math.cos(start);
+        const y1 = cy + radius * Math.sin(start);
+        const x2 = cx + radius * Math.cos(end);
+        const y2 = cy + radius * Math.sin(end);
+        const sweep = end - start > Math.PI ? 1 : 0;
+        return `M ${x1} ${y1} A ${radius} ${radius} 0 ${sweep} 1 ${x2} ${y2}`;
+      };
+      const bgPath = describeArc(startA, endA);
+      const fillAngle = startA + ratio * Math.PI;
+      const fillPath = describeArc(startA, fillAngle);
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <svg width={svgSize} height={svgSize * 0.62} viewBox={`0 0 ${svgSize} ${svgSize * 0.62}`}>
+            <path d={bgPath} fill="none" stroke="var(--m-border)" strokeWidth={strokeW} strokeLinecap="round" />
+            <path d={fillPath} fill="none" stroke={color} strokeWidth={strokeW} strokeLinecap="round" />
+            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={size * 0.18} fontWeight="700" fill="var(--m-text)">
+              {value}
+            </text>
+            {unit && (
+              <text x={cx} y={cy + size * 0.08} textAnchor="middle" fontSize={10} fill="var(--m-muted)">
+                {unit}
+              </text>
+            )}
+          </svg>
+          {label && <span style={{ fontSize: 12, color: "var(--m-muted)", marginTop: 2 }}>{label}</span>}
+        </div>
+      );
+    }
+    case "component-ref": {
+      const schema = React.useContext(SchemaCtx);
+      const compName = el.props.name;
+      const elements = schema?.components?.[compName];
+      if (!elements || !elements.length) {
+        return (
+          <div style={{
+            padding: "12px 16px", borderRadius: 10,
+            border: "1px dashed var(--m-border)", background: "var(--m-card)",
+            textAlign: "center",
+          }}>
+            <span style={{ fontSize: 11, color: "var(--m-muted)" }}>Component: {compName}</span>
+          </div>
+        );
+      }
+      return (
+        <>
+          {elements.map((child, i) => <RenderElement key={i} el={child} />)}
+        </>
+      );
+    }
     default:
       return null;
   }
@@ -797,10 +1111,12 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   const elements = screen.elements ?? [];
   const layout = screen.layout ?? "stack";
   const bgStyle = screenBgStyle(screen.background);
+  const transition = screen.transition ?? "none";
+  const transitionCls = transition !== "none" ? ` screen-transition-${transition}` : "";
 
   if (layout === "full-bleed") {
     return (
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0, ...bgStyle }}>
+      <div className={transitionCls.trim()} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 0, ...bgStyle }}>
         {elements.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i} />)}
       </div>
     );
@@ -809,7 +1125,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "split-hero") {
     const [hero, ...rest] = elements;
     return (
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", ...bgStyle }}>
+      <div className={transitionCls.trim()} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", ...bgStyle }}>
         {hero && <MotionItem el={hero} index={0} />}
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
           {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
@@ -821,7 +1137,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
   if (layout === "magazine") {
     const [feature, ...rest] = elements;
     return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, ...bgStyle }}>
+      <div className={transitionCls.trim()} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, ...bgStyle }}>
         {feature && <MotionItem el={feature} index={0} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {rest.map((el, i) => <MotionItem key={el.id ?? i} el={el} index={i + 1} />)}
@@ -832,7 +1148,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
 
   if (layout === "bento-grid") {
     return (
-      <div style={{
+      <div className={transitionCls.trim()} style={{
         flex: 1, overflowY: "auto", padding: "12px 16px",
         display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, alignContent: "start",
         ...bgStyle,
@@ -855,7 +1171,7 @@ function RenderScreen({ screen }: { screen: MScreen }) {
 
   // default: stack
   return (
-    <div style={{
+    <div className={transitionCls.trim()} style={{
       flex: 1, overflowY: "auto", padding: "12px 16px",
       display: "flex", flexDirection: "column", gap: 12,
       ...bgStyle,
@@ -978,6 +1294,13 @@ export function MobileAppRenderer({
 @keyframes m-blur-in{from{opacity:0;filter:blur(10px);}to{opacity:1;filter:blur(0);}}
 @keyframes m-swipe{0%,100%{transform:translateX(0);}50%{transform:translateX(6px);}}
 @media (prefers-reduced-motion:reduce){.m-preview .m-el,.m-preview .m-g-swipe-hint{animation:none!important;}}
+.m-action-wrap:hover{filter:brightness(1.08);}
+.screen-transition-slide{animation:m-screen-slide 0.35s ease both;}
+.screen-transition-fade{animation:m-screen-fade 0.35s ease both;}
+.screen-transition-zoom{animation:m-screen-zoom 0.3s ease both;}
+@keyframes m-screen-slide{from{transform:translateX(40px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes m-screen-fade{from{opacity:0;}to{opacity:1;}}
+@keyframes m-screen-zoom{from{transform:scale(0.92);opacity:0;}to{transform:scale(1);opacity:1;}}
 `}</style>
 
         {issueCount > 0 && (
@@ -1030,7 +1353,11 @@ export function MobileAppRenderer({
             </div>
           </>
         )}
-        {screen && <RenderScreen screen={screen} />}
+        {screen && (
+          <SchemaCtx.Provider value={fixedSchema}>
+            <RenderScreen key={current} screen={screen} />
+          </SchemaCtx.Provider>
+        )}
         {/* Bottom tabs (standard) */}
         {nav?.type === "bottom-tabs" && nav.navStyle !== "floating" && nav.navStyle !== "pill" && nav.navStyle !== "notched" && (
           <MobileBottomNav

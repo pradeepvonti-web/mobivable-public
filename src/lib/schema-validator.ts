@@ -27,6 +27,8 @@ const VALID_ELEMENT_TYPES = new Set([
   // Phase 2 interactive & form
   "map-card", "chat-bubble", "video-player", "timeline", "accordion",
   "dropdown", "date-picker", "checkbox", "radio-group", "textarea",
+  // Phase 3 differentiator
+  "swipe-card", "calendar-strip", "bank-card", "radar-chart", "gauge-chart", "component-ref",
 ]);
 
 const VALID_SCREEN_LAYOUTS = new Set([
@@ -39,6 +41,10 @@ const VALID_ENTRANCES = new Set([
 ]);
 
 const VALID_GESTURES = new Set(["tap-scale", "press-glow", "swipe-hint"]);
+
+const VALID_TRANSITIONS = new Set(["slide", "fade", "zoom", "none"]);
+
+const VALID_ACTION_TYPES = new Set(["navigate", "sheet", "dialog", "url", "dismiss"]);
 
 
 /** Validate and auto-fix an element */
@@ -221,6 +227,39 @@ function fixElement(el: unknown, path: string, issues: ValidationIssue[]): MElem
     issues.push({ severity: "warning", path, message: "radio-group missing options array", autoFixed: true });
   }
 
+  // Phase 3 differentiator elements
+  if (e.type === "swipe-card" && !Array.isArray(props.cards)) {
+    props.cards = [];
+    issues.push({ severity: "warning", path, message: "swipe-card missing cards array", autoFixed: true });
+  }
+  if (e.type === "bank-card") {
+    if (!props.cardNumber) { props.cardNumber = "0000000000001234"; issues.push({ severity: "info", path, message: "Added default bank-card cardNumber", autoFixed: true }); }
+    if (!props.holderName) { props.holderName = "Card Holder"; issues.push({ severity: "info", path, message: "Added default bank-card holderName", autoFixed: true }); }
+    if (!props.expiry) { props.expiry = "12/28"; issues.push({ severity: "info", path, message: "Added default bank-card expiry", autoFixed: true }); }
+  }
+  if (e.type === "radar-chart" && !Array.isArray(props.axes)) {
+    props.axes = [];
+    issues.push({ severity: "warning", path, message: "radar-chart missing axes array", autoFixed: true });
+  }
+  if (e.type === "gauge-chart") {
+    if (typeof props.value !== "number") { props.value = Number(props.value) || 0; issues.push({ severity: "info", path, message: "Coerced gauge-chart value to number", autoFixed: true }); }
+    if (typeof props.max !== "number") { props.max = Number(props.max) || 100; issues.push({ severity: "info", path, message: "Coerced gauge-chart max to number", autoFixed: true }); }
+    if (!props.label) { props.label = "Value"; issues.push({ severity: "info", path, message: "Added default gauge-chart label", autoFixed: true }); }
+  }
+  if (e.type === "component-ref" && !props.name) {
+    props.name = "unnamed";
+    issues.push({ severity: "info", path, message: "Added default component-ref name", autoFixed: true });
+  }
+
+  // Validate action type on any element
+  if (e.action && typeof e.action === "object") {
+    const action = e.action as Record<string, unknown>;
+    if (action.type && !VALID_ACTION_TYPES.has(action.type as string)) {
+      issues.push({ severity: "warning", path, message: `Unknown action type "${String(action.type)}", removed action`, autoFixed: true });
+      delete e.action;
+    }
+  }
+
   return el as MElement;
 }
 
@@ -256,6 +295,12 @@ function fixScreen(screen: unknown, path: string, issues: ValidationIssue[]): MS
   if (s.layout && (typeof s.layout !== "string" || !VALID_SCREEN_LAYOUTS.has(s.layout as string))) {
     issues.push({ severity: "warning", path, message: `Unknown screen layout "${String(s.layout)}", using "stack"`, autoFixed: true });
     s.layout = "stack";
+  }
+
+  // Validate transition
+  if (s.transition && (typeof s.transition !== "string" || !VALID_TRANSITIONS.has(s.transition as string))) {
+    issues.push({ severity: "warning", path, message: `Unknown screen transition "${String(s.transition)}", using "slide"`, autoFixed: true });
+    s.transition = "slide";
   }
 
   // Fix elements
