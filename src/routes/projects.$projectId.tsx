@@ -1660,9 +1660,7 @@ function ProjectPage() {
                     )}
 
                     {isReady && project.result && (
-                      <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-                        <ReactMarkdown>{project.result}</ReactMarkdown>
-                      </div>
+                      <PlanSummary content={project.result} />
                     )}
                   </div>
                 </div>
