@@ -246,7 +246,8 @@ export const runAgentTask = createServerFn({ method: "POST" })
     const teamInstruction = priorRoles.length > 0
       ? `You are working as part of a team. The following agents have already completed their work: ${priorRoles.join(", ")}. ` +
         `You MUST reference their specific decisions and build upon them — do NOT contradict or duplicate their work. ` +
-        `Cite specific details from their outputs (colors, features, screens, etc.) in yours.`
+        `Cite specific details from their outputs (colors, features, screens, etc.) in yours.\n` +
+        `If you are the UI/UX Designer, you MUST specify exact element types from the catalog (parallax-hero, glass-card, stat-card-xl, line-chart, bank-card, etc.) with their props. Generic descriptions like 'card component' are NOT acceptable.`
       : `You are the first agent on this project. Set the foundation for the team.`;
 
     const userPrompt =
@@ -363,7 +364,6 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           .single();
         if (!project) throw new Error("Project not found");
 
-        // Combine all agent outputs into a rich context block
         const completedTasks = tasks.filter(
           (t) => t.status === "completed" && t.output,
         );
@@ -374,28 +374,69 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           })
           .join("\n\n---\n\n");
 
-        // Import the code generation prompt
         const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
+
+        // Pass 1: Extract structured design brief from agent outputs
+        let designBrief = '';
+        try {
+          await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
+          const extractionPrompt = `You are a design brief extractor. Given agent outputs from a mobile app build team, extract a STRUCTURED design brief. RESPOND WITH ONLY VALID JSON — no markdown, no prose.
+
+Agent Outputs:
+${agentContext.slice(0, 6000)}
+
+App Idea: ${project.prompt}
+
+Extract this JSON:
+{
+  "appName": "string",
+  "domain": "fintech|wellness|fitness|travel|social|ecommerce|productivity|food|music|healthcare|education|dating",
+  "mood": "2-4 adjectives",
+  "screens": [
+    { "id": "string", "title": "string", "icon": "icon-name", "layout": "bento-grid|stack|magazine|split-hero|full-bleed", "keyElements": ["element-type-1", "element-type-2"], "transition": "slide|fade|zoom|none" }
+  ],
+  "navigation": { "type": "bottom-tabs|drawer|floating-bottom|top-tabs", "items": [{"screen":"id","label":"Label","icon":"icon"}] },
+  "palette": { "mode": "dark|light", "primary": "#hex", "accent": "#hex", "background": "#hex", "card": "#hex", "text": "#hex", "muted": "#hex", "gradient": ["#hex", "#hex"] },
+  "typography": { "headingFont": "font-name", "bodyFont": "font-name" },
+  "keyFeatures": ["feature1", "feature2"]
+}
+
+Use agents' exact values if provided. Infer from domain if not. Always 4-6 screens.`;
+          const briefResult = await callAI(extractionPrompt, '');
+          if (briefResult.ok) {
+            designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
+          }
+        } catch (e) {
+          console.log("[finalizeAgentRun] Brief extraction skipped (credits):", (e as Error).message);
+        }
+
+        // Pass 2: Generate the full app schema
+        try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
+        catch (e) { throw new Error((e as Error).message); }
 
         const userPrompt =
           `Build a premium mobile app based on the following specifications.\n\n` +
           `## App Idea\n${project.prompt}\n\n` +
-          `## Agent Team Outputs\nThe following specialist agents have analyzed and designed this app:\n\n${agentContext}\n\n` +
-          `## Instructions\n` +
-          `Use ALL the agent outputs above to create a comprehensive, premium app.\n` +
-          `- Use the UI/UX Designer's exact color palette, typography, and component specs\n` +
-          `- Include all screens the Product Manager identified\n` +
-          `- Follow the UX Researcher's user journey and accessibility recommendations\n` +
-          `- Incorporate the Frontend Developer's component architecture\n` +
-          `- Make every screen data-dense with realistic content\n` +
-          `Generate the COMPLETE app JSON now.`;
+          `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
+          designBrief + `\n\n` +
+          `## CRITICAL INSTRUCTIONS\n` +
+          `1. Use the UI/UX Designer's EXACT element choices if they specified element types (parallax-hero, glass-card, stat-card-xl, etc.)\n` +
+          `2. Use the Designer's EXACT color palette if hex values were provided\n` +
+          `3. Include ALL screens the Product Manager identified\n` +
+          `4. Add navigate actions on buttons to connect screens as the UX Researcher mapped\n` +
+          `5. Include reusable components in the components map if the Frontend Developer identified them\n` +
+          `6. Add skeleton loading states and empty-state elements where appropriate\n` +
+          `7. Every screen MUST have 6-10 elements minimum\n` +
+          `8. Use at least 3 premium elements (glass-card, parallax-hero, stat-card-xl, feature-showcase, etc.)\n` +
+          `9. Include at least 1 chart element and 1 hero element with an image prompt\n` +
+          `10. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow)\n` +
+          `11. Set a page transition (slide, fade, zoom) on each screen\n` +
+          `12. Use screen backgrounds (gradient or image) on at least 1 immersive screen\n\n` +
+          `Generate the COMPLETE app JSON now. Make it PREMIUM — this should look like a Dribbble featured shot.`;
 
-        try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
-        catch (e) { throw new Error((e as Error).message); }
         const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
 
         if (result.ok && result.text.length > 50) {
-          // Try to parse and validate
           const parsed = parseAppSchema(result.text);
           if (parsed) {
             const { validateAndFixSchema } = await import("./schema-validator");
@@ -407,29 +448,32 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
               .update({ result: finalJson, status: "ready", error_text: null })
               .eq("id", project.id);
 
-            // Post a message to the chat
+            const screenCount = (fixed ?? parsed).screens?.length ?? 0;
+            const elementCount = (fixed ?? parsed).screens?.reduce((sum: number, s: { elements?: unknown[] }) => sum + (s.elements?.length ?? 0), 0) ?? 0;
+
             await supabase.from("agent_messages").insert({
               run_id: data.runId,
               project_id: project.id,
               user_id: userId,
               role: "summary_agent",
-              content: `🎨 **App schema regenerated!** All ${completedTasks.length} agent outputs have been combined into a premium app UI. The live preview has been updated.`,
+              content: `🎨 **App built!** ${completedTasks.length} agents collaborated to create a ${screenCount}-screen app with ${elementCount} premium elements. The live preview is ready!`,
             });
 
-            console.log("[finalizeAgentRun] ✅ App schema regenerated from agent outputs", {
+            console.log("[finalizeAgentRun] ✅ App schema regenerated", {
               projectId: project.id,
               agentCount: completedTasks.length,
+              screens: screenCount,
+              elements: elementCount,
               jsonLength: finalJson.length,
             });
           } else {
-            // Raw text is probably valid but didn't parse — save it anyway
             await supabase
               .from("projects")
               .update({ result: result.text, status: "ready" })
               .eq("id", project.id);
           }
         } else {
-          console.error("[finalizeAgentRun] Code gen failed or returned too little text", {
+          console.error("[finalizeAgentRun] Code gen failed", {
             ok: result.ok,
             textLength: result.ok ? result.text.length : 0,
             error: !result.ok ? result.error : undefined,
