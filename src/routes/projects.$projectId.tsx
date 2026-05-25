@@ -54,6 +54,8 @@ import {
   Rocket,
   Layers,
   LayoutGrid,
+  FolderCode,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +70,7 @@ import { ProjectPreview } from "@/components/ProjectPreview";
 import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
-import { DeviceFrame } from "@/components/DeviceFrame";
+import { DeviceFrame, DEVICE_PRESETS, DeviceToolbar } from "@/components/DeviceFrame";
 import { resolveTheme } from "@/lib/mobile-theme";
 import { ComponentPalette } from "@/components/ComponentPalette";
 import { parseAppSchema } from "@/lib/code-gen";
@@ -90,6 +92,9 @@ import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { FigmaImportPanel } from "@/components/FigmaImportPanel";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
+import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
+import { CodeViewerPanel } from "@/components/CodeViewerPanel";
+import { SecretsPanel } from "@/components/SecretsPanel";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
 import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
@@ -215,6 +220,8 @@ const SIDE_ITEMS = [
   { icon: Rocket, label: "Deployments" },
   { icon: Layers, label: "Figma Import" },
   { icon: Smartphone, label: "Code Export" },
+  { icon: FolderCode, label: "Code Viewer" },
+  { icon: Shield, label: "Secrets" },
   { icon: History, label: "Ver. History" },
   { icon: LifeBuoy, label: "Get Support" },
   { icon: Settings, label: "Settings" },
@@ -339,7 +346,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -349,6 +356,8 @@ function ProjectPage() {
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
   const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
+  const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
+  const [landscape, setLandscape] = useState(false);
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
     if (typeof window === "undefined") return {};
@@ -1297,6 +1306,8 @@ function ProjectPage() {
               (label === "Deployments" && sidePanel === "deployments") ||
               (label === "Figma Import" && sidePanel === "figma") ||
               (label === "Code Export" && sidePanel === "code_export") ||
+              (label === "Code Viewer" && sidePanel === "code_viewer") ||
+              (label === "Secrets" && sidePanel === "secrets") ||
               (label === "Ver. History" && sidePanel === "history") ||
               (label === "Get Support" && sidePanel === "support") ||
               (label === "Settings" && sidePanel === "settings");
@@ -1331,6 +1342,10 @@ function ProjectPage() {
                     setSidePanel("figma");
                   } else if (label === "Code Export") {
                     setSidePanel("code_export");
+                  } else if (label === "Code Viewer") {
+                    setSidePanel("code_viewer");
+                  } else if (label === "Secrets") {
+                    setSidePanel("secrets");
                   } else if (label === "Ver. History") {
                     setSidePanel("history");
                   } else if (label === "Get Support") {
@@ -2175,44 +2190,12 @@ function ProjectPage() {
 
       {/* ─── Version History Panel ─── */}
       {sidePanel === "history" && (
-        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
-          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
-                <History className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-display text-base truncate">Version History</h2>
-                <p className="text-[10px] text-muted-foreground truncate">Track changes & rollback</p>
-              </div>
-            </div>
-            <button type="button" onClick={() => setSidePanel(null)} className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Close</button>
-          </header>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-xs font-semibold text-foreground">Current Version</span>
-                <span className="text-[9px] font-mono text-muted-foreground ml-auto">{new Date().toLocaleDateString()}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Latest build with all agent modifications</p>
-            </div>
-            {[
-              { label: "Initial Build", time: "Created", desc: "First generation from prompt" },
-              { label: "Schema Generated", time: "Auto", desc: "App schema generated by AI agents" },
-            ].map((v, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card/60 p-4 space-y-1 opacity-70">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-                  <span className="text-xs font-medium text-foreground">{v.label}</span>
-                  <span className="text-[9px] font-mono text-muted-foreground ml-auto">{v.time}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">{v.desc}</p>
-              </div>
-            ))}
-            <p className="text-[10px] text-muted-foreground text-center pt-4 italic">Full version history with diff viewing coming soon</p>
-          </div>
-        </section>
+        <VersionHistoryPanel
+          projectId={projectId}
+          currentSchema={project?.result ?? null}
+          onClose={() => setSidePanel(null)}
+          onRestore={() => reloadProject()}
+        />
       )}
 
       {/* ─── Get Support Panel ─── */}
@@ -2380,6 +2363,24 @@ function ProjectPage() {
             onClose={() => setSidePanel(null)}
           />
         </section>
+      )}
+
+      {/* ─── Code Viewer Panel ─── */}
+      {sidePanel === "code_viewer" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <CodeViewerPanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
+      )}
+
+      {/* ─── Secrets Panel ─── */}
+      {sidePanel === "secrets" && (
+        <SecretsPanel
+          projectId={projectId}
+          onClose={() => setSidePanel(null)}
+        />
       )}
 
       <AgentsMdPanel
@@ -2608,25 +2609,17 @@ function ProjectPage() {
           </div>
           {/* Right: live status + restart + preview on device */}
           <div className="pointer-events-auto flex items-center gap-2">
-            {/* iOS / Android toggle */}
-            <div className="inline-flex items-center gap-0.5 h-9 p-0.5 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setDeviceOS("ios")}
-                className={`h-8 px-3 rounded-full transition-colors ${deviceOS === "ios" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                title="iOS device frame"
-              >
-                iOS
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeviceOS("android")}
-                className={`h-8 px-3 rounded-full transition-colors ${deviceOS === "android" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                title="Android device frame"
-              >
-                Android
-              </button>
-            </div>
+            {/* Device Selector Toolbar */}
+            <DeviceToolbar
+              selectedDevice={selectedDevice}
+              onDeviceChange={(name) => {
+                setSelectedDevice(name);
+                const preset = DEVICE_PRESETS.find((d) => d.name === name);
+                if (preset) setDeviceOS(preset.os);
+              }}
+              landscape={landscape}
+              onLandscapeToggle={() => setLandscape((l) => !l)}
+            />
             {/* Regenerate assets */}
             <button
               type="button"
@@ -3106,6 +3099,16 @@ function ProjectPage() {
         >
           <DeviceFrame
             os={deviceOS}
+            width={(() => {
+              const preset = DEVICE_PRESETS.find((d) => d.name === selectedDevice);
+              if (!preset) return undefined;
+              return landscape ? preset.height : preset.width;
+            })()}
+            height={(() => {
+              const preset = DEVICE_PRESETS.find((d) => d.name === selectedDevice);
+              if (!preset) return undefined;
+              return landscape ? preset.width : preset.height;
+            })()}
             screenBg={(() => {
               try {
                 const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);

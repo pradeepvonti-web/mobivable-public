@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useNavigate } from "@tanstack/react-router";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -11,10 +11,12 @@ import {
   changeSubscriptionPlan,
 } from "@/utils/payments.functions";
 import { AppPromptComposer } from "@/components/AppPromptComposer";
+import TemplateGallery from "@/components/TemplateGallery";
 import {
   Smartphone, Zap, MessageSquare, BarChart3, Search, Filter,
   MoreHorizontal, Trash2, Copy, Star, StarOff, Sparkles,
   ShoppingCart, Users, Dumbbell, UtensilsCrossed, Briefcase, Palette,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -76,6 +78,8 @@ function DashboardPage() {
     try { return new Set(JSON.parse(localStorage.getItem("fav-projects") ?? "[]")); } catch { return new Set(); }
   });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const navigate = useNavigate();
 
   const portal = useServerFn(openCustomerPortal);
   const changePlan = useServerFn(changeSubscriptionPlan);
@@ -316,7 +320,14 @@ function DashboardPage() {
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Quick Start</p>
                 <h3 className="font-display text-xl uppercase tracking-tight">Start from a Template</h3>
               </div>
-              <Sparkles className="h-5 w-5 text-primary" />
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/40 text-primary font-display text-xs uppercase tracking-wider hover:bg-primary/10 transition-colors"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Browse All Templates
+              </button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
@@ -457,6 +468,17 @@ function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Template Gallery Modal */}
+      {galleryOpen && (
+        <TemplateGallery
+          onSelect={(projectId: string) => {
+            setGalleryOpen(false);
+            navigate({ to: "/projects/$projectId", params: { projectId } });
+          }}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </PageShell>
   );
 }

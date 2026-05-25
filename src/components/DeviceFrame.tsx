@@ -1,7 +1,97 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Wifi, BatteryFull, Signal } from "lucide-react";
+import { Wifi, BatteryFull, Signal, RotateCcw } from "lucide-react";
 
 export type DeviceOS = "ios" | "android";
+
+/* ─── Device Presets ─── */
+
+export type DevicePreset = {
+  name: string;
+  width: number;
+  height: number;
+  os: DeviceOS;
+  category: "phone" | "tablet";
+};
+
+export const DEVICE_PRESETS: DevicePreset[] = [
+  { name: "iPhone SE", width: 375, height: 667, os: "ios", category: "phone" },
+  { name: "iPhone 16", width: 393, height: 852, os: "ios", category: "phone" },
+  { name: "iPhone 16 Pro Max", width: 430, height: 932, os: "ios", category: "phone" },
+  { name: "Pixel 7", width: 412, height: 915, os: "android", category: "phone" },
+  { name: "Galaxy S24", width: 360, height: 780, os: "android", category: "phone" },
+  { name: "iPad", width: 820, height: 1180, os: "ios", category: "tablet" },
+  { name: 'iPad Pro 12.9"', width: 1024, height: 1366, os: "ios", category: "tablet" },
+  { name: "Galaxy Tab S9", width: 800, height: 1280, os: "android", category: "tablet" },
+];
+
+/* ─── Device Toolbar ─── */
+
+export function DeviceToolbar({
+  selectedDevice,
+  onDeviceChange,
+  landscape,
+  onLandscapeToggle,
+}: {
+  selectedDevice: string;
+  onDeviceChange: (name: string) => void;
+  landscape: boolean;
+  onLandscapeToggle: () => void;
+}) {
+  const preset = DEVICE_PRESETS.find((d) => d.name === selectedDevice);
+  const w = preset ? (landscape ? preset.height : preset.width) : 0;
+  const h = preset ? (landscape ? preset.width : preset.height) : 0;
+
+  const phones = DEVICE_PRESETS.filter((d) => d.category === "phone");
+  const tablets = DEVICE_PRESETS.filter((d) => d.category === "tablet");
+
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-1.5 shadow-lg backdrop-blur text-xs">
+      <select
+        value={selectedDevice}
+        onChange={(e) => onDeviceChange(e.target.value)}
+        className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E\")",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 0 center",
+        }}
+      >
+        <optgroup label="Phones">
+          {phones.map((d) => (
+            <option key={d.name} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Tablets">
+          {tablets.map((d) => (
+            <option key={d.name} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+
+      <div className="w-px h-4 bg-border" />
+
+      <button
+        type="button"
+        onClick={onLandscapeToggle}
+        className={`p-1 rounded-md transition-colors ${landscape ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`}
+        title={landscape ? "Switch to portrait" : "Switch to landscape"}
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="w-px h-4 bg-border" />
+
+      <span className="text-muted-foreground font-mono tabular-nums whitespace-nowrap">
+        {w} × {h}
+      </span>
+    </div>
+  );
+}
 
 /**
  * Realistic iOS / Android device frame.
