@@ -1173,6 +1173,15 @@ function ProjectPage() {
             <Download className="h-3.5 w-3.5" />
             {exportingExpo ? "Packaging…" : "Export Expo"}
           </button>
+          <Link
+            to="/projects/$projectId/live"
+            params={{ projectId }}
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 lg:px-4 rounded-full border border-primary/40 bg-primary/10 text-primary text-xs lg:text-sm font-medium hover:bg-primary/20 transition-colors"
+            title="Generate & preview a real Expo app"
+          >
+            <Smartphone className="h-3.5 w-3.5" />
+            Live App
+          </Link>
           <button
             type="button"
             onClick={() => setPublishOpen(true)}
@@ -1181,6 +1190,7 @@ function ProjectPage() {
             <Upload className="h-3.5 w-3.5" />
             Publish
           </button>
+
           <button
             type="button"
             onClick={() => setPaneTab("export")}
