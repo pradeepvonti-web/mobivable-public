@@ -2647,9 +2647,9 @@ function ProjectPage() {
       )}
 
       {/* Preview pane */}
-      <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-10 lg:py-0 min-h-[720px] lg:min-h-0`}>
+      <section className={`${mobileView === "preview" ? "grid" : "hidden"} lg:grid flex-1 relative place-items-center bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden py-24 lg:py-28 min-h-[720px] lg:min-h-0`}>
         {/* Top toolbar: segmented pane tabs on the left, status + actions on the right */}
-        <div className="absolute top-4 inset-x-4 z-30 flex items-center justify-between gap-3 pointer-events-none">
+        <div className="absolute top-4 inset-x-4 z-30 flex flex-col gap-3 pointer-events-none xl:flex-row xl:items-start xl:justify-between">
           {/* Left: segmented pane tabs */}
           <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 shadow-lg backdrop-blur">
             <button
@@ -2699,7 +2699,7 @@ function ProjectPage() {
             </button>
           </div>
           {/* Right: live status + restart + preview on device */}
-          <div className="pointer-events-auto flex items-center gap-2">
+          <div className="pointer-events-auto ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 xl:max-w-[calc(100%-16rem)]">
             {/* Device Selector Toolbar */}
             <DeviceToolbar
               selectedDevice={selectedDevice}
@@ -2745,7 +2745,8 @@ function ProjectPage() {
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
             >
               <Sparkles className={`h-3.5 w-3.5 ${genAssetsState === "running" ? "animate-pulse" : ""}`} />
-              {genAssetsState === "running" ? "Generating..." : "Regenerate assets"}
+              <span className="hidden md:inline">{genAssetsState === "running" ? "Generating..." : "Regenerate assets"}</span>
+              <span className="md:hidden">{genAssetsState === "running" ? "Generating" : "Assets"}</span>
             </button>
 
             <div className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
@@ -2768,7 +2769,7 @@ function ProjectPage() {
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${restarting ? "animate-spin" : ""}`} />
-              {restarting ? "Restarting..." : "Restart"}
+              <span className="hidden md:inline">{restarting ? "Restarting..." : "Restart"}</span>
             </button>
             <button
               type="button"
@@ -2781,7 +2782,7 @@ function ProjectPage() {
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-primary/60 bg-primary/10 text-xs text-primary hover:bg-primary/20 shadow-lg backdrop-blur transition-colors"
             >
               <Smartphone className="h-3.5 w-3.5" />
-              Real Device
+              <span className="hidden md:inline">Real Device</span>
             </button>
           </div>
         </div>
@@ -3144,7 +3145,7 @@ function ProjectPage() {
             </div>
           </aside>
         )}
-        <div className="absolute top-4 left-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        <div className="absolute left-4 top-[5.75rem] flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground lg:top-[6.25rem]">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
               isReady ? "bg-primary" : "bg-muted-foreground"
