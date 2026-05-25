@@ -1,0 +1,29 @@
+# Render Blueprint — Flutter Preview Engine (Static Site)
+# Deployed separately from the main Cloudflare Workers app.
+# The main app references this via VITE_FLUTTER_PREVIEW_URL env var.
+
+services:
+  - type: web
+    name: mobivable-flutter-preview
+    runtime: static
+    # The build output is pre-built and committed to the repo
+    # at public/flutter-preview/ in the ai-app-studio repo.
+    # We just need to serve it as a static site.
+    buildCommand: echo "Using pre-built Flutter Web output"
+    staticPublishPath: ./public/flutter-preview
+    headers:
+      - path: /*
+        name: Cross-Origin-Embedder-Policy
+        value: credentialless
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: "*"
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
