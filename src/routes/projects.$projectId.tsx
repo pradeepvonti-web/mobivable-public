@@ -57,6 +57,13 @@ import {
   LayoutGrid,
   FolderCode,
   Shield,
+  Globe,
+  FileText,
+  Cloud,
+  BarChart3,
+  MoreHorizontal,
+  ArrowUpRight,
+  PanelLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
