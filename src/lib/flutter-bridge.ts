@@ -3,9 +3,11 @@ import type { MobileTheme } from './mobile-theme';
 
 // The URL where the Flutter preview engine is hosted.
 // Override via VITE_FLUTTER_PREVIEW_URL env var.
-// Default: Render-hosted static site.
+// In dev: uses local /flutter-preview/ from public folder.
+// In prod: uses Render-hosted static site.
 export const FLUTTER_PREVIEW_URL =
-  import.meta.env.VITE_FLUTTER_PREVIEW_URL || 'https://flutter-preview-engine.onrender.com/index.html';
+  import.meta.env.VITE_FLUTTER_PREVIEW_URL ||
+  (import.meta.env.DEV ? '/flutter-preview/index.html' : 'https://flutter-preview-engine.onrender.com/index.html');
 
 export type FlutterMessage =
   | { type: 'SCHEMA_UPDATE'; schema: MobileAppSchema }
