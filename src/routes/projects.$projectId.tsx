@@ -1174,7 +1174,7 @@ function ProjectPage() {
         </button>
         <button
           type="button"
-          onClick={() => setPaneTab("secrets")}
+          onClick={() => setPaneTab("export")}
           className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           aria-label="Cloud"
           title="Cloud / Secrets"
