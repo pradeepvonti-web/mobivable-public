@@ -1324,7 +1324,7 @@ type BuiltinTemplate = {
   is_featured: boolean;
 };
 
-export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
+const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
   {
     name: "FitTrack Pro",
     description: "A comprehensive fitness tracking app with activity logging, calorie tracking, workout stats, and personal progress monitoring.",
