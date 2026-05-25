@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
+import { PlanSummary } from "@/components/PlanSummary";
 import {
   ArrowLeft,
   MessageSquare,
@@ -1660,9 +1661,7 @@ function ProjectPage() {
                     )}
 
                     {isReady && project.result && (
-                      <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-                        <ReactMarkdown>{project.result}</ReactMarkdown>
-                      </div>
+                      <PlanSummary content={project.result} />
                     )}
                   </div>
                 </div>
