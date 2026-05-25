@@ -18,7 +18,7 @@ const PHASE_ICONS: Record<SDLCPhase, typeof Check> = {
  * Subscribes to realtime updates on the project_phases table so the bar
  * advances automatically when the backend calls advancePhase.
  */
-export function SDLCProgressBar({ projectId }: { projectId: string }) {
+export function SDLCProgressBar({ projectId, compact = false }: { projectId: string; compact?: boolean }) {
   const [phases, setPhases] = useState<{ phase: SDLCPhase; status: string }[]>([]);
   const [currentPhase, setCurrentPhase] = useState<string>('requirements');
   const getProgress = useServerFn(getProjectProgress);
@@ -59,6 +59,50 @@ export function SDLCProgressBar({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   if (phases.length === 0) return null;
+
+  if (compact) {
+    const activeInfo = SDLC_PHASES[currentPhase as SDLCPhase];
+    return (
+      <div
+        className="hidden md:flex items-center gap-0.5 h-7 px-2 rounded-full border border-border bg-muted/30"
+        title={activeInfo ? `Phase: ${activeInfo.label}` : 'SDLC progress'}
+        aria-label="SDLC progress"
+      >
+        {PHASE_ORDER.map((phase, i) => {
+          const phaseData = phases.find(p => p.phase === phase);
+          const status = phaseData?.status ?? 'pending';
+          const Icon = PHASE_ICONS[phase];
+          const isActive = status === 'active';
+          const isCompleted = status === 'completed';
+          return (
+            <div key={phase} className="flex items-center">
+              <div
+                className={`h-5 w-5 grid place-items-center rounded-full transition-colors ${
+                  isCompleted
+                    ? 'text-emerald-500'
+                    : isActive
+                      ? 'text-primary'
+                      : 'text-muted-foreground/40'
+                }`}
+                title={SDLC_PHASES[phase].label}
+              >
+                {isCompleted ? (
+                  <Check className="h-3 w-3" />
+                ) : isActive ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Icon className="h-3 w-3" />
+                )}
+              </div>
+              {i < PHASE_ORDER.length - 1 && (
+                <div className={`w-2 h-px ${isCompleted ? 'bg-emerald-500/40' : 'bg-border'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-0 px-4 py-3 bg-card/60 border-b border-border">
