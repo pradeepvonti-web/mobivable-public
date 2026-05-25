@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { Output, generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -14,6 +16,62 @@ export type SnackPayload = {
 };
 
 const SDK_VERSION = "52.0.0";
+const SnackGenerationSchema = z.object({
+  files: z.record(z.string()),
+  dependencies: z.record(z.string()).default({}),
+});
+
+const createLovableAiGatewayProvider = (lovableApiKey: string) =>
+  createOpenAICompatible({
+    name: "lovable",
+    baseURL: "https://ai.gateway.lovable.dev/v1",
+    headers: {
+      "Lovable-API-Key": lovableApiKey,
+      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+    },
+  });
+
+function extractJSON(raw: string) {
+  let cleaned = raw
+    .replace(/^```json\s*/im, "")
+    .replace(/^```\s*/im, "")
+    .replace(/```\s*$/im, "")
+    .trim();
+
+  if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+    const objStart = cleaned.indexOf("{");
+    const arrStart = cleaned.indexOf("[");
+    const isArray = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+    const start = isArray ? arrStart : objStart;
+    const end = isArray ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+
+    if (start !== -1 && end > start) {
+      cleaned = cleaned.slice(start, end + 1);
+    } else {
+      throw new Error("No valid JSON found in AI response");
+    }
+  }
+
+  return JSON.parse(cleaned);
+}
+
+function normalizeSnackOutput(parsed: z.infer<typeof SnackGenerationSchema>) {
+  if (!parsed.files["App.tsx"]) {
+    throw new Error("AI output missing App.tsx");
+  }
+
+  const files: SnackFileMap = {};
+  for (const [path, contents] of Object.entries(parsed.files)) {
+    files[path] = { type: "CODE", contents };
+  }
+
+  const dependencies: Record<string, { version: string }> = {};
+  for (const [name, version] of Object.entries(parsed.dependencies ?? {})) {
+    dependencies[name] = { version: String(version) };
+  }
+
+  return { files, dependencies };
+}
 
 // ---------- AI codegen ----------
 async function generateExpoFilesFromPrompt(opts: {
@@ -40,60 +98,60 @@ Rules:
 User prompt: ${opts.prompt}
 Keep total output under 8 files, ~6KB max.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userMsg },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 4000,
-    }),
-  });
+  const gateway = createLovableAiGatewayProvider(key);
+  const prompt = `${userMsg}\nExisting schema hint: ${JSON.stringify(opts.schema ?? {}).slice(0, 1200)}`;
 
-
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`AI gateway ${res.status}: ${txt.slice(0, 400)}`);
-  }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = data.choices?.[0]?.message?.content ?? "{}";
-  let parsed: { files?: Record<string, string>; dependencies?: Record<string, string> };
-  // Strip markdown fences and extract first JSON object
-  const cleaned = content
-    .replace(/^\s*```(?:json)?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .trim();
-  const jsonStart = cleaned.indexOf("{");
-  const jsonEnd = cleaned.lastIndexOf("}");
-  const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned;
   try {
-    parsed = JSON.parse(jsonStr);
-  } catch {
-    throw new Error(`AI returned non-JSON output: ${content.slice(0, 200)}`);
-  }
+    const { output } = await generateText({
+      model: gateway("google/gemini-3.5-flash"),
+      system,
+      prompt,
+      output: Output.object({ schema: SnackGenerationSchema }),
+    });
 
-  if (!parsed.files || !parsed.files["App.tsx"]) {
-    throw new Error("AI output missing App.tsx");
-  }
+    return normalizeSnackOutput(SnackGenerationSchema.parse(output));
+  } catch (structuredError) {
+    console.error("[snack] Structured AI output failed, retrying with raw JSON fallback", structuredError);
 
-  const files: SnackFileMap = {};
-  for (const [path, contents] of Object.entries(parsed.files)) {
-    files[path] = { type: "CODE", contents };
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": key,
+        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 5000,
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`AI gateway ${res.status}: ${txt.slice(0, 400)}`);
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content ?? "";
+    const finishReason = data.choices?.[0]?.finish_reason;
+
+    if (finishReason === "length" || finishReason === "max_tokens") {
+      throw new Error("AI response was truncated before valid JSON could be returned");
+    }
+
+    try {
+      return normalizeSnackOutput(SnackGenerationSchema.parse(extractJSON(content)));
+    } catch {
+      throw new Error(`AI returned non-JSON output: ${content.slice(0, 200)}`);
+    }
   }
-  const dependencies: Record<string, { version: string }> = {};
-  for (const [name, version] of Object.entries(parsed.dependencies ?? {})) {
-    dependencies[name] = { version: String(version) };
-  }
-  return { files, dependencies };
 }
 
 // ---------- Snack save ----------
