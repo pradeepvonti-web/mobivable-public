@@ -93,18 +93,12 @@ export const createProjectFromTemplate = createServerFn({ method: "POST" })
 
     if (tErr || !template) throw new Error("Template not found");
 
-    // Increment use_count
-    await Promise.resolve(
-      supabaseAdmin.rpc("increment_template_use_count", {
-        p_template_id: data.templateId,
-      })
-    ).catch(() => {
-      // Fallback: manual increment if RPC doesn't exist
-      return supabaseAdmin
-        .from("app_templates")
-        .update({ use_count: (template as any).use_count ? (template as any).use_count + 1 : 1 })
-        .eq("id", data.templateId);
-    });
+    // Increment use_count via manual update (RPC not defined)
+    await supabaseAdmin
+      .from("app_templates")
+      .update({ use_count: ((template as { use_count?: number }).use_count ?? 0) + 1 })
+      .eq("id", data.templateId);
+
 
     // Create the project
     const { data: project, error: pErr } = await supabaseAdmin
