@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type CreditBalance = {
   monthly_remaining: number;
@@ -15,31 +14,35 @@ export type CreditBalance = {
 export const getCreditBalance = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<CreditBalance> => {
-    const { userId } = context;
+    const { supabase, userId } = context;
 
     // Ensure a balance row exists
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await supabase
       .from("ai_credit_balances")
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!existing) {
-      await supabaseAdmin.rpc("grant_ai_credits", { p_user: userId });
+      const { error } = await supabase.rpc("grant_ai_credits", { p_user: userId });
+      if (error) throw new Error(error.message);
     }
 
-    const [{ data: bal }, { data: profile }] = await Promise.all([
-      supabaseAdmin
+    const [{ data: bal, error: balError }, { data: profile, error: profileError }] = await Promise.all([
+      supabase
         .from("ai_credit_balances")
         .select("*")
         .eq("user_id", userId)
         .single(),
-      supabaseAdmin
+      supabase
         .from("profiles")
         .select("plan")
         .eq("id", userId)
         .single(),
     ]);
+
+    if (balError) throw new Error(balError.message);
+    if (profileError) throw new Error(profileError.message);
 
     return {
       monthly_remaining: bal?.monthly_remaining ?? 0,
@@ -61,14 +64,14 @@ export const consumeCredits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConsumeInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { userId } = context;
+    const { supabase, userId } = context;
     const rpcArgs: { p_user: string; p_amount: number; p_reason: string; p_project?: string } = {
       p_user: userId,
       p_amount: data.amount,
       p_reason: data.reason,
     };
     if (data.projectId) rpcArgs.p_project = data.projectId;
-    const { data: result, error } = await supabaseAdmin.rpc("consume_ai_credits", rpcArgs);
+    const { data: result, error } = await supabase.rpc("consume_ai_credits", rpcArgs);
     if (error) throw new Error(error.message);
     return result as unknown as { ok: boolean; daily_remaining: number; monthly_remaining: number };
   });
