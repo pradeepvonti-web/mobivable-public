@@ -19,15 +19,8 @@ const SnackGenerationSchema = z.object({
   dependencies: z.record(z.string()).default({}),
 });
 
-const createLovableAiGatewayProvider = (lovableApiKey: string) =>
-  createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: {
-      "Lovable-API-Key": lovableApiKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-    },
-  });
+
+
 
 function extractJSON(raw: string) {
   let cleaned = raw
