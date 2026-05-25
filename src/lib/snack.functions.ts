@@ -84,8 +84,6 @@ Rules:
 
   const userMsg = `Build: ${opts.appName} — ${opts.prompt}`.slice(0, 500);
 
-  const userMsg = `App name: ${opts.appName}
-Idea: ${opts.prompt}`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
