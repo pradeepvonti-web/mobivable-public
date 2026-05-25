@@ -449,6 +449,48 @@ export type Database = {
           },
         ]
       }
+      eas_test_runs: {
+        Row: {
+          build_id: string | null
+          created_at: string
+          error_text: string | null
+          id: string
+          logs: string
+          project_id: string
+          screenshots: string[]
+          status: string
+          updated_at: string
+          user_id: string
+          yaml_flow: string
+        }
+        Insert: {
+          build_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          logs?: string
+          project_id: string
+          screenshots?: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+          yaml_flow?: string
+        }
+        Update: {
+          build_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          logs?: string
+          project_id?: string
+          screenshots?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+          yaml_flow?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -1078,6 +1120,7 @@ export type Database = {
           created_at: string
           current_phase: string | null
           error_text: string | null
+          figma_tokens: Json | null
           id: string
           model: string
           name: string
@@ -1095,6 +1138,7 @@ export type Database = {
           created_at?: string
           current_phase?: string | null
           error_text?: string | null
+          figma_tokens?: Json | null
           id?: string
           model: string
           name: string
@@ -1112,6 +1156,7 @@ export type Database = {
           created_at?: string
           current_phase?: string | null
           error_text?: string | null
+          figma_tokens?: Json | null
           id?: string
           model?: string
           name?: string
