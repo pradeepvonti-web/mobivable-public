@@ -96,6 +96,7 @@ import { CodeExportPanel } from "@/components/CodeExportPanel";
 import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 import { CodeViewerPanel } from "@/components/CodeViewerPanel";
 import { SecretsPanel } from "@/components/SecretsPanel";
+import { TestingPanel } from "@/components/TestingPanel";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
 import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
@@ -223,6 +224,7 @@ const SIDE_ITEMS = [
   { icon: Smartphone, label: "Code Export" },
   { icon: FolderCode, label: "Code Viewer" },
   { icon: Shield, label: "Secrets" },
+  { icon: Smartphone, label: "Testing & QA" },
   { icon: History, label: "Ver. History" },
   { icon: LifeBuoy, label: "Get Support" },
   { icon: Settings, label: "Settings" },
@@ -348,7 +350,7 @@ function ProjectPage() {
     });
   }, []);
   const isPro = userPlan === "pro" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1311,6 +1313,7 @@ function ProjectPage() {
               (label === "Code Export" && sidePanel === "code_export") ||
               (label === "Code Viewer" && sidePanel === "code_viewer") ||
               (label === "Secrets" && sidePanel === "secrets") ||
+              (label === "Testing & QA" && sidePanel === "testing") ||
               (label === "Ver. History" && sidePanel === "history") ||
               (label === "Get Support" && sidePanel === "support") ||
               (label === "Settings" && sidePanel === "settings");
@@ -1349,6 +1352,8 @@ function ProjectPage() {
                     setSidePanel("code_viewer");
                   } else if (label === "Secrets") {
                     setSidePanel("secrets");
+                  } else if (label === "Testing & QA") {
+                    setSidePanel("testing");
                   } else if (label === "Ver. History") {
                     setSidePanel("history");
                   } else if (label === "Get Support") {
@@ -2403,6 +2408,16 @@ function ProjectPage() {
           projectId={projectId}
           onClose={() => setSidePanel(null)}
         />
+      )}
+
+      {/* ─── Testing Panel ─── */}
+      {sidePanel === "testing" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <TestingPanel
+            projectId={projectId}
+            onClose={() => setSidePanel(null)}
+          />
+        </section>
       )}
 
       <AgentsMdPanel
