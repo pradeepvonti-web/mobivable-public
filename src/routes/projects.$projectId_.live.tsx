@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2, Sparkles, Smartphone, ExternalLink } from "lucide-react";
 import { generateExpoSnack, getExpoSnack, type SnackPayload } from "@/lib/snack.functions";
 
-export const Route = createFileRoute("/projects/$projectId/live")({
+export const Route = createFileRoute("/projects/$projectId_/live")({
   component: LivePreviewPage,
 });
 
