@@ -77,7 +77,7 @@ export const createSnapshot = createServerFn({ method: "POST" })
     const label = data.label?.trim() || "Auto-save";
     const source = data.source ?? "manual";
 
-    const { data: snapshot, error: insertErr } = await (supabaseAdmin as any)
+    const { data: snapshot, error: insertErr } = await supabaseAdmin
       .from("project_snapshots")
       .insert({
         project_id: data.projectId,
@@ -111,7 +111,7 @@ export const listSnapshots = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { data: snapshots, error } = await (supabaseAdmin as any)
+    const { data: snapshots, error } = await supabaseAdmin
       .from("project_snapshots")
       .select("id, label, source, element_count, screen_count, created_at")
       .eq("project_id", data.projectId)
@@ -137,7 +137,7 @@ export const getSnapshot = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { data: snapshot, error } = await (supabaseAdmin as any)
+    const { data: snapshot, error } = await supabaseAdmin
       .from("project_snapshots")
       .select("*")
       .eq("id", data.snapshotId)
@@ -165,7 +165,7 @@ export const restoreSnapshot = createServerFn({ method: "POST" })
     const { userId } = context;
 
     // Fetch the snapshot to restore
-    const { data: snapshot, error: snapErr } = await (supabaseAdmin as any)
+    const { data: snapshot, error: snapErr } = await supabaseAdmin
       .from("project_snapshots")
       .select("schema, visual_edits")
       .eq("id", data.snapshotId)
@@ -199,7 +199,7 @@ export const restoreSnapshot = createServerFn({ method: "POST" })
         currentSchema = { raw: project.result };
       }
 
-      await (supabaseAdmin as any).from("project_snapshots").insert({
+      await supabaseAdmin.from("project_snapshots").insert({
         project_id: data.projectId,
         user_id: userId,
         label: "Before restore",
@@ -244,7 +244,7 @@ export const deleteSnapshot = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("project_snapshots")
       .delete()
       .eq("id", data.snapshotId)

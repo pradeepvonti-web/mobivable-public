@@ -34,7 +34,7 @@ export const listTemplates = createServerFn({ method: "GET" })
     z.object({ category: z.string().optional() }).parse(input ?? {}),
   )
   .handler(async ({ data }) => {
-    let query = (supabaseAdmin as any)
+    let query = supabaseAdmin
       .from("app_templates")
       .select(
         "id, name, description, category, tags, preview_image_url, feature_list, is_featured, use_count, created_at",
@@ -58,7 +58,7 @@ export const getTemplate = createServerFn({ method: "GET" })
     z.object({ templateId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { data: template, error } = await (supabaseAdmin as any)
+    const { data: template, error } = await supabaseAdmin
       .from("app_templates")
       .select("*")
       .eq("id", data.templateId)
@@ -85,7 +85,7 @@ export const createProjectFromTemplate = createServerFn({ method: "POST" })
     const { userId } = context;
 
     // Fetch the template
-    const { data: template, error: tErr } = await (supabaseAdmin as any)
+    const { data: template, error: tErr } = await supabaseAdmin
       .from("app_templates")
       .select("id, name, description, schema")
       .eq("id", data.templateId)
@@ -95,12 +95,12 @@ export const createProjectFromTemplate = createServerFn({ method: "POST" })
 
     // Increment use_count
     await Promise.resolve(
-      (supabaseAdmin as any).rpc("increment_template_use_count", {
+      supabaseAdmin.rpc("increment_template_use_count", {
         p_template_id: data.templateId,
       })
     ).catch(() => {
       // Fallback: manual increment if RPC doesn't exist
-      return (supabaseAdmin as any)
+      return supabaseAdmin
         .from("app_templates")
         .update({ use_count: (template as any).use_count ? (template as any).use_count + 1 : 1 })
         .eq("id", data.templateId);
@@ -1427,7 +1427,7 @@ export const seedBuiltinTemplates = createServerFn({ method: "POST" })
 
     for (const tpl of BUILTIN_TEMPLATES) {
       // Check if already exists by name
-      const { data: existing } = await (supabaseAdmin as any)
+      const { data: existing } = await supabaseAdmin
         .from("app_templates")
         .select("id")
         .eq("name", tpl.name)
@@ -1435,7 +1435,7 @@ export const seedBuiltinTemplates = createServerFn({ method: "POST" })
 
       if (existing) continue;
 
-      const { error } = await (supabaseAdmin as any).from("app_templates").insert({
+      const { error } = await supabaseAdmin.from("app_templates").insert({
         name: tpl.name,
         description: tpl.description,
         category: tpl.category,
