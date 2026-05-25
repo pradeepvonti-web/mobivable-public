@@ -36,21 +36,25 @@ export function SDLCProgressBar({ projectId }: { projectId: string }) {
 
   // Subscribe to realtime updates on project_phases
   useEffect(() => {
-    const ch = supabase.channel(`sdlc_${projectId}`)
-      .on('postgres_changes', {
+    const channelName = `sdlc_${projectId}_${Math.random().toString(36).slice(2)}`;
+    const ch = supabase.channel(channelName);
+    ch.on(
+      'postgres_changes' as never,
+      {
         event: '*',
         schema: 'public',
         table: 'project_phases',
         filter: `project_id=eq.${projectId}`,
-      }, () => {
+      },
+      () => {
         getProgress({ data: { projectId } }).then(res => {
           if (res.ok) {
             setPhases(res.phases);
             setCurrentPhase(res.currentPhase);
           }
         });
-      })
-      .subscribe();
+      },
+    ).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, [projectId]);
 
