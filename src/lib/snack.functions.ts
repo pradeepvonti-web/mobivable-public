@@ -83,74 +83,49 @@ async function generateExpoFilesFromPrompt(opts: {
   if (!key) throw new Error("LOVABLE_API_KEY missing");
 
   const system = `You are an expert React Native + Expo engineer.
-Generate a COMPLETE runnable Expo SDK ${SDK_VERSION} app as a JSON file map.
+Output ONLY a JSON object: { "files": { "<path>": "<contents>" }, "dependencies": { "<pkg>": "<semver>" } }
 Rules:
-- Output ONLY valid JSON matching: { "files": { "<path>": "<full file contents>" }, "dependencies": { "<pkg>": "<semver>" } }
 - ALWAYS include "App.tsx" as the entry point.
-- Use only packages available on Expo Snack (react-native, expo, react-navigation, react-native-paper, expo-router, @expo/vector-icons, expo-linear-gradient).
-- Keep dependency count minimal. Do not include react/react-native/expo in dependencies (Snack provides them).
-- All screens must be wired through React Navigation. Provide at least Home + 2 inner screens.
-- Use StyleSheet, no Tailwind. Modern, polished UI with good spacing/typography.
-- No native modules requiring config plugins.
-- Do not include comments-only files.`;
+- Keep it SMALL: 1-3 files total, under 4KB combined.
+- Use only built-in Expo SDK ${SDK_VERSION} APIs + @expo/vector-icons + expo-linear-gradient. Avoid react-navigation unless trivially needed.
+- Do NOT include react, react-native, or expo in dependencies (Snack provides them).
+- Use StyleSheet, polished modern UI.`;
 
   const userMsg = `App name: ${opts.appName}
-User prompt: ${opts.prompt}
-Keep total output under 8 files, ~6KB max.`;
+Idea: ${opts.prompt}`;
 
-  const gateway = createLovableAiGatewayProvider(key);
-  const prompt = `${userMsg}\nExisting schema hint: ${JSON.stringify(opts.schema ?? {}).slice(0, 1200)}`;
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": key,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-lite",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMsg },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 4000,
+      temperature: 0.4,
+    }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`AI gateway ${res.status}: ${txt.slice(0, 400)}`);
+  }
+
+  const data = (await res.json()) as {
+    choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content ?? "";
 
   try {
-    const { output } = await generateText({
-      model: gateway("google/gemini-3.5-flash"),
-      system,
-      prompt,
-      output: Output.object({ schema: SnackGenerationSchema }),
-    });
-
-    return normalizeSnackOutput(SnackGenerationSchema.parse(output));
-  } catch (structuredError) {
-    console.error("[snack] Structured AI output failed, retrying with raw JSON fallback", structuredError);
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 5000,
-      }),
-    });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`AI gateway ${res.status}: ${txt.slice(0, 400)}`);
-    }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    const finishReason = data.choices?.[0]?.finish_reason;
-
-    if (finishReason === "length" || finishReason === "max_tokens") {
-      throw new Error("AI response was truncated before valid JSON could be returned");
-    }
-
-    try {
-      return normalizeSnackOutput(SnackGenerationSchema.parse(extractJSON(content)));
-    } catch {
-      throw new Error(`AI returned non-JSON output: ${content.slice(0, 200)}`);
-    }
+    return normalizeSnackOutput(SnackGenerationSchema.parse(extractJSON(content)));
+  } catch (e) {
+    throw new Error(`AI output parse failed: ${(e as Error).message}. Raw: ${content.slice(0, 200)}`);
   }
 }
 
