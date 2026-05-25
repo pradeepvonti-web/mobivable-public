@@ -26,6 +26,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as ProjectsProjectIdLiveRouteImport } from './routes/projects.$projectId.live'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -117,6 +118,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const ProjectsProjectIdLiveRoute = ProjectsProjectIdLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -162,7 +168,8 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/live': typeof ProjectsProjectIdLiveRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -186,7 +193,8 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/live': typeof ProjectsProjectIdLiveRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -211,7 +219,8 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/live': typeof ProjectsProjectIdLiveRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/projects/$projectId/live'
     | '/api/public/github/callback'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/projects/$projectId/live'
     | '/api/public/github/callback'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/projects/$projectId/live'
     | '/api/public/github/callback'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
@@ -308,7 +320,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
-  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRouteWithChildren
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -437,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/projects/$projectId/live': {
+      id: '/projects/$projectId/live'
+      path: '/live'
+      fullPath: '/projects/$projectId/live'
+      preLoaderRoute: typeof ProjectsProjectIdLiveRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -497,6 +516,17 @@ const CheckoutRouteWithChildren = CheckoutRoute._addFileChildren(
   CheckoutRouteChildren,
 )
 
+interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdLiveRoute: typeof ProjectsProjectIdLiveRoute
+}
+
+const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdLiveRoute: ProjectsProjectIdLiveRoute,
+}
+
+const ProjectsProjectIdRouteWithChildren =
+  ProjectsProjectIdRoute._addFileChildren(ProjectsProjectIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
@@ -512,7 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
-  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRouteWithChildren,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
