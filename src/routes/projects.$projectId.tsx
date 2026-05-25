@@ -3370,6 +3370,7 @@ function ProjectPage() {
                         key={previewKey}
                         schema={baseSchema}
                         onScreenChange={setActiveScreenId}
+                        hideStatusBar
                       />
                       {dropFlash && (
                         <div
