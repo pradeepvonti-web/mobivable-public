@@ -47,7 +47,7 @@ Existing UI schema (for reference, may be empty): ${JSON.stringify(opts.schema).
       Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: system },
         { role: "user", content: userMsg },
