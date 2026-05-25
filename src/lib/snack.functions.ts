@@ -38,7 +38,7 @@ Rules:
 
   const userMsg = `App name: ${opts.appName}
 User prompt: ${opts.prompt}
-Existing UI schema (for reference, may be empty): ${JSON.stringify(opts.schema).slice(0, 6000)}`;
+Keep total output under 8 files, ~6KB max.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -47,14 +47,16 @@ Existing UI schema (for reference, may be empty): ${JSON.stringify(opts.schema).
       Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages: [
         { role: "system", content: system },
         { role: "user", content: userMsg },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 4000,
     }),
   });
+
 
   if (!res.ok) {
     const txt = await res.text();
