@@ -1,4 +1,32 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createClient } from "@supabase/supabase-js";
+import { getRequest } from "@tanstack/react-start/server";
+import type { Database } from "@/integrations/supabase/types";
+
+function createUserScopedCreditClient(accessToken: string) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !publishableKey) {
+    const missing = [
+      ...(!supabaseUrl ? ["SUPABASE_URL"] : []),
+      ...(!publishableKey ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
+    ];
+    throw new Error(`Missing backend environment variable(s): ${missing.join(", ")}.`);
+  }
+
+  return createClient<Database>(supabaseUrl, publishableKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    auth: {
+      storage: undefined,
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 /**
  * Server-only credit gate. Deducts credits via the consume_ai_credits RPC.
@@ -10,6 +38,13 @@ export async function consumeOrThrow(
   reason: string,
   projectId?: string,
 ): Promise<{ daily_remaining: number; monthly_remaining: number }> {
+  const authHeader = getRequest()?.headers.get("authorization");
+  const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!accessToken) {
+    throw new Error("Unauthorized: No authorization header provided");
+  }
+
   const args: { p_user: string; p_amount: number; p_reason: string; p_project?: string } = {
     p_user: userId,
     p_amount: amount,
@@ -17,7 +52,8 @@ export async function consumeOrThrow(
   };
   if (projectId) args.p_project = projectId;
 
-  const { data, error } = await supabaseAdmin.rpc("consume_ai_credits", args);
+  const supabase = createUserScopedCreditClient(accessToken);
+  const { data, error } = await supabase.rpc("consume_ai_credits", args);
   if (error) throw new Error(error.message);
 
   const r = data as { ok: boolean; daily_remaining: number; monthly_remaining: number } | null;
