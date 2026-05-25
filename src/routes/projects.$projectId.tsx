@@ -1240,6 +1240,7 @@ function ProjectPage() {
 
         {/* ── Right cluster ── */}
         <div className="ml-auto md:ml-0 flex items-center gap-1">
+          <SDLCProgressBar projectId={projectId} compact />
           <CreditBadge />
 
           <button
