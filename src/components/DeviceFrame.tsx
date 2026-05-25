@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Wifi, BatteryFull, Signal, RotateCcw } from "lucide-react";
+import {
+  FLUTTER_PREVIEW_URL,
+  sendSchemaToFlutter,
+  sendThemeToFlutter,
+  onFlutterMessage,
+  type FlutterEvent,
+} from "@/lib/flutter-bridge";
+import type { MobileAppSchema } from "@/lib/mobile-app-schema";
+import type { MobileTheme } from "@/lib/mobile-theme";
 
 export type DeviceOS = "ios" | "android";
 
@@ -93,6 +102,88 @@ export function DeviceToolbar({
   );
 }
 
+/* ─── Flutter Preview Sub-Component ─── */
+
+function FlutterPreview({
+  schema,
+  theme,
+}: {
+  schema?: MobileAppSchema;
+  theme?: MobileTheme;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Listen for FLUTTER_READY to hide the loading overlay
+  useEffect(() => {
+    const unsub = onFlutterMessage((event: FlutterEvent) => {
+      if (event.type === 'FLUTTER_READY') {
+        setLoading(false);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Send schema updates to the iframe
+  useEffect(() => {
+    if (schema) {
+      sendSchemaToFlutter(iframeRef.current, schema);
+    }
+  }, [schema]);
+
+  // Send theme updates to the iframe
+  useEffect(() => {
+    if (theme) {
+      sendThemeToFlutter(iframeRef.current, theme);
+    }
+  }, [theme]);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <iframe
+        ref={iframeRef}
+        src={FLUTTER_PREVIEW_URL}
+        style={{ width: '100%', height: '100%', border: 'none' }}
+        title="Flutter Preview"
+        allow="cross-origin-isolated"
+        sandbox="allow-scripts allow-same-origin"
+      />
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(10,10,26,0.85)',
+            backdropFilter: 'blur(8px)',
+            color: '#fff',
+            gap: 12,
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              border: '2.5px solid rgba(255,255,255,0.25)',
+              borderTopColor: '#fff',
+              animation: 'flutterLoadSpin 0.8s linear infinite',
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.9 }}>
+            Flutter loading…
+          </span>
+          <style>{`@keyframes flutterLoadSpin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Realistic iOS / Android device frame.
  * Renders chrome (status bar + notch/punch-hole + home indicator/gesture bar)
@@ -105,6 +196,9 @@ export function DeviceFrame({
   width = 320,
   height = 640,
   children,
+  renderMode = 'react',
+  schema,
+  theme,
 }: {
   os?: DeviceOS;
   /** Hex/rgb/oklch color of the app screen background (top area). Used to pick contrast for the status bar. */
@@ -112,6 +206,12 @@ export function DeviceFrame({
   width?: number;
   height?: number;
   children: ReactNode;
+  /** Render mode: 'react' shows children as-is, 'flutter' embeds the Flutter preview iframe. */
+  renderMode?: 'react' | 'flutter';
+  /** The MobileAppSchema to send to the Flutter preview (used when renderMode='flutter'). */
+  schema?: MobileAppSchema;
+  /** The resolved MobileTheme to send to the Flutter preview (used when renderMode='flutter'). */
+  theme?: MobileTheme;
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -268,7 +368,11 @@ export function DeviceFrame({
               overflow: "hidden",
             }}
           >
-            {children}
+            {renderMode === 'flutter' ? (
+              <FlutterPreview schema={schema} theme={theme} />
+            ) : (
+              children
+            )}
           </div>
 
           {/* Home indicator (iOS) / gesture bar (Android) */}

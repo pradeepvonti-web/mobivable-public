@@ -358,6 +358,7 @@ function ProjectPage() {
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
+  const [renderMode, setRenderMode] = useState<'react' | 'flutter'>('react');
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
     if (typeof window === "undefined") return {};
@@ -2620,6 +2621,31 @@ function ProjectPage() {
               landscape={landscape}
               onLandscapeToggle={() => setLandscape((l) => !l)}
             />
+            {/* Render Mode Toggle */}
+            <div className="inline-flex items-center gap-0.5 h-9 p-0.5 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={() => setRenderMode('react')}
+                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  renderMode === 'react'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                React
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenderMode('flutter')}
+                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  renderMode === 'flutter'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Flutter
+              </button>
+            </div>
             {/* Regenerate assets */}
             <button
               type="button"
@@ -3113,6 +3139,17 @@ function ProjectPage() {
               try {
                 const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
                 return s ? resolveTheme(s.theme).background : undefined;
+              } catch { return undefined; }
+            })()}
+            renderMode={renderMode}
+            schema={(() => {
+              const parsed = project?.result ? parseAppSchema(project.result) : null;
+              return liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+            })()}
+            theme={(() => {
+              try {
+                const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
+                return s ? resolveTheme(s.theme) : undefined;
               } catch { return undefined; }
             })()}
           >
