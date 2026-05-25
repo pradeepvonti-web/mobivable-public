@@ -40,8 +40,9 @@ function LivePreviewPage() {
   }
 
   const embedUrl = snack
-    ? `https://snack.expo.dev/embedded/@snack/${snack.hashId}?platform=${platform}&preview=true&theme=dark`
+    ? `https://snack.expo.dev/embedded/${snack.hashId}?platform=${platform}&preview=true&theme=dark`
     : null;
+
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
