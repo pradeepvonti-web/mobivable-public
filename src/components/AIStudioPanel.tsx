@@ -189,7 +189,7 @@ export function AIStudioPanel({
       </div>
 
       {/* Tool tabs */}
-      <div className="flex gap-1 p-2 border-b border-border overflow-x-auto">
+      <div className="flex flex-wrap gap-1 p-2 border-b border-border">
         {TOOLS.map(t => {
           const Icon = t.icon;
           const active = activeTool === t.id;
@@ -208,6 +208,7 @@ export function AIStudioPanel({
           );
         })}
       </div>
+
 
       {/* Tool content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
