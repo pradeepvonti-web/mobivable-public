@@ -1192,7 +1192,7 @@ function ProjectPage() {
         </button>
         <button
           type="button"
-          onClick={() => setPaneTab("testing")}
+          onClick={() => setPaneTab("screenshots")}
           className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           aria-label="Analytics"
           title="Testing & analytics"
