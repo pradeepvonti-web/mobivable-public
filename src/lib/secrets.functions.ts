@@ -31,7 +31,7 @@ export const listSecrets = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { data: rows, error } = await (supabaseAdmin as any)
+    const { data: rows, error } = await supabaseAdmin
       .from("project_secrets")
       .select("id, key_name, category, encrypted_value, updated_at")
       .eq("project_id", data.projectId)
@@ -68,7 +68,7 @@ export const setSecret = createServerFn({ method: "POST" })
     const encrypted = encodeValue(data.value);
     const category = data.category ?? "custom";
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("project_secrets")
       .upsert(
         {
@@ -99,7 +99,7 @@ export const deleteSecret = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("project_secrets")
       .delete()
       .eq("id", data.secretId)
@@ -119,7 +119,7 @@ export async function getSecretsForBuild({
   projectId: string;
   userId: string;
 }): Promise<Record<string, string>> {
-  const { data: rows, error } = await (supabaseAdmin as any)
+  const { data: rows, error } = await supabaseAdmin
     .from("project_secrets")
     .select("key_name, encrypted_value")
     .eq("project_id", projectId)
