@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2, Sparkles, Smartphone, ExternalLink } from "lucide-react";
 import { generateExpoSnack, getExpoSnack, type SnackPayload } from "@/lib/snack.functions";
 
-export const Route = createFileRoute("/projects/$projectId/live")({
+export const Route = createFileRoute("/projects/$projectId_/live")({
   component: LivePreviewPage,
 });
 
@@ -40,8 +40,9 @@ function LivePreviewPage() {
   }
 
   const embedUrl = snack
-    ? `https://snack.expo.dev/embedded/@snack/${snack.hashId}?platform=${platform}&preview=true&theme=dark`
+    ? `https://snack.expo.dev/embedded/${snack.hashId}?platform=${platform}&preview=true&theme=dark`
     : null;
+
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
@@ -77,7 +78,7 @@ function LivePreviewPage() {
                 ))}
               </div>
               <a
-                href={`https://snack.expo.dev/@snack/${snack.hashId}`}
+                href={`https://snack.expo.dev/${snack.hashId}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono uppercase border border-border rounded-md hover:bg-muted"
