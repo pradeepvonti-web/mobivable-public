@@ -10,7 +10,7 @@ import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
 import { SiteNav } from "@/components/SiteNav";
-import { GsapReveal } from "@/components/GsapReveal";
+
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
