@@ -59,8 +59,53 @@ function FaqItem({ question, answer, isLast }: { question: string; answer: strin
 
 function Index() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Hero entrance timeline
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.from("[data-hero-eyebrow]", { y: 20, opacity: 0, duration: 0.6 })
+        .from("[data-hero-title]", { y: 40, opacity: 0, duration: 0.9 }, "-=0.3")
+        .from("[data-hero-sub]", { y: 20, opacity: 0, duration: 0.7 }, "-=0.5")
+        .from("[data-hero-cta]", { y: 20, opacity: 0, duration: 0.6 }, "-=0.4")
+        .from(
+          "[data-hero-preview]",
+          { y: 40, opacity: 0, scale: 0.96, duration: 1 },
+          "-=0.7",
+        );
+
+      // Scroll reveals
+      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
+        gsap.from(el, {
+          y: 40,
+          opacity: 0,
+          duration: 0.9,
+          ease: "power3.out",
+          scrollTrigger: { trigger: el, start: "top 85%", once: true },
+        });
+      });
+
+      // Staggered grids
+      gsap.utils.toArray<HTMLElement>("[data-reveal-stagger]").forEach((grid) => {
+        const items = grid.querySelectorAll(":scope > *");
+        gsap.from(items, {
+          y: 30,
+          opacity: 0,
+          duration: 0.7,
+          ease: "power3.out",
+          stagger: 0.08,
+          scrollTrigger: { trigger: grid, start: "top 80%", once: true },
+        });
+      });
+    }, rootRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
+    <div ref={rootRef} className="min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-background">
+
       <SiteNav />
 
       {/* Hero */}
@@ -71,20 +116,20 @@ function Index() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 z-10 animate-reveal">
-            <div className="inline-block px-2 py-1 border border-primary text-primary text-[10px] font-mono uppercase tracking-[0.2em] mb-6">
+          <div className="lg:col-span-7 z-10">
+            <div data-hero-eyebrow className="inline-block px-2 py-1 border border-primary text-primary text-[10px] font-mono uppercase tracking-[0.2em] mb-6">
               AI Development Protocol v4.0
             </div>
-            <h1 className="font-display text-7xl md:text-9xl uppercase leading-[0.85] tracking-tighter text-balance mb-8">
+            <h1 data-hero-title className="font-display text-7xl md:text-9xl uppercase leading-[0.85] tracking-tighter text-balance mb-8">
               Chat. <span className="text-primary">Ship.</span>
               <br />
               Dominate.
             </h1>
-            <p className="text-xl text-muted-foreground max-w-[45ch] text-pretty leading-relaxed mb-10">
+            <p data-hero-sub className="text-xl text-muted-foreground max-w-[45ch] text-pretty leading-relaxed mb-10">
               Democratize mobile app creation with AI. Transform raw ideas into native iOS and
               Android binaries through a single conversational thread.
             </p>
-            <div className="flex flex-wrap gap-4">
+            <div data-hero-cta className="flex flex-wrap gap-4">
               <div className="flex flex-col gap-1">
                 <Link to="/dashboard" className="px-8 py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all inline-block">
                   Start Generating
@@ -96,7 +141,8 @@ function Index() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative animate-reveal [animation-delay:200ms]">
+          <div className="lg:col-span-5 relative" data-hero-preview>
+
             <div className="relative bg-card/40 border border-border p-4 rounded-xl backdrop-blur-sm">
               <div className="space-y-4 font-mono text-xs">
                 <div className="p-3 bg-foreground/5 border border-foreground/10 rounded-lg text-primary">
