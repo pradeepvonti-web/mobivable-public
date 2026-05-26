@@ -20,11 +20,10 @@ export function useRequiredSession() {
     if (typeof window === "undefined") return;
 
     let active = true;
-    let settled = false;
+    let bootstrapFinished = false;
 
     const applySession = (session: Session | null) => {
       if (!active) return;
-      settled = true;
       setState({
         session,
         status: session ? "authenticated" : "unauthenticated",
@@ -32,46 +31,55 @@ export function useRequiredSession() {
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!bootstrapFinished && !session) return;
       applySession(session);
     });
 
-    const fallbackTimer = window.setTimeout(async () => {
-      if (!active || settled) return;
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
+      return await Promise.race([
+        promise,
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), timeoutMs)),
+      ]);
+    };
+
+    void (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          applySession(data.session);
+        const restoredSession = await withTimeout(getRestoredSession(), 4000);
+        if (restoredSession) {
+          applySession(restoredSession);
           return;
         }
 
-        const { data: userData, error } = await supabase.auth.getUser();
+        const userResult = await withTimeout(supabase.auth.getUser(), 2000);
+        const userData = userResult?.data;
+        const error = userResult?.error;
+
         if (error) {
-          console.error("[useRequiredSession] Fallback user lookup failed", error);
+          console.error("[useRequiredSession] User lookup failed", error);
         }
 
         if (userData.user) {
-          const refreshed = await supabase.auth.refreshSession();
-          applySession(refreshed.data.session ?? null);
+          applySession({ user: userData.user } as Session);
+
+          void supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+              applySession(data.session);
+            }
+          });
           return;
         }
 
         applySession(null);
       } catch (error) {
-        console.error("[useRequiredSession] Timed out restoring session", error);
+        console.error("[useRequiredSession] Failed to bootstrap auth state", error);
         applySession(null);
+      } finally {
+        bootstrapFinished = true;
       }
-    }, 5000);
-
-    void getRestoredSession()
-      .then(applySession)
-      .catch((error) => {
-        console.error("[useRequiredSession] Failed to restore session", error);
-        applySession(null);
-      });
+    })();
 
     return () => {
       active = false;
-      window.clearTimeout(fallbackTimer);
       sub.subscription.unsubscribe();
     };
   }, []);
