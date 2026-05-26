@@ -1123,7 +1123,8 @@ function ProjectPage() {
     await applyHistorySnapshot(snap);
   }
 
-  if (status !== "authenticated") return <AuthHydrating />;
+  if (status === "loading") return <AuthHydrating />;
+  if (status === "unauthenticated") return null;
 
   const isBuilding = !!project && (project.status === "building" || generating);
   const isReady = !!project && project.status === "ready" && !!project.result;
