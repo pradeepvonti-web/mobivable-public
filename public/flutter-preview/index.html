@@ -85,7 +85,7 @@
       // Basic origin/data validation
       if (!event.data || typeof event.data !== 'object') return;
       var type = event.data.type;
-      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE') return;
+      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE' && type !== 'SCREEN_CHANGE' && type !== 'DEVICE_INFO') return;
 
       console.log('[flutter-preview host] received', type, 'onMessageExists=', (typeof window._flutterPreviewOnMessage === 'function'), 'screens=', (event.data.schema && event.data.schema.screens && event.data.schema.screens.length));
 

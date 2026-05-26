@@ -3241,6 +3241,15 @@ function ProjectPage() {
                 return s ? resolveTheme(s.theme) : undefined;
               } catch { return undefined; }
             })()}
+            activeScreenIndex={(() => {
+              const schema = (() => {
+                const parsed = project?.result ? parseAppSchema(project.result) : null;
+                return liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+              })();
+              if (!schema?.screens?.length) return 0;
+              const index = schema.screens.findIndex((screen) => screen.id === activeScreenId);
+              return index >= 0 ? index : 0;
+            })()}
           >
             {isBuilding ? (
               <div className="h-full w-full grid place-items-center p-6">

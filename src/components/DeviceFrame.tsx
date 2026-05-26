@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Wifi, BatteryFull, Signal, RotateCcw } from "lucide-react";
 import {
   getFlutterPreviewUrl,
+  sendDeviceInfoToFlutter,
+  sendScreenChangeToFlutter,
   sendSchemaToFlutter,
   sendThemeToFlutter,
   onFlutterMessage,
@@ -107,9 +109,17 @@ export function DeviceToolbar({
 function FlutterPreview({
   schema,
   theme,
+  activeScreenIndex = 0,
+  os = "ios",
+  width = 320,
+  height = 640,
 }: {
   schema?: MobileAppSchema;
   theme?: MobileTheme;
+  activeScreenIndex?: number;
+  os?: DeviceOS;
+  width?: number;
+  height?: number;
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const previewUrl = useMemo(() => getFlutterPreviewUrl(), []);
@@ -117,8 +127,10 @@ function FlutterPreview({
   const [ready, setReady] = useState(false);
   const schemaRef = useRef(schema);
   const themeRef = useRef(theme);
+  const activeScreenIndexRef = useRef(activeScreenIndex);
   schemaRef.current = schema;
   themeRef.current = theme;
+  activeScreenIndexRef.current = activeScreenIndex;
 
 
 
@@ -130,10 +142,12 @@ function FlutterPreview({
         setLoading(false);
         if (schemaRef.current) sendSchemaToFlutter(iframeRef.current, schemaRef.current);
         if (themeRef.current) sendThemeToFlutter(iframeRef.current, themeRef.current);
+        sendScreenChangeToFlutter(iframeRef.current, activeScreenIndexRef.current);
+        sendDeviceInfoToFlutter(iframeRef.current, width, height, os);
       }
     });
     return unsub;
-  }, []);
+  }, [height, os, width]);
 
   // Send schema updates to the iframe (host page queues until Flutter is ready)
   useEffect(() => {
@@ -144,6 +158,14 @@ function FlutterPreview({
   useEffect(() => {
     if (theme) sendThemeToFlutter(iframeRef.current, theme);
   }, [theme, ready]);
+
+  useEffect(() => {
+    sendScreenChangeToFlutter(iframeRef.current, activeScreenIndex);
+  }, [activeScreenIndex, ready]);
+
+  useEffect(() => {
+    sendDeviceInfoToFlutter(iframeRef.current, width, height, os);
+  }, [height, os, ready, width]);
 
   // Fallback: stop showing loader if FLUTTER_READY never arrives
   useEffect(() => {
@@ -163,6 +185,8 @@ function FlutterPreview({
         onLoad={() => {
           if (schemaRef.current) sendSchemaToFlutter(iframeRef.current, schemaRef.current);
           if (themeRef.current) sendThemeToFlutter(iframeRef.current, themeRef.current);
+          sendScreenChangeToFlutter(iframeRef.current, activeScreenIndexRef.current);
+          sendDeviceInfoToFlutter(iframeRef.current, width, height, os);
         }}
       />
       {loading && (
@@ -216,6 +240,7 @@ export function DeviceFrame({
   renderMode = 'react',
   schema,
   theme,
+  activeScreenIndex = 0,
 }: {
   os?: DeviceOS;
   /** Hex/rgb/oklch color of the app screen background (top area). Used to pick contrast for the status bar. */
@@ -229,6 +254,8 @@ export function DeviceFrame({
   schema?: MobileAppSchema;
   /** The resolved MobileTheme to send to the Flutter preview (used when renderMode='flutter'). */
   theme?: MobileTheme;
+  /** Current screen index so React and Flutter stay on the same screen. */
+  activeScreenIndex?: number;
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -386,7 +413,14 @@ export function DeviceFrame({
             }}
           >
             {renderMode === 'flutter' ? (
-              <FlutterPreview schema={schema} theme={theme} />
+              <FlutterPreview
+                schema={schema}
+                theme={theme}
+                activeScreenIndex={activeScreenIndex}
+                os={os}
+                width={width}
+                height={height}
+              />
             ) : (
               children
             )}
