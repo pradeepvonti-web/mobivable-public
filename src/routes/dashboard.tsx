@@ -400,7 +400,7 @@ function DashboardPage() {
                 Current plan
               </p>
               <h2 className="font-display text-4xl uppercase tracking-tight mb-2">
-                {profile?.plan === "free_beta" ? "Free Beta" : profile?.plan === "pro" ? "Pro" : "Starter"}
+                {PLAN_NAME[profile?.plan ?? "free_beta"]}
               </h2>
               <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-6">
                 {PLAN_QUOTA[profile?.plan ?? "free_beta"]}
