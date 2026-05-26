@@ -79,19 +79,26 @@
   </script>
 
   <!-- Flutter bootstrap -->
-  <script src="flutter.js" defer></script>
   <script>
-    window.addEventListener('load', function () {
-      _flutter.loader.load({
-        onEntrypointLoaded: async function (engineInitializer) {
-          let runner = await engineInitializer.initializeEngine();
-          await runner.runApp();
-          // Hide the loading spinner once Flutter has started.
-          var el = document.getElementById('loading');
-          if (el) el.style.display = 'none';
+    window._flutter = {};
+    let loaderInstance = null;
+    Object.defineProperty(window._flutter, 'loader', {
+      get: function() { return loaderInstance; },
+      set: function(val) {
+        loaderInstance = val;
+        if (loaderInstance) {
+          loaderInstance.didCreateEngineInitializer = async function(engineInitializer) {
+            let runner = await engineInitializer.initializeEngine();
+            await runner.runApp();
+            var el = document.getElementById('loading');
+            if (el) el.style.display = 'none';
+          };
         }
-      });
+      },
+      configurable: true,
+      enumerable: true
     });
   </script>
+  <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
