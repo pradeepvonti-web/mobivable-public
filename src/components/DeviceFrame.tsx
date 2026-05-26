@@ -113,30 +113,40 @@ function FlutterPreview({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
+  const schemaRef = useRef(schema);
+  const themeRef = useRef(theme);
+  schemaRef.current = schema;
+  themeRef.current = theme;
 
-  // Listen for FLUTTER_READY to hide the loading overlay
+  // Listen for FLUTTER_READY to hide the loading overlay and flush latest state
   useEffect(() => {
     const unsub = onFlutterMessage((event: FlutterEvent) => {
       if (event.type === 'FLUTTER_READY') {
+        setReady(true);
         setLoading(false);
+        if (schemaRef.current) sendSchemaToFlutter(iframeRef.current, schemaRef.current);
+        if (themeRef.current) sendThemeToFlutter(iframeRef.current, themeRef.current);
       }
     });
     return unsub;
   }, []);
 
-  // Send schema updates to the iframe
+  // Send schema updates to the iframe (host page queues until Flutter is ready)
   useEffect(() => {
-    if (schema) {
-      sendSchemaToFlutter(iframeRef.current, schema);
-    }
-  }, [schema]);
+    if (schema) sendSchemaToFlutter(iframeRef.current, schema);
+  }, [schema, ready]);
 
   // Send theme updates to the iframe
   useEffect(() => {
-    if (theme) {
-      sendThemeToFlutter(iframeRef.current, theme);
-    }
-  }, [theme]);
+    if (theme) sendThemeToFlutter(iframeRef.current, theme);
+  }, [theme, ready]);
+
+  // Fallback: stop showing loader if FLUTTER_READY never arrives
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 8000);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -147,6 +157,10 @@ function FlutterPreview({
         title="Flutter Preview"
         allow="cross-origin-isolated"
         sandbox="allow-scripts allow-same-origin"
+        onLoad={() => {
+          if (schemaRef.current) sendSchemaToFlutter(iframeRef.current, schemaRef.current);
+          if (themeRef.current) sendThemeToFlutter(iframeRef.current, themeRef.current);
+        }}
       />
       {loading && (
         <div
