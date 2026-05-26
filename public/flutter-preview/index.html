@@ -95,7 +95,7 @@
       // Basic origin/data validation
       if (!event.data || typeof event.data !== 'object') return;
       var type = event.data.type;
-      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE' && type !== 'SCREEN_CHANGE' && type !== 'DEVICE_INFO') return;
+      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE') return;
 
       var rawMsg = JSON.stringify(event.data);
       if (window._flutterPreviewOnMessage) {
@@ -115,12 +115,14 @@
       set: function(val) {
         loaderInstance = val;
         if (loaderInstance) {
-          // Disable service worker loading dynamically
+          // Disable service worker loading dynamically and add cache-busting
           var originalLoad = loaderInstance.load;
           loaderInstance.load = function(options) {
-            if (options) {
-              options.serviceWorkerSettings = null;
-            }
+            options = options || {};
+            options.serviceWorkerSettings = null;
+            var cacheBust = 'main.dart.js?v=' + new Date().getTime();
+            options.entrypointUrl = cacheBust;
+            options.mainJsPath = cacheBust;
             return originalLoad.call(loaderInstance, options);
           };
 
