@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { SiteNav } from "./SiteNav";
 
 export function PageShell({
@@ -30,9 +31,17 @@ export function PageShell({
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-6 py-20">{children}</main>
-      <footer className="border-t border-border py-10 px-6 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        Mobivable © {new Date().getFullYear()} — Democratize mobile app creation with AI
+      <footer className="border-t border-border py-10 px-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+          <div>AksData AI Corp © {new Date().getFullYear()} — Mobivable</div>
+          <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link to="/refund" className="hover:text-foreground transition-colors">Refunds</Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );
 }
+
