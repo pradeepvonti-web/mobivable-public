@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Wifi, BatteryFull, Signal, RotateCcw } from "lucide-react";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   getFlutterPreviewUrl,
   sendDeviceInfoToFlutter,
@@ -11,6 +13,7 @@ import {
 } from "@/lib/flutter-bridge";
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
 import type { MobileTheme } from "@/lib/mobile-theme";
+
 
 export type DeviceOS = "ios" | "android";
 
@@ -281,11 +284,28 @@ export function DeviceFrame({
   const statusBarH = os === "ios" ? 38 : 28;
   const homeBarH = os === "ios" ? 22 : 18;
 
+  const frameRef = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      if (!frameRef.current) return;
+      gsap.from(frameRef.current, {
+        y: 30,
+        opacity: 0,
+        scale: 0.94,
+        duration: 1,
+        ease: "power3.out",
+      });
+    },
+    { scope: frameRef },
+  );
+
   return (
     <div
+      ref={frameRef}
       className="relative"
       style={{ width: width + bezel * 2, height: height + bezel * 2 }}
     >
+
       {/* Soft glow halo */}
       <div
         aria-hidden
