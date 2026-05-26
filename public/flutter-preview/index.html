@@ -68,6 +68,8 @@
       var type = event.data.type;
       if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE') return;
 
+      console.log('[flutter-preview host] received', type, 'ready=', window._flutterPreviewReady, 'screens=', (event.data.schema && event.data.schema.screens && event.data.schema.screens.length));
+
       if (!window._flutterPreviewReady) {
         // Queue the message for Flutter to pick up after boot.
         window._flutterPreviewMessageQueue.push(JSON.stringify(event.data));
