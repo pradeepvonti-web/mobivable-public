@@ -75,7 +75,6 @@ import { generateAppImages } from "@/lib/app-images.functions";
 import { generateAsset } from "@/lib/generate-asset.functions";
 import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
-import { CreditBadge } from "@/components/CreditBadge";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
 import { DeviceFrame, DEVICE_PRESETS, DeviceToolbar } from "@/components/DeviceFrame";
@@ -1241,8 +1240,6 @@ function ProjectPage() {
         {/* ── Right cluster ── */}
         <div className="ml-auto md:ml-0 flex items-center gap-1">
           <SDLCProgressBar projectId={projectId} compact />
-          <CreditBadge />
-
           <button
             type="button"
             onClick={() => toast.info("Comments coming soon")}
