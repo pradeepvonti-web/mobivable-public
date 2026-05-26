@@ -4,10 +4,10 @@ import {
   ChevronDown, Sparkles, Smartphone, Apple, Palette, Eye, Database,
   KeyRound, CreditCard, MonitorPlay, Rocket, Github, Package,
 } from "lucide-react";
-import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
 import { SiteNav } from "@/components/SiteNav";
+import { Hero3D } from "@/components/Hero3D";
 
 export const Route = createFileRoute("/")({
   component: Index,
