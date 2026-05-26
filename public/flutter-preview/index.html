@@ -107,6 +107,31 @@
                 }
               }
             }
+
+            // Notify parent that Flutter is ready so it can re-send latest state.
+            try {
+              window.parent.postMessage({ type: 'FLUTTER_READY' }, '*');
+            } catch (e) { /* ignore */ }
+          };
+        }
+      },
+      configurable: true,
+      enumerable: true
+    });
+  </script>
+
+  <!-- Re-broadcast incoming SCHEMA/THEME updates to Flutter's Dart listener -->
+  <script>
+    window.addEventListener('message', function (event) {
+      if (event.source === window) return; // avoid loops on self re-broadcast
+      if (!event.data || typeof event.data !== 'object') return;
+      var type = event.data.type;
+      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE') return;
+      if (window._flutterPreviewReady) {
+        // Re-post into this window so Dart's window 'message' listener fires.
+        window.postMessage(event.data, '*');
+      }
+    });
           };
         }
       },
