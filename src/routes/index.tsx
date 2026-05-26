@@ -574,7 +574,16 @@ function Index() {
             </div>
           </div>
         </div>
+        <div className="max-w-7xl mx-auto relative z-10 mt-16 pt-8 border-t border-background/20 flex flex-col md:flex-row items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-widest text-background/80">
+          <div>AksData AI Corp © {new Date().getFullYear()} — Mobivable</div>
+          <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <Link to="/terms" className="hover:text-background transition-colors">Terms</Link>
+            <Link to="/privacy" className="hover:text-background transition-colors">Privacy</Link>
+            <Link to="/refund" className="hover:text-background transition-colors">Refunds</Link>
+          </nav>
+        </div>
       </footer>
+
     </div>
   );
 }

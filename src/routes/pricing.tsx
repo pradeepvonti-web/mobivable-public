@@ -27,7 +27,8 @@ const FAQS = [
   },
   {
     q: "What's your refund policy?",
-    a: "We offer a 14-day money-back guarantee on first-time purchases of any paid plan. Renewals after the first period are non-refundable, but you can cancel any time to stop future charges.",
+    a: "We offer a 30-day money-back guarantee on first-time purchases of any paid plan. You can cancel anytime to stop future renewals. Refunds are processed by Paddle, our Merchant of Record — request one at paddle.net or via our refund policy page.",
+
   },
   {
     q: "What happens when I upgrade or downgrade?",
