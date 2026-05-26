@@ -33,7 +33,12 @@ export function useRequiredSession() {
       applySession(session);
     });
 
-    void getRestoredSession().then(applySession);
+    void getRestoredSession()
+      .then(applySession)
+      .catch((error) => {
+        console.error("[useRequiredSession] Failed to restore session", error);
+        applySession(null);
+      });
 
     return () => {
       active = false;
