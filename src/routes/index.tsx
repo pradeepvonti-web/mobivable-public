@@ -174,7 +174,7 @@ function Index() {
       {/* Process */}
       <section id="process" className="py-24 border-b border-border">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 border border-border">
+          <div data-reveal-stagger className="grid grid-cols-1 md:grid-cols-3 border border-border">
             {[
               { n: "01", t: "Describe", d: "Converse with our LLM-backed architect. Define features, styling, and logic in plain English." },
               { n: "02", t: "Refine", d: "Mobivable generates high-fidelity screens instantly. Tweak layouts and branding in the real-time preview." },
@@ -182,8 +182,7 @@ function Index() {
             ].map((s, i) => (
               <div
                 key={s.n}
-                className={`p-8 ${i < 2 ? "md:border-r border-border" : ""} animate-reveal`}
-                style={{ animationDelay: `${300 + i * 100}ms` }}
+                className={`p-8 ${i < 2 ? "md:border-r border-border" : ""}`}
               >
                 <span className="font-display text-4xl text-primary mb-4 block">{s.n}</span>
                 <h3 className="font-display text-2xl uppercase mb-3">{s.t}</h3>
@@ -191,6 +190,7 @@ function Index() {
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
@@ -204,7 +204,7 @@ function Index() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div data-reveal-stagger className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="group">
               <img
                 src={featureBackend}
@@ -236,6 +236,7 @@ function Index() {
               </p>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -248,7 +249,7 @@ function Index() {
               12 Modules · Live
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-border">
+          <div data-reveal-stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-border">
             {[
               { icon: Sparkles, code: "MOD_01", title: "AI App Generation", desc: "Describe your app in plain English. Mobivable generates a functional React Native mobile app end to end." },
               { icon: Smartphone, code: "MOD_02", title: "iOS + Android", desc: "Cross-platform output. One prompt builds for both App Store and Google Play simultaneously." },
