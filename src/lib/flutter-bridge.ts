@@ -2,31 +2,12 @@ import type { MobileAppSchema } from './mobile-app-schema';
 import type { MobileTheme } from './mobile-theme';
 
 const LOCAL_FLUTTER_PREVIEW_URL = '/flutter-preview/index.html';
-const HOSTED_FLUTTER_PREVIEW_URL = 'https://flutter-preview-engine.onrender.com/index.html';
 
-function shouldUseLocalFlutterPreview(): boolean {
-  if (import.meta.env.DEV) return true;
-  if (typeof window === 'undefined') return true;
-
-  const hostname = window.location.hostname;
-
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname.endsWith('.lovableproject.com') ||
-    hostname.includes('--')
-  );
-}
-
-// Resolve the Flutter engine URL at runtime so preview/staging environments keep
-// using the bundled local engine, while published production uses the hosted one.
+// The Flutter engine assets are bundled in `public/flutter-preview/` and ship
+// with every deploy, so production should use the same local engine that works
+// in preview/staging. An explicit VITE_FLUTTER_PREVIEW_URL still wins if set.
 export function getFlutterPreviewUrl(): string {
-  return (
-    import.meta.env.VITE_FLUTTER_PREVIEW_URL ||
-    (shouldUseLocalFlutterPreview()
-      ? LOCAL_FLUTTER_PREVIEW_URL
-      : HOSTED_FLUTTER_PREVIEW_URL)
-  );
+  return import.meta.env.VITE_FLUTTER_PREVIEW_URL || LOCAL_FLUTTER_PREVIEW_URL;
 }
 
 export type FlutterMessage =
