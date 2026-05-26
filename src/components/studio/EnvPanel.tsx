@@ -1,6 +1,51 @@
 import { useEffect, useState } from "react";
 import { Check, Download, Eye, EyeOff, KeyRound, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AIProviderSettings } from "@/components/AIProviderSettings";
+
+type EnvVar = {
+  id: string;
+  name: string;
+  value: string;
+  visible: boolean;
+};
+
+const RESERVED_ENV_NAMES = new Set([
+  "NODE_ENV",
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "PWD",
+  "LANG",
+  "TERM",
+  "HOSTNAME",
+  "EXPO_PUBLIC_PROJECT_ID",
+  "EXPO_PUBLIC_API_URL",
+]);
+
+function validateEnvName(
+  name: string,
+  opts: { requirePublic?: boolean; existing?: string[] } = {},
+): string | null {
+  if (!name) return "Name is required";
+  if (name.length < 2) return "Name must be at least 2 characters";
+  if (name.length > 64) return "Name must be 64 characters or fewer";
+  if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) {
+    return "Use UPPER_SNAKE_CASE: A–Z, 0–9, _ (cannot start with a digit)";
+  }
+  if (/__/.test(name)) return "Name cannot contain consecutive underscores";
+  if (name.endsWith("_")) return "Name cannot end with an underscore";
+  if (RESERVED_ENV_NAMES.has(name)) return `"${name}" is reserved`;
+  if (opts.requirePublic && !name.startsWith("EXPO_PUBLIC_")) {
+    return "Public variables must start with EXPO_PUBLIC_";
+  }
+  if (name.startsWith("EXPO_PUBLIC_") && name.length <= "EXPO_PUBLIC_".length) {
+    return "Add a name after the EXPO_PUBLIC_ prefix";
+  }
+  if (opts.existing?.includes(name)) return `"${name}" already exists`;
+  return null;
+}
 
 function EnvPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
