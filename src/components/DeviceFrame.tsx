@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Wifi, BatteryFull, Signal, RotateCcw } from "lucide-react";
 import {
-  FLUTTER_PREVIEW_URL,
+  getFlutterPreviewUrl,
   sendSchemaToFlutter,
   sendThemeToFlutter,
   onFlutterMessage,
@@ -112,6 +112,7 @@ function FlutterPreview({
   theme?: MobileTheme;
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const previewUrl = useMemo(() => getFlutterPreviewUrl(), []);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const schemaRef = useRef(schema);
@@ -154,7 +155,7 @@ function FlutterPreview({
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <iframe
         ref={iframeRef}
-        src={FLUTTER_PREVIEW_URL}
+        src={previewUrl}
         style={{ width: '100%', height: '100%', border: 'none' }}
         title="Flutter Preview"
         allow="cross-origin-isolated"
