@@ -52,6 +52,10 @@ export const changeSubscriptionPlan = createServerFn({ method: "POST" })
           "starter_yearly",
           "pro_monthly",
           "pro_yearly",
+          "scale_monthly",
+          "scale_yearly",
+          "business_monthly",
+          "business_yearly",
         ]),
       })
       .parse(input)
@@ -81,8 +85,13 @@ export const changeSubscriptionPlan = createServerFn({ method: "POST" })
     const paddlePriceId = priceJson.data?.[0]?.id as string | undefined;
     if (!paddlePriceId) throw new Error("Target price not found in Paddle");
 
-    // Upgrade if moving free→paid, starter→pro, or monthly→yearly within same tier
-    const tierRank = (id: string) => (id.startsWith("pro_") ? 2 : 1);
+    // Upgrade if moving up a tier, or monthly→yearly within the same tier.
+    const tierRank = (id: string): number => {
+      if (id.startsWith("business_")) return 4;
+      if (id.startsWith("scale_")) return 3;
+      if (id.startsWith("pro_")) return 2;
+      return 1; // starter
+    };
     const intervalRank = (id: string) => (id.endsWith("_yearly") ? 2 : 1);
     const currentTier = tierRank(sub.price_id as string);
     const targetTier = tierRank(data.targetPriceId);
