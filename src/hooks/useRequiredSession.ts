@@ -17,6 +17,8 @@ export function useRequiredSession() {
   });
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     let active = true;
 
     const applySession = (session: Session | null) => {
@@ -40,6 +42,7 @@ export function useRequiredSession() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (state.status !== "unauthenticated") return;
 
     navigate({
