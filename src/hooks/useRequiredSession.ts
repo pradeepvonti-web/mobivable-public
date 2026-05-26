@@ -58,8 +58,10 @@ export function useRequiredSession() {
           console.error("[useRequiredSession] User lookup failed", error);
         }
 
-        if (userData.user) {
-          applySession({ user: userData.user } as Session);
+        const user = userData?.user ?? null;
+
+        if (user) {
+          applySession({ user } as Session);
 
           void supabase.auth.getSession().then(({ data }) => {
             if (data.session) {
