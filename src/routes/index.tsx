@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ChevronDown, Sparkles, Smartphone, Apple, Palette, Eye, Database,
   KeyRound, CreditCard, MonitorPlay, Rocket, Github, Package,
@@ -8,6 +10,12 @@ import appPreview from "@/assets/app-preview.jpg";
 import featureBackend from "@/assets/feature-backend.jpg";
 import featureNative from "@/assets/feature-native.jpg";
 import { SiteNav } from "@/components/SiteNav";
+import { GsapReveal } from "@/components/GsapReveal";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
+
 
 export const Route = createFileRoute("/")({
   component: Index,
