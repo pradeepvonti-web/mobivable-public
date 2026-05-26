@@ -208,6 +208,34 @@ function pathKey(p: number[]) {
   return p.join(".");
 }
 
+function proxiedImageUrl(url?: string) {
+  if (!url || url.startsWith("/") || url.startsWith("data:")) return url;
+  return `/api/public/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
+function normalizeSchemaImages(schema: MobileAppSchema): MobileAppSchema {
+  const clone = JSON.parse(JSON.stringify(schema)) as MobileAppSchema;
+
+  for (const screen of clone.screens ?? []) {
+    const screenWithBackground = screen as MobileAppSchema["screens"][number] & {
+      background?: { type?: string; image?: string };
+    };
+
+    if (screenWithBackground.background?.type === "image" && screenWithBackground.background.image) {
+      screenWithBackground.background.image = proxiedImageUrl(screenWithBackground.background.image);
+    }
+
+    for (const element of screen.elements ?? []) {
+      const props = (element as { props?: { src?: string; image?: string } }).props;
+      if (!props) continue;
+      if (props.src) props.src = proxiedImageUrl(props.src);
+      if (props.image) props.image = proxiedImageUrl(props.image);
+    }
+  }
+
+  return clone;
+}
+
 function resolveRenderableSchema(
   result: string | null | undefined,
   liveSchema: MobileAppSchema | null,
@@ -215,8 +243,8 @@ function resolveRenderableSchema(
 ): MobileAppSchema {
   const parsed = result ? parseAppSchema(result) : null;
   const base = liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
-  const cloned = JSON.parse(JSON.stringify(base)) as MobileAppSchema;
-  return validateAndFixSchema(cloned).schema ?? cloned;
+  const normalized = normalizeSchemaImages(base);
+  return validateAndFixSchema(normalized).schema ?? normalized;
 }
 
 export const Route = createFileRoute("/projects/$projectId")({
