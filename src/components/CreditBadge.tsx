@@ -1,16 +1,20 @@
-import { Link } from "@tanstack/react-router";
+import { ClientOnly, Link } from "@tanstack/react-router";
 import { Zap } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export function CreditBadge() {
+  return (
+    <ClientOnly fallback={<CreditBadgeSkeleton />}>
+      <CreditBadgeInner />
+    </ClientOnly>
+  );
+}
+
+function CreditBadgeInner() {
   const { data, isLoading } = useCredits();
   if (isLoading || !data) {
-    return (
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        <Zap className="w-3 h-3" /> --
-      </div>
-    );
+    return <CreditBadgeSkeleton />;
   }
   const total = data.daily_remaining + data.monthly_remaining;
   const low = total < 5;
@@ -63,5 +67,13 @@ export function CreditBadge() {
         </Link>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function CreditBadgeSkeleton() {
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+      <Zap className="w-3 h-3" /> --
+    </div>
   );
 }
