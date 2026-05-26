@@ -61,22 +61,6 @@ export function sendScreenChangeToFlutter(
   iframe.contentWindow.postMessage(message, '*');
 }
 
-export function shouldUseLocalFlutterPreview(): boolean {
-  if (import.meta.env.DEV) return true;
-  if (typeof window === 'undefined') return true;
-
-  const hostname = window.location.hostname;
-
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname.endsWith('.lovableproject.com') ||
-    hostname.endsWith('.lovable.dev') ||
-    hostname.endsWith('.lovable.app') ||
-    hostname.includes('--')
-  );
-}
-
 /**
  * Send device info (dimensions, OS) to the Flutter preview iframe.
  */
