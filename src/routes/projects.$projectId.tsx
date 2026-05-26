@@ -81,6 +81,7 @@ import { DeviceFrame, DEVICE_PRESETS, DeviceToolbar } from "@/components/DeviceF
 import { resolveTheme } from "@/lib/mobile-theme";
 import { ComponentPalette } from "@/components/ComponentPalette";
 import { parseAppSchema } from "@/lib/code-gen";
+import { validateAndFixSchema } from "@/lib/schema-validator";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { SAMPLE_FITTRACK, SAMPLE_APPS } from "@/lib/sample-apps";
 import { usePreviewConfig, aliasedSelect } from "@/lib/preview-config";
@@ -205,6 +206,17 @@ function resolvePath(root: HTMLElement, path: number[]): HTMLElement | null {
 
 function pathKey(p: number[]) {
   return p.join(".");
+}
+
+function resolveRenderableSchema(
+  result: string | null | undefined,
+  liveSchema: MobileAppSchema | null,
+  demoApp: string,
+): MobileAppSchema {
+  const parsed = result ? parseAppSchema(result) : null;
+  const base = liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+  const cloned = JSON.parse(JSON.stringify(base)) as MobileAppSchema;
+  return validateAndFixSchema(cloned).schema ?? cloned;
 }
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -3226,20 +3238,23 @@ function ProjectPage() {
             })()}
             screenBg={(() => {
               try {
-                const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
+                const s = resolveRenderableSchema(project?.result, liveSchema, demoApp);
                 return s ? resolveTheme(s.theme).background : undefined;
               } catch { return undefined; }
             })()}
             renderMode={renderMode}
-            schema={(() => {
-              const parsed = project?.result ? parseAppSchema(project.result) : null;
-              return liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
-            })()}
+            schema={resolveRenderableSchema(project?.result, liveSchema, demoApp)}
             theme={(() => {
               try {
-                const s = liveSchema ?? (project?.result ? parseAppSchema(project.result) : null);
+                const s = resolveRenderableSchema(project?.result, liveSchema, demoApp);
                 return s ? resolveTheme(s.theme) : undefined;
               } catch { return undefined; }
+            })()}
+            activeScreenIndex={(() => {
+              const schema = resolveRenderableSchema(project?.result, liveSchema, demoApp);
+              if (!schema?.screens?.length) return 0;
+              const index = schema.screens.findIndex((screen) => screen.id === activeScreenId);
+              return index >= 0 ? index : 0;
             })()}
           >
             {isBuilding ? (
@@ -3476,7 +3491,7 @@ function ProjectPage() {
                       setLiveSchema(null);
                     });
                   }
-                  const baseSchema = liveSchema ?? parsed ?? SAMPLE_APPS[demoApp] ?? SAMPLE_FITTRACK;
+                  const baseSchema = resolveRenderableSchema(project?.result, liveSchema, demoApp);
                   const handleDrop = (e: React.DragEvent) => {
                     e.preventDefault();
                     const raw = e.dataTransfer.getData("application/x-mobile-element");
