@@ -108,6 +108,13 @@ import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/back
 import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HistoryDialog } from "@/components/studio/HistoryDialog";
+import { BackendPanel } from "@/components/studio/BackendPanel";
+import { EnvPanel } from "@/components/studio/EnvPanel";
+import { AssetsPanel } from "@/components/studio/AssetsPanel";
+import { KnowledgeDialog } from "@/components/studio/KnowledgeDialog";
+import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
+
 
 type Attachment = { path: string; url: string; name: string };
 
