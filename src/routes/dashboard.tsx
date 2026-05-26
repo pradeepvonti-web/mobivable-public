@@ -29,7 +29,8 @@ type Sub = {
   environment: string;
 };
 
-type Profile = { display_name: string | null; plan: "free_beta" | "starter" | "pro" };
+type Plan = "free_beta" | "starter" | "pro" | "scale" | "business";
+type Profile = { display_name: string | null; plan: Plan };
 
 type ProjectRow = {
   id: string;
@@ -55,12 +56,26 @@ const PRICE_LABEL: Record<string, string> = {
   starter_yearly: "Starter · Yearly",
   pro_monthly: "Pro · Monthly",
   pro_yearly: "Pro · Yearly",
+  scale_monthly: "Scale · Monthly",
+  scale_yearly: "Scale · Yearly",
+  business_monthly: "Business · Monthly",
+  business_yearly: "Business · Yearly",
 };
 
-const PLAN_QUOTA: Record<Profile["plan"], string> = {
+const PLAN_QUOTA: Record<Plan, string> = {
   free_beta: "1 published app",
   starter: "5 published apps",
   pro: "Unlimited published apps",
+  scale: "Unlimited apps · 3 team seats",
+  business: "Unlimited apps · unlimited seats",
+};
+
+const PLAN_NAME: Record<Plan, string> = {
+  free_beta: "Free Beta",
+  starter: "Starter",
+  pro: "Pro",
+  scale: "Scale",
+  business: "Business",
 };
 
 function DashboardPage() {
@@ -197,8 +212,12 @@ function DashboardPage() {
   const tierOptions: { id: string; label: string }[] = [
     { id: "starter_monthly", label: "Starter · Monthly · $29" },
     { id: "starter_yearly", label: "Starter · Yearly · $276" },
-    { id: "pro_monthly", label: "Pro · Monthly · $99" },
-    { id: "pro_yearly", label: "Pro · Yearly · $948" },
+    { id: "pro_monthly", label: "Pro · Monthly · $59" },
+    { id: "pro_yearly", label: "Pro · Yearly · $564" },
+    { id: "scale_monthly", label: "Scale · Monthly · $119" },
+    { id: "scale_yearly", label: "Scale · Yearly · $1,140" },
+    { id: "business_monthly", label: "Business · Monthly · $299" },
+    { id: "business_yearly", label: "Business · Yearly · $2,868" },
   ].filter((o) => o.id !== sub?.price_id);
 
   return (
