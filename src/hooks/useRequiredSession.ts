@@ -20,6 +20,7 @@ export function useRequiredSession() {
     if (typeof window === "undefined") return;
 
     let active = true;
+    let bootstrapFinished = false;
 
     const applySession = (session: Session | null) => {
       if (!active) return;
@@ -30,10 +31,54 @@ export function useRequiredSession() {
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!bootstrapFinished && !session) return;
       applySession(session);
     });
 
-    void getRestoredSession().then(applySession);
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
+      return await Promise.race([
+        promise,
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), timeoutMs)),
+      ]);
+    };
+
+    void (async () => {
+      try {
+        const restoredSession = await withTimeout(getRestoredSession(), 4000);
+        if (restoredSession) {
+          applySession(restoredSession);
+          return;
+        }
+
+        const userResult = await withTimeout(supabase.auth.getUser(), 2000);
+        const userData = userResult?.data;
+        const error = userResult?.error;
+
+        if (error) {
+          console.error("[useRequiredSession] User lookup failed", error);
+        }
+
+        const user = userData?.user ?? null;
+
+        if (user) {
+          applySession({ user } as Session);
+
+          void supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+              applySession(data.session);
+            }
+          });
+          return;
+        }
+
+        applySession(null);
+      } catch (error) {
+        console.error("[useRequiredSession] Failed to bootstrap auth state", error);
+        applySession(null);
+      } finally {
+        bootstrapFinished = true;
+      }
+    })();
 
     return () => {
       active = false;
