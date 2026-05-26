@@ -154,7 +154,7 @@ function FlutterPreview({
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <iframe
         ref={iframeRef}
-        src={`${FLUTTER_PREVIEW_URL}?v=${Date.now()}`}
+        src={srcRef.current}
         style={{ width: '100%', height: '100%', border: 'none' }}
         title="Flutter Preview"
         allow="cross-origin-isolated"
