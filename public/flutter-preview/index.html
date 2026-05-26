@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Flutter Preview Engine</title>
+  <script>
+    // Force unregister any service workers to avoid aggressive caching of main.dart.js
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
+      });
+    }
+  </script>
   <style>
     /* Reset & full viewport, no scrollbars */
     *, *::before, *::after {
@@ -87,8 +97,6 @@
       var type = event.data.type;
       if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE' && type !== 'SCREEN_CHANGE' && type !== 'DEVICE_INFO') return;
 
-      console.log('[flutter-preview host] received', type, 'onMessageExists=', (typeof window._flutterPreviewOnMessage === 'function'), 'screens=', (event.data.schema && event.data.schema.screens && event.data.schema.screens.length));
-
       var rawMsg = JSON.stringify(event.data);
       if (window._flutterPreviewOnMessage) {
         window._flutterPreviewOnMessage(rawMsg);
@@ -107,6 +115,15 @@
       set: function(val) {
         loaderInstance = val;
         if (loaderInstance) {
+          // Disable service worker loading dynamically
+          var originalLoad = loaderInstance.load;
+          loaderInstance.load = function(options) {
+            if (options) {
+              options.serviceWorkerSettings = null;
+            }
+            return originalLoad.call(loaderInstance, options);
+          };
+
           loaderInstance.didCreateEngineInitializer = async function(engineInitializer) {
             let runner = await engineInitializer.initializeEngine();
             await runner.runApp();
@@ -114,11 +131,6 @@
             // Hide the loading spinner
             var el = document.getElementById('loading');
             if (el) el.style.display = 'none';
-
-            // Notify parent that Flutter is ready so it can re-send latest state.
-            try {
-              window.parent.postMessage({ type: 'FLUTTER_READY' }, '*');
-            } catch (e) { /* ignore */ }
           };
         }
       },
