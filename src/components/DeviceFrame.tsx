@@ -118,8 +118,8 @@ function FlutterPreview({
   const themeRef = useRef(theme);
   schemaRef.current = schema;
   themeRef.current = theme;
-  // Stable cache-buster so the iframe src doesn't change on re-renders.
-  const srcRef = useRef(`${FLUTTER_PREVIEW_URL}?v=${Date.now()}`);
+
+
 
   // Listen for FLUTTER_READY to hide the loading overlay and flush latest state
   useEffect(() => {
