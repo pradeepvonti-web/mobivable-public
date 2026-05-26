@@ -68,10 +68,7 @@
       var type = event.data.type;
       if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE') return;
 
-      if (window._flutterPreviewReady && window._flutterPreviewOnMessage) {
-        // Flutter is ready — forward directly.
-        window._flutterPreviewOnMessage(JSON.stringify(event.data));
-      } else {
+      if (!window._flutterPreviewReady) {
         // Queue the message for Flutter to pick up after boot.
         window._flutterPreviewMessageQueue.push(JSON.stringify(event.data));
       }
@@ -90,8 +87,26 @@
           loaderInstance.didCreateEngineInitializer = async function(engineInitializer) {
             let runner = await engineInitializer.initializeEngine();
             await runner.runApp();
+            
+            // Flutter is now running and listening to window messages!
+            window._flutterPreviewReady = true;
+            
+            // Hide the loading spinner
             var el = document.getElementById('loading');
             if (el) el.style.display = 'none';
+            
+            // Flush the message queue
+            if (window._flutterPreviewMessageQueue) {
+              while (window._flutterPreviewMessageQueue.length > 0) {
+                var rawMsg = window._flutterPreviewMessageQueue.shift();
+                try {
+                  var msg = JSON.parse(rawMsg);
+                  window.postMessage(msg, '*');
+                } catch(e) {
+                  console.error("Failed to post queued message:", e);
+                }
+              }
+            }
           };
         }
       },
