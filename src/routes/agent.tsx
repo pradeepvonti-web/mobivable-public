@@ -58,6 +58,7 @@ import {
   sendAgentTurn,
   type AgentEvent,
 } from "@/lib/mcp-agent.functions";
+import { createSnackSession } from "@/lib/snack-preview.functions";
 
 export const Route = createFileRoute("/agent")({
   component: AgentPage,
@@ -124,6 +125,21 @@ function AgentPage() {
   const [previewReady, setPreviewReady] = useState(false);
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  /**
+   * "web"   — the existing Flutter web preview (live, schema-driven, fast).
+   * "device" — Snack-based real RN runtime; iframe + QR for Expo Go.
+   * Web stays the default because the agent's screenshot capture only
+   * works against the Flutter iframe. Device mode is a user-initiated
+   * "show me on a real phone" moment.
+   */
+  const [previewMode, setPreviewMode] = useState<"web" | "device">("web");
+  const [snack, setSnack] = useState<
+    { hashId: string; embedUrl: string; deviceUrl: string } | null
+  >(null);
+  const [snackLoading, setSnackLoading] = useState(false);
+  const [snackError, setSnackError] = useState<string | null>(null);
+  const createSnackFn = useServerFn(createSnackSession);
+
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeProjectId) ?? null,
     [projects, activeProjectId],
@@ -167,7 +183,43 @@ function AgentPage() {
   // project's schema needs to land before screenshot capture is meaningful.
   useEffect(() => {
     setPreviewReady(false);
+    // Snack session is per-project; drop it on switch so we don't render
+    // a stale iframe with the previous project's theme.
+    setSnack(null);
+    setSnackError(null);
   }, [activeProjectId]);
+
+  // When the user flips to Device mode, mint a Snack session for the
+  // active project (or reuse the in-memory one if we just made it). The
+  // server fn is cheap (~1 s) but we still gate on an explicit toggle so
+  // the user controls when the Snack quota is consumed.
+  useEffect(() => {
+    if (previewMode !== "device" || !activeProjectId) return;
+    if (snack || snackLoading) return;
+    setSnackLoading(true);
+    setSnackError(null);
+    (async () => {
+      try {
+        const res = await createSnackFn({ data: { projectId: activeProjectId } });
+        if (!res.ok) {
+          setSnackError(res.error);
+          return;
+        }
+        setSnack({
+          hashId: res.hashId,
+          embedUrl: res.embedUrl,
+          deviceUrl: res.deviceUrl,
+        });
+      } catch (e) {
+        setSnackError(e instanceof Error ? e.message : "Failed to create Snack.");
+      } finally {
+        setSnackLoading(false);
+      }
+    })();
+    // We deliberately omit `snack` from deps — see the guard above; this
+    // effect should fire only on mode+project change, not on snack-state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewMode, activeProjectId]);
 
   // Listen for FLUTTER_READY so we know when to start pushing schema.
   useEffect(() => {
@@ -650,7 +702,7 @@ function AgentPage() {
               </form>
               <p className="mt-2 text-[10px] text-muted-foreground">
                 ⌘/Ctrl + Enter to send.
-                {activeProject && previewVisible
+                {activeProject && previewVisible && previewMode === "web"
                   ? " A preview screenshot is attached so the agent can see what you see."
                   : " Each turn consumes 1 AI credit."}
               </p>
@@ -662,28 +714,109 @@ function AgentPage() {
             <aside className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
               <div className="border-b border-border px-3 py-2 flex items-center gap-2">
                 <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium truncate">
+                <span className="text-xs font-medium truncate flex-1">
                   {activeProject?.name ?? "Preview"}
                 </span>
-                <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {previewReady ? "ready" : "loading…"}
+                {/* Web / Device mode toggle — a tiny segmented control. */}
+                <div
+                  role="tablist"
+                  aria-label="Preview mode"
+                  className="inline-flex rounded-md border border-border bg-background p-0.5 text-[10px] uppercase tracking-wider"
+                >
+                  {(["web", "device"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="tab"
+                      aria-selected={previewMode === m}
+                      onClick={() => setPreviewMode(m)}
+                      className={
+                        "px-2 py-0.5 rounded transition-colors " +
+                        (previewMode === m
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground")
+                      }
+                    >
+                      {m === "web" ? "Web" : "Device"}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {previewMode === "web"
+                    ? previewReady
+                      ? "ready"
+                      : "loading…"
+                    : snackLoading
+                      ? "building…"
+                      : snack
+                        ? "ready"
+                        : snackError
+                          ? "error"
+                          : "idle"}
                 </span>
               </div>
-              <div className="flex-1 bg-black grid place-items-center overflow-hidden">
-                <iframe
-                  // keyed on activeProjectId so switching projects hard-resets
-                  // the Flutter engine state (theme/schema are pushed via
-                  // postMessage but the engine doesn't gracefully swap apps).
-                  key={activeProjectId}
-                  ref={previewIframeRef}
-                  title="Flutter Preview"
-                  src={getFlutterPreviewUrl()}
-                  className="w-full h-full border-0"
-                />
-              </div>
-              <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-                Auto-captured on send. Visible to the agent as image input.
-              </div>
+
+              {previewMode === "web" ? (
+                <>
+                  <div className="flex-1 bg-black grid place-items-center overflow-hidden">
+                    <iframe
+                      // keyed on activeProjectId so switching projects
+                      // hard-resets the Flutter engine state (theme/schema
+                      // are pushed via postMessage but the engine doesn't
+                      // gracefully swap apps).
+                      key={activeProjectId}
+                      ref={previewIframeRef}
+                      title="Flutter Preview"
+                      src={getFlutterPreviewUrl()}
+                      className="w-full h-full border-0"
+                    />
+                  </div>
+                  <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
+                    Auto-captured on send. Visible to the agent as image input.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 bg-black overflow-hidden">
+                    {snackLoading && (
+                      <div className="h-full grid place-items-center text-xs text-muted-foreground gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Spinning up a Snack…
+                      </div>
+                    )}
+                    {!snackLoading && snackError && (
+                      <div className="h-full grid place-items-center text-xs text-destructive p-4 text-center">
+                        Couldn’t reach Snack: {snackError}
+                      </div>
+                    )}
+                    {!snackLoading && !snackError && snack && (
+                      <iframe
+                        key={snack.hashId}
+                        title="Snack Device Preview"
+                        src={snack.embedUrl}
+                        // Snack needs popups for the Expo Go deep-link.
+                        allow="clipboard-read; clipboard-write; geolocation; camera; microphone"
+                        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+                        className="w-full h-full border-0"
+                      />
+                    )}
+                  </div>
+                  <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground flex items-center justify-between gap-2">
+                    <span className="truncate">
+                      Real RN runtime · scan the QR in the iframe with Expo Go.
+                    </span>
+                    {snack && (
+                      <button
+                        type="button"
+                        onClick={() => setSnack(null)}
+                        className="shrink-0 underline-offset-2 hover:underline"
+                      >
+                        Rebuild
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </aside>
           )}
         </div>
