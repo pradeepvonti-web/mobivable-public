@@ -41,6 +41,13 @@ import {
   type StoreListing,
   type StoreScreenshot,
 } from "@/lib/store-listing.functions";
+import {
+  submitToStores,
+  listStoreSubmissions,
+  type SubmissionRow,
+  type SubmitInstructions,
+} from "@/lib/store-submit.functions";
+import { Send, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAppSchema } from "@/lib/code-gen";
 import {
@@ -127,6 +134,21 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
     screens?: { id?: string; title?: string }[];
   } | null>(null);
   const captureIframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // ── Store submissions ──
+  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [submittingPlatform, setSubmittingPlatform] = useState<
+    "ios" | "android" | null
+  >(null);
+  /** Last instructions block returned by submitToStores. Shown until the
+   *  user dismisses it (since each new submission row likely has the same
+   *  steps until the in-studio runner ships). */
+  const [latestInstructions, setLatestInstructions] = useState<{
+    platform: "ios" | "android";
+    payload: SubmitInstructions;
+  } | null>(null);
+  const submissionsFn = useServerFn(listStoreSubmissions);
+  const submitFn = useServerFn(submitToStores);
   const getFn = useServerFn(getStoreListing);
   const upsertFn = useServerFn(upsertStoreListing);
   const uploadFn = useServerFn(uploadStoreAsset);
@@ -176,6 +198,42 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
       cancelled = true;
     };
   }, [projectId]);
+
+  // Load recent submissions for the platform-status list.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await submissionsFn({ data: { projectId } });
+        if (cancelled) return;
+        if (res.ok) setSubmissions(res.submissions);
+      } catch {
+        // Non-fatal — submission history is informational.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, submissionsFn]);
+
+  async function submitPlatform(platform: "ios" | "android") {
+    if (submittingPlatform) return;
+    setSubmittingPlatform(platform);
+    try {
+      const res = await submitFn({ data: { projectId, platform } });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setSubmissions((prev) => [res.submission, ...prev]);
+      setLatestInstructions({ platform, payload: res.instructions });
+      toast.success(
+        platform === "ios" ? "Recorded iOS submission" : "Recorded Android submission",
+      );
+    } finally {
+      setSubmittingPlatform(null);
+    }
+  }
 
   const screenshotsByDevice = useMemo(() => {
     const map = new Map<string, StoreScreenshot[]>();
@@ -826,6 +884,89 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
         downstream <code>eas submit</code> step can pick it up.
       </p>
 
+      {/* ── Submit ── */}
+      <section className="space-y-3">
+        <h3 className="text-xs uppercase tracking-wider text-muted-foreground">
+          Submit
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Sends the latest finished build to TestFlight (iOS) or Play Internal
+          Track (Android). Credentials live in{" "}
+          <span className="font-medium text-foreground">Settings → Store credentials</span>.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => submitPlatform("ios")}
+            disabled={submittingPlatform !== null}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {submittingPlatform === "ios" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            Submit to TestFlight
+          </button>
+          <button
+            type="button"
+            onClick={() => submitPlatform("android")}
+            disabled={submittingPlatform !== null}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {submittingPlatform === "android" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            Submit to Play Internal
+          </button>
+        </div>
+
+        {latestInstructions && (
+          <InstructionsCard
+            platform={latestInstructions.platform}
+            payload={latestInstructions.payload}
+            onDismiss={() => setLatestInstructions(null)}
+          />
+        )}
+
+        {submissions.length > 0 && (
+          <div className="space-y-1.5 mt-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Recent submissions
+            </p>
+            {submissions.slice(0, 6).map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 text-xs"
+              >
+                <span className="font-medium uppercase text-[10px] tracking-wider w-16">
+                  {s.platform === "ios" ? "iOS" : "Android"}
+                </span>
+                <span
+                  className={
+                    "text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 " +
+                    (s.status === "succeeded"
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : s.status === "failed"
+                        ? "bg-destructive/15 text-destructive"
+                        : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {s.status}
+                </span>
+                <span className="flex-1 truncate text-muted-foreground">
+                  {s.error_text ??
+                    s.store_record_id ??
+                    new Date(s.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ── Capture iframe (off-screen) ──
           Mounted only when a capture is in flight so the engine doesn't
           eat ~50 MB on every panel open. Positioned absolute + opacity 0
@@ -873,5 +1014,55 @@ function Field({
       {hint && <span className="text-[10px] text-muted-foreground"> · {hint}</span>}
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function InstructionsCard({
+  platform,
+  payload,
+  onDismiss,
+}: {
+  platform: "ios" | "android";
+  payload: SubmitInstructions;
+  onDismiss: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3 text-primary" />
+        ) : (
+          <ChevronRight className="h-3 w-3 text-primary" />
+        )}
+        <span className="font-medium text-primary">
+          {platform === "ios" ? "TestFlight" : "Play Internal"} — next steps
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+        >
+          Dismiss
+        </button>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 pl-5">
+          <p className="text-muted-foreground">{payload.summary}</p>
+          <ol className="list-decimal pl-4 space-y-1 text-foreground">
+            {payload.steps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
   );
 }

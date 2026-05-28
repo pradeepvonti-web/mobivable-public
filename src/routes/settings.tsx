@@ -30,6 +30,11 @@ import {
   deleteSkill,
   type SkillRow,
 } from "@/lib/skills.functions";
+import {
+  getStoreCredentialStatus,
+  upsertStoreCredentials,
+  type CredentialStatus,
+} from "@/lib/store-credentials.functions";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -96,6 +101,18 @@ function SettingsPage() {
   const listSkillsFn = useServerFn(listSkills);
   const upsertSkillFn = useServerFn(upsertSkill);
   const deleteSkillFn = useServerFn(deleteSkill);
+  // ── Store credentials ──
+  const [credStatus, setCredStatus] = useState<CredentialStatus | null>(null);
+  const [credEditing, setCredEditing] = useState<"apple" | "google" | null>(null);
+  const [savingCreds, setSavingCreds] = useState(false);
+  const [appleDraft, setAppleDraft] = useState({
+    issuerId: "",
+    keyId: "",
+    p8Pem: "",
+  });
+  const [googleDraft, setGoogleDraft] = useState("");
+  const credStatusFn = useServerFn(getStoreCredentialStatus);
+  const credUpsertFn = useServerFn(upsertStoreCredentials);
   const [issuingPat, setIssuingPat] = useState(false);
   // The plaintext is returned exactly once. We hold it in memory until
   // the user dismisses the reveal card; refresh = gone forever.
@@ -142,9 +159,101 @@ function SettingsPage() {
       } catch {
         // Skills load is non-blocking too.
       }
+      try {
+        const credRes = await credStatusFn({ data: undefined });
+        if (credRes.ok) setCredStatus(credRes.status);
+      } catch {
+        // Cred status load failures are non-blocking — the user sees an
+        // empty card and can still re-enter their secrets.
+      }
       setLoading(false);
     })();
   }, [status, session?.user?.id, setTheme]);
+
+  async function saveAppleCreds() {
+    const { issuerId, keyId, p8Pem } = appleDraft;
+    const trimmedPem = p8Pem.trim();
+    if (!issuerId.trim() || !keyId.trim() || !trimmedPem) {
+      toast.error("Issuer id, key id, and the .p8 contents are all required.");
+      return;
+    }
+    if (!/-----BEGIN PRIVATE KEY-----/.test(trimmedPem)) {
+      toast.error("That doesn't look like a PEM. Paste the whole file including the BEGIN/END markers.");
+      return;
+    }
+    setSavingCreds(true);
+    try {
+      const res = await credUpsertFn({
+        data: {
+          ascIssuerId: issuerId.trim(),
+          ascKeyId: keyId.trim(),
+          ascP8Pem: trimmedPem,
+        },
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const refreshed = await credStatusFn({ data: undefined });
+      if (refreshed.ok) setCredStatus(refreshed.status);
+      setAppleDraft({ issuerId: "", keyId: "", p8Pem: "" });
+      setCredEditing(null);
+      toast.success("Apple credentials saved");
+    } finally {
+      setSavingCreds(false);
+    }
+  }
+
+  async function saveGoogleCreds() {
+    const trimmed = googleDraft.trim();
+    if (!trimmed) {
+      toast.error("Paste your Play service-account JSON.");
+      return;
+    }
+    setSavingCreds(true);
+    try {
+      const res = await credUpsertFn({
+        data: { playServiceAccountJson: trimmed },
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const refreshed = await credStatusFn({ data: undefined });
+      if (refreshed.ok) setCredStatus(refreshed.status);
+      setGoogleDraft("");
+      setCredEditing(null);
+      toast.success("Google credentials saved");
+    } finally {
+      setSavingCreds(false);
+    }
+  }
+
+  async function clearAppleCreds() {
+    if (!window.confirm("Clear Apple credentials? You'll need them again to submit to TestFlight.")) return;
+    const res = await credUpsertFn({
+      data: { ascIssuerId: "", ascKeyId: "", ascP8Pem: "" },
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    const refreshed = await credStatusFn({ data: undefined });
+    if (refreshed.ok) setCredStatus(refreshed.status);
+    toast.success("Apple credentials cleared");
+  }
+
+  async function clearGoogleCreds() {
+    if (!window.confirm("Clear Play credentials? You'll need them again to submit to Internal Track.")) return;
+    const res = await credUpsertFn({ data: { playServiceAccountJson: "" } });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    const refreshed = await credStatusFn({ data: undefined });
+    if (refreshed.ok) setCredStatus(refreshed.status);
+    toast.success("Play credentials cleared");
+  }
 
   async function saveSkill() {
     if (!editingSkill) return;
@@ -671,6 +780,171 @@ function SettingsPage() {
               </button>
             </div>
           )}
+        </Card>
+
+        <Card
+          title="Store credentials"
+          description="Apple App Store Connect API key + Google Play service account. Used only when you submit a build to TestFlight or Play Internal Track. Stored encrypted at rest."
+        >
+          {/* ─── Apple ─── */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Apple ASC API key</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {credStatus?.hasAscKey
+                    ? `Key ${credStatus.ascKeyId} · issuer …${credStatus.ascIssuerIdTail}`
+                    : "Not configured."}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCredEditing(credEditing === "apple" ? null : "apple")}
+                  className="h-7 px-2.5 text-xs rounded-md border border-border hover:bg-muted"
+                >
+                  {credStatus?.hasAscKey ? "Replace" : "Add"}
+                </button>
+                {credStatus?.hasAscKey && (
+                  <button
+                    type="button"
+                    onClick={clearAppleCreds}
+                    className="h-7 w-7 grid place-items-center rounded-md hover:bg-muted text-muted-foreground hover:text-destructive"
+                    aria-label="Clear Apple credentials"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            {credEditing === "apple" && (
+              <div className="space-y-2 rounded-lg border border-border bg-background/60 p-3">
+                <input
+                  type="text"
+                  value={appleDraft.issuerId}
+                  onChange={(e) =>
+                    setAppleDraft({ ...appleDraft, issuerId: e.target.value })
+                  }
+                  placeholder="Issuer id (UUID-shaped)"
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono"
+                />
+                <input
+                  type="text"
+                  value={appleDraft.keyId}
+                  onChange={(e) =>
+                    setAppleDraft({ ...appleDraft, keyId: e.target.value })
+                  }
+                  placeholder="Key id (10 chars)"
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono"
+                />
+                <textarea
+                  value={appleDraft.p8Pem}
+                  onChange={(e) =>
+                    setAppleDraft({ ...appleDraft, p8Pem: e.target.value })
+                  }
+                  placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
+                  rows={6}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[11px] font-mono resize-y"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveAppleCreds}
+                    disabled={savingCreds}
+                    className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingCreds ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-3.5 w-3.5" />
+                    )}
+                    Save Apple key
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCredEditing(null);
+                      setAppleDraft({ issuerId: "", keyId: "", p8Pem: "" });
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ─── Google ─── */}
+          <div className="space-y-3 mt-4 border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Play service account</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {credStatus?.hasPlayServiceAccount
+                    ? "Configured."
+                    : "Not configured."}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCredEditing(credEditing === "google" ? null : "google")
+                  }
+                  className="h-7 px-2.5 text-xs rounded-md border border-border hover:bg-muted"
+                >
+                  {credStatus?.hasPlayServiceAccount ? "Replace" : "Add"}
+                </button>
+                {credStatus?.hasPlayServiceAccount && (
+                  <button
+                    type="button"
+                    onClick={clearGoogleCreds}
+                    className="h-7 w-7 grid place-items-center rounded-md hover:bg-muted text-muted-foreground hover:text-destructive"
+                    aria-label="Clear Play credentials"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            {credEditing === "google" && (
+              <div className="space-y-2 rounded-lg border border-border bg-background/60 p-3">
+                <textarea
+                  value={googleDraft}
+                  onChange={(e) => setGoogleDraft(e.target.value)}
+                  placeholder="{ &quot;type&quot;: &quot;service_account&quot;, &quot;project_id&quot;: ... }"
+                  rows={6}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[11px] font-mono resize-y"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveGoogleCreds}
+                    disabled={savingCreds}
+                    className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingCreds ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-3.5 w-3.5" />
+                    )}
+                    Save Play JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCredEditing(null);
+                      setGoogleDraft("");
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </Card>
 
         <div className="flex items-center gap-3">
