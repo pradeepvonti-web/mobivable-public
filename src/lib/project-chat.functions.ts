@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
 import { callAI, callAIStreaming, type AIMessage } from "./ai-provider";
+import { loadKnowledgeForUser } from "./knowledge-context";
 import { routeMessageToAgents, advancePhase, initProjectPhases, SDLC_PHASES, type SDLCPhase } from './sdlc.functions';
 
 const DEFAULT_SYSTEM =
@@ -139,12 +140,18 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         ? `${agent.system}\n\nYou are the "${agent.name}" agent collaborating with the rest of the team on this mobile project (current SDLC phase: ${phaseLabel}). Speak in first person. Be concise (under ~180 words), use markdown bullets, and end with a one-line handoff if another teammate should act next.${teamContext}`
         : DEFAULT_SYSTEM;
 
+      // Saved knowledge items (PRDs, design notes, ingested URLs from the
+      // Knowledge panel) are injected once per turn. Loaded inside the loop
+      // so an item added mid-conversation lands on the very next agent reply.
+      const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);
+
       const messages: AIMessage[] = [
         { role: "system", content: systemPrompt },
         {
           role: "system",
           content: `App idea: ${project.prompt}${project.result ? `\n\nCurrent plan:\n${project.result}` : ""}`,
         },
+        ...(knowledgeBlock ? [{ role: "system" as const, content: knowledgeBlock }] : []),
         ...baseHistory,
         { role: "user", content: data.content },
       ];
@@ -214,9 +221,13 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     if (combined.length > 0) {
       try {
         const codeGenPrompt = await import("@/lib/code-gen").then((m) => m.CODE_GEN_SYSTEM_PROMPT);
+        // Re-load knowledge so the schema rewrite also sees user-provided
+        // PRDs/notes. Same cap as the chat turn — won't blow past budget.
+        const knowledgeForRewrite = await loadKnowledgeForUser(supabase, userId);
         const rewritePrompt =
           `App idea: ${project.prompt}\n\n` +
           `Current app JSON:\n${project.result ?? "(none yet)"}\n\n` +
+          (knowledgeForRewrite ? `${knowledgeForRewrite}\n\n` : "") +
           `Latest user request:\n${data.content}\n\n` +
           `Team responses:\n${combined}\n\n` +
           `Now generate the COMPLETE updated mobile app as a JSON object reflecting the team's decisions.`;

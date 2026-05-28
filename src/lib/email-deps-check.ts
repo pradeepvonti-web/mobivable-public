@@ -61,6 +61,10 @@ export function assertEmailDepsInstalled(): Promise<ProbeResult[]> {
 }
 
 // Fire at module load so the probe runs once at server startup.
-void assertEmailDepsInstalled().catch((err) => {
-  console.error("[email-deps] Probe crashed:", err);
-});
+// Skip on the client — these are Node packages that cannot be resolved in the
+// browser, and the probe would otherwise spam the console on every page load.
+if (typeof window === "undefined") {
+  void assertEmailDepsInstalled().catch((err) => {
+    console.error("[email-deps] Probe crashed:", err);
+  });
+}

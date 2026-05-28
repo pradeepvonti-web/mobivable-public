@@ -877,24 +877,110 @@ export type MColumn = {
   name: string;
   type: MColumnType;
   nullable?: boolean;
+  /**
+   * Default expression. Must come from a whitelisted set to prevent SQL
+   * injection at apply time — see `safeDefault` in
+   * `src/lib/backend-provision.functions.ts`. Allowed forms:
+   *   - `now()`, `current_timestamp`, `gen_random_uuid()`, `auth.uid()`
+   *   - numeric literal, `true`, `false`, `null`
+   *   - single-quoted string with no embedded quotes
+   */
   default?: string;
+  /** Mark this column UNIQUE (per-column). For composite uniques, use `MTable.indexes`. */
+  unique?: boolean;
+  /** Foreign key reference. Idempotent constraint named `fk_<table>_<column>`. */
+  references?: {
+    /** Snake_case_plural — must match another table in this spec. */
+    table: string;
+    /** Defaults to `id`. */
+    column?: string;
+    /** Defaults to `cascade` to keep child rows cleaned up. */
+    onDelete?: "cascade" | "restrict" | "set null" | "no action";
+  };
 };
 
 export type MTableRls = "owner" | "public_read" | "none";
+
+export type MIndex = {
+  /** One or more column names to index. */
+  columns: string[];
+  unique?: boolean;
+};
 
 export type MTable = {
   name: string;
   columns: MColumn[];
   rls?: MTableRls;
+  /** Secondary indexes for query performance. Names: `idx_<table>_<col1>_<col2>`. */
+  indexes?: MIndex[];
+};
+
+/** Postgres function / RPC. Body is plpgsql wrapped in `BEGIN/END` server-side. */
+export type MPgFunction = {
+  /** snake_case identifier. */
+  name: string;
+  /** Function parameters in PG syntax — e.g. `target_user uuid, increment_by int`. */
+  args?: string;
+  /** Return type — `int`, `bigint`, `jsonb`, `void`, `TABLE(col1 type, col2 type)`, etc. */
+  returns: string;
+  /** plpgsql body — anything between `BEGIN` and `END;`. SQL-injection safe via validation. */
+  body: string;
+  /** SECURITY DEFINER lets the function run as the function owner; otherwise INVOKER. */
+  securityDefiner?: boolean;
+  /** Optional one-line summary used in chat output. */
+  description?: string;
+};
+
+/** Supabase Storage bucket + auto-generated owner-mode policies. */
+export type MStorageBucket = {
+  /** snake_case-or-kebab — used both as the bucket id and in the URL. */
+  bucket: string;
+  /** If true, all objects in this bucket are world-readable by URL. */
+  public?: boolean;
+  /** Max file size in bytes the bucket will accept. Default 10 MiB. */
+  fileSizeLimit?: number;
+  /** Allowed MIME types (allow-list). If omitted, all types accepted. */
+  allowedMimeTypes?: string[];
+};
+
+/** Supabase Edge Function (Deno) declaration. */
+export type MEdgeFunction = {
+  /** kebab-case slug; used as the URL path segment. */
+  name: string;
+  /**
+   * Full Deno entry point as a single string. Must export a default handler
+   * compatible with `Deno.serve` (Supabase wraps this for you).
+   * Network/file access is constrained by Supabase runtime defaults.
+   */
+  code: string;
+  /** Env vars the function expects to read at runtime. Documentation only — values are set out-of-band. */
+  envVars?: string[];
+  /** If true, the function can be invoked without an Authorization header. */
+  verifyJwt?: boolean;
+  /** Optional one-line summary used in chat output. */
+  description?: string;
 };
 
 export type MBackend = {
   tables?: MTable[];
+  /**
+   * Auth configuration the user/operator should set in Supabase dashboard.
+   * Not auto-deployed (Supabase Auth config is org-level), but persisted as
+   * a checklist alongside the rest of the spec.
+   */
   auth?: {
-    providers?: Array<"email" | "google" | "apple">;
+    providers?: Array<"email" | "google" | "apple" | "github">;
     requireEmailConfirm?: boolean;
+    /** Documentation only. */
+    notes?: string;
   };
-  storage?: Array<{ bucket: string; public?: boolean }>;
+  /** Storage buckets to create/upsert (idempotent via storage.buckets upsert). */
+  storage?: MStorageBucket[];
+  /** Postgres functions / RPCs the architect proposes. Applied via generateBackendSQL. */
+  functions?: MPgFunction[];
+  /** Supabase Edge Functions the backend developer proposes. Deployed via deployEdgeFunctions. */
+  edge_functions?: MEdgeFunction[];
+  /** Documentation flag — does this app need push notifications? Not auto-deployed. */
   push?: boolean;
 };
 

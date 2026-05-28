@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { parseAppSchema } from "@/lib/code-gen";
-import { exportToExpo } from "@/lib/export-project";
+import { MONETIZATION_ENV_KEYS, exportToExpo } from "@/lib/export-project";
+import type { ExportOptions } from "@/lib/export-project";
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -67,11 +68,41 @@ export const getProjectFiles = createServerFn({ method: "POST" })
       .eq("project_id", data.projectId)
       .maybeSingle();
 
-    const options =
-      integ?.supabase_url
+    // Load monetization config from project_env_vars (export-safe allow-list).
+    // Sensitive keys like stripe_webhook_secret are not in the list — they
+    // must never reach a client bundle.
+    const { data: monRows } = await supabase
+      .from("project_env_vars")
+      .select("name, value")
+      .eq("project_id", data.projectId)
+      .eq("user_id", userId)
+      .in("name", MONETIZATION_ENV_KEYS as readonly string[] as string[]);
+    let monetizationProvider: string | undefined;
+    const monetizationKeys: Record<string, string> = {};
+    for (const r of (monRows ?? []) as Array<{ name: string; value: string }>) {
+      if (typeof r.value !== "string") continue;
+      if (r.name === "monetization_provider") {
+        monetizationProvider = r.value || undefined;
+      } else {
+        monetizationKeys[r.name] = r.value;
+      }
+    }
+
+    const options: ExportOptions | undefined =
+      integ?.supabase_url || monetizationProvider
         ? {
-            supabaseUrl: integ.supabase_url,
-            supabaseAnonKey: integ.supabase_anon_key ?? undefined,
+            ...(integ?.supabase_url
+              ? {
+                  supabaseUrl: integ.supabase_url,
+                  supabaseAnonKey: integ.supabase_anon_key ?? undefined,
+                }
+              : {}),
+            ...(monetizationProvider
+              ? {
+                  monetizationProvider,
+                  monetizationKeys,
+                }
+              : {}),
           }
         : undefined;
 

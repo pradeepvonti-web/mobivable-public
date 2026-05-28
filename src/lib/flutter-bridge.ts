@@ -14,7 +14,13 @@ export type FlutterMessage =
   | { type: 'SCHEMA_UPDATE'; schema: MobileAppSchema }
   | { type: 'THEME_UPDATE'; theme: MobileTheme }
   | { type: 'SCREEN_CHANGE'; screenIndex: number }
-  | { type: 'DEVICE_INFO'; width: number; height: number; os: 'ios' | 'android' };
+  | { type: 'DEVICE_INFO'; width: number; height: number; os: 'ios' | 'android' }
+  /**
+   * Studio → Flutter: please capture the rendered SchemaRenderer as a PNG
+   * and post it back via `FLUTTER_SCREENSHOT`. The `requestId` round-trips
+   * so multiple captures in flight don't get mixed up.
+   */
+  | { type: 'SCREENSHOT_REQUEST'; requestId: string };
 
 /**
  * Send a schema update to the Flutter preview iframe.
@@ -81,13 +87,51 @@ export function sendDeviceInfoToFlutter(
 }
 
 /**
+ * Ask the Flutter preview to capture the current screen as a PNG.
+ * Resolves with a `data:image/png;base64,…` URL via the FLUTTER_SCREENSHOT
+ * event (correlated by `requestId`). Times out after 8 s — Flutter side
+ * occasionally drops a frame during deps install / hot reload, and we'd
+ * rather surface a clean error than wait forever.
+ */
+export function captureFlutterScreenshot(
+  iframe: HTMLIFrameElement | null,
+  timeoutMs = 8000,
+): Promise<string> {
+  if (!iframe?.contentWindow) {
+    return Promise.reject(new Error('Flutter iframe is not mounted yet.'));
+  }
+  const requestId = `mvbl-cap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return new Promise<string>((resolve, reject) => {
+    const onMessage = (ev: MessageEvent) => {
+      const data = ev.data as { type?: string; requestId?: string; dataUrl?: string; error?: string };
+      if (!data || data.type !== 'FLUTTER_SCREENSHOT') return;
+      if (data.requestId !== requestId) return;
+      window.removeEventListener('message', onMessage);
+      clearTimeout(timer);
+      if (data.error) reject(new Error(data.error));
+      else if (data.dataUrl) resolve(data.dataUrl);
+      else reject(new Error('Flutter screenshot returned no data.'));
+    };
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      reject(new Error(`Flutter screenshot timed out after ${timeoutMs / 1000}s.`));
+    }, timeoutMs);
+    window.addEventListener('message', onMessage);
+    const message: FlutterMessage = { type: 'SCREENSHOT_REQUEST', requestId };
+    iframe.contentWindow!.postMessage(message, '*');
+  });
+}
+
+/**
  * Hook helper: listen for messages FROM the Flutter preview.
- * Flutter can send back events like 'READY', 'ERROR', 'SCREEN_TAP', etc.
+ * Flutter can send back events like 'READY', 'ERROR', 'SCREEN_TAP',
+ * 'SCREENSHOT', etc.
  */
 export type FlutterEvent =
   | { type: 'FLUTTER_READY' }
   | { type: 'FLUTTER_ERROR'; error: string }
-  | { type: 'FLUTTER_SCREEN_TAP'; screenId: string };
+  | { type: 'FLUTTER_SCREEN_TAP'; screenId: string }
+  | { type: 'FLUTTER_SCREENSHOT'; requestId: string; dataUrl?: string; error?: string };
 
 export function onFlutterMessage(
   callback: (event: FlutterEvent) => void

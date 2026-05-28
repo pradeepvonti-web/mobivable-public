@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Loader2, Paperclip, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { BookOpen, Link as LinkIcon, Loader2, Paperclip, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ingestUrl } from "@/lib/ingest-url.functions";
 
 type KnowledgeRow = {
   id: string;
@@ -25,6 +27,12 @@ function KnowledgeDialog({ onClose }: { onClose: () => void }) {
   const [draftFileUrl, setDraftFileUrl] = useState<string | null>(null);
   const [draftFileName, setDraftFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  // URL ingestion: optional second affordance next to "New knowledge item".
+  // Visible only when not currently drafting an item so the form stays simple.
+  const [urlInputOpen, setUrlInputOpen] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+  const [ingesting, setIngesting] = useState(false);
+  const ingestUrlFn = useServerFn(ingestUrl);
 
   const db = supabase as unknown as {
     from: (t: string) => any;
@@ -135,6 +143,27 @@ function KnowledgeDialog({ onClose }: { onClose: () => void }) {
       toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleIngestUrl() {
+    const url = urlDraft.trim();
+    if (!url) return;
+    setIngesting(true);
+    try {
+      const r = await ingestUrlFn({ data: { url } });
+      if (r.ok) {
+        toast.success(`Ingested ${r.charsStored.toLocaleString()} chars from ${new URL(r.sourceUrl).hostname}`);
+        setUrlDraft("");
+        setUrlInputOpen(false);
+        await load();
+      } else {
+        toast.error(r.error);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "URL ingest failed");
+    } finally {
+      setIngesting(false);
     }
   }
 
@@ -268,14 +297,60 @@ function KnowledgeDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={startCreate}
-              className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/40"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New knowledge item
-            </button>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={startCreate}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New knowledge item
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUrlInputOpen((v) => !v)}
+                  aria-pressed={urlInputOpen}
+                  className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border border-dashed text-xs font-medium transition-colors ${
+                    urlInputOpen
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-border text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                  }`}
+                  title="Fetch a public URL and save its visible text as a knowledge item."
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  From URL
+                </button>
+              </div>
+              {urlInputOpen && (
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={urlDraft}
+                    onChange={(e) => setUrlDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !ingesting && urlDraft.trim()) {
+                        e.preventDefault();
+                        void handleIngestUrl();
+                      }
+                    }}
+                    placeholder="https://docs.your-spec.com/api"
+                    autoFocus
+                    disabled={ingesting}
+                    className="flex-1 h-9 rounded-md border border-border bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleIngestUrl()}
+                    disabled={ingesting || !urlDraft.trim()}
+                    className="h-9 px-3 inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50"
+                  >
+                    {ingesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LinkIcon className="h-3.5 w-3.5" />}
+                    {ingesting ? "Fetching…" : "Ingest"}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {rows === null ? (

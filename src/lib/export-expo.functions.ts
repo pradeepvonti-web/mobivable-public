@@ -4,6 +4,12 @@ import JSZip from "jszip";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AGENTS, type AgentRole } from "./agents";
+import {
+  MONETIZATION_ENV_KEYS,
+  MONETIZATION_NPM_DEP,
+  admobExpoPlugin,
+  generateMonetizationLib,
+} from "./export-project";
 
 function slug(s: string): string {
   return (s || "my-app")
@@ -37,6 +43,27 @@ export const exportExpoProject = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!project || project.user_id !== userId)
       return { ok: false as const, error: "Project not found" };
+
+    // ─── Monetization config (from project_env_vars) ───
+    // The MonetizationPanel persists provider + provider-specific public keys
+    // here. We pull only the ENV keys an export can safely bundle into a React
+    // Native binary (sensitive things like stripe_webhook_secret are stored
+    // server-side via `visible: false` and are deliberately NOT in this list).
+    const { data: envRows } = await supabase
+      .from("project_env_vars")
+      .select("name, value")
+      .eq("project_id", data.projectId)
+      .eq("user_id", userId)
+      .in("name", MONETIZATION_ENV_KEYS as readonly string[] as string[]);
+    const envMap: Record<string, string> = {};
+    for (const row of envRows ?? []) {
+      if (row?.name && typeof row.value === "string") envMap[row.name] = row.value;
+    }
+    const monetizationProvider = envMap.monetization_provider || "";
+    const monetizationDep = monetizationProvider
+      ? MONETIZATION_NPM_DEP[monetizationProvider]
+      : undefined;
+    const hasMonetization = !!monetizationProvider && !!monetizationDep;
 
     // Latest agent run + tasks for context
     const { data: runs } = await supabase
@@ -73,6 +100,23 @@ export const exportExpoProject = createServerFn({ method: "POST" })
 
     const zip = new JSZip();
 
+    const dependencies: Record<string, string> = {
+      expo: "~51.0.0",
+      "expo-router": "~3.5.0",
+      "expo-status-bar": "~1.12.0",
+      "expo-constants": "~16.0.0",
+      "expo-linking": "~6.3.0",
+      react: "18.2.0",
+      "react-native": "0.74.5",
+      "react-native-safe-area-context": "4.10.5",
+      "react-native-screens": "3.31.1",
+      "react-native-gesture-handler": "~2.16.1",
+      "@react-navigation/native": "^6.0.2",
+    };
+    if (hasMonetization && monetizationDep) {
+      dependencies[monetizationDep.pkg] = monetizationDep.version;
+    }
+
     // package.json — pinned to current Expo SDK 51 baseline
     zip.file(
       "package.json",
@@ -87,19 +131,7 @@ export const exportExpoProject = createServerFn({ method: "POST" })
             ios: "expo start --ios",
             web: "expo start --web",
           },
-          dependencies: {
-            expo: "~51.0.0",
-            "expo-router": "~3.5.0",
-            "expo-status-bar": "~1.12.0",
-            "expo-constants": "~16.0.0",
-            "expo-linking": "~6.3.0",
-            react: "18.2.0",
-            "react-native": "0.74.5",
-            "react-native-safe-area-context": "4.10.5",
-            "react-native-screens": "3.31.1",
-            "react-native-gesture-handler": "~2.16.1",
-            "@react-navigation/native": "^6.0.2",
-          },
+          dependencies,
           devDependencies: {
             "@babel/core": "^7.20.0",
             typescript: "~5.3.3",
@@ -112,7 +144,15 @@ export const exportExpoProject = createServerFn({ method: "POST" })
       ),
     );
 
-    // app.json
+    // app.json — append the AdMob config plugin when admob is the active
+    // provider. The Google Mobile Ads SDK needs the *app* IDs at prebuild
+    // time (not just at runtime) to wire the iOS Info.plist and the
+    // Android manifest, otherwise the SDK boot crashes on a real device.
+    const appJsonPlugins: unknown[] = ["expo-router"];
+    if (monetizationProvider === "admob") {
+      const plugin = admobExpoPlugin(envMap);
+      if (plugin) appJsonPlugins.push(plugin);
+    }
     zip.file(
       "app.json",
       JSON.stringify(
@@ -127,7 +167,7 @@ export const exportExpoProject = createServerFn({ method: "POST" })
             ios: { supportsTablet: true },
             android: { adaptiveIcon: { backgroundColor: bg } },
             web: { bundler: "metro" },
-            plugins: ["expo-router"],
+            plugins: appJsonPlugins,
           },
         },
         null,
@@ -189,14 +229,32 @@ android/
 `,
     );
 
-    // expo-router root
+    // lib/monetization.ts — only emitted if a provider was configured in the
+    // MonetizationPanel. Reuses the same generator as the full project export
+    // so the two export paths can't drift apart.
+    if (hasMonetization) {
+      zip.file(
+        "lib/monetization.ts",
+        generateMonetizationLib(monetizationProvider, envMap),
+      );
+    }
+
+    // expo-router root. When monetization is configured, fire-and-forget
+    // initMonetization() on mount so the provider SDK is ready by first
+    // paywall/checkPremium call.
+    const monetizationImport = hasMonetization
+      ? `\nimport { useEffect } from "react";\nimport { initMonetization } from "../lib/monetization";`
+      : "";
+    const monetizationEffect = hasMonetization
+      ? `\n  useEffect(() => { initMonetization().catch((e) => console.warn("[monetization] init failed:", e)); }, []);\n`
+      : "";
     zip.file(
       "app/_layout.tsx",
       `import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { theme } from "../theme";
+import { theme } from "../theme";${monetizationImport}
 
-export default function RootLayout() {
+export default function RootLayout() {${monetizationEffect}
   return (
     <>
       <StatusBar style="light" />

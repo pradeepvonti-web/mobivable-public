@@ -14,25 +14,45 @@ export function ExportPanel({
   projectName,
   supabaseUrl,
   supabaseAnonKey,
+  monetizationProvider,
+  monetizationKeys,
 }: {
   schema: MobileAppSchema | null;
   projectName?: string;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
+  /** Set by the parent route from project_env_vars.monetization_provider. */
+  monetizationProvider?: string;
+  /** Provider-specific keys (adapty_api_key, revenuecat_api_key, etc.) from project_env_vars. */
+  monetizationKeys?: Record<string, string>;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("files");
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<string>("App.tsx");
 
-  const exportOpts: ExportOptions | undefined = supabaseUrl && supabaseAnonKey
-    ? { supabaseUrl, supabaseAnonKey }
-    : undefined;
+  // Build ExportOptions piecewise so a project with only one of Supabase /
+  // monetization configured still gets the right slice baked into its zip.
+  const exportOpts: ExportOptions | undefined = useMemo(() => {
+    const hasSupabase = !!(supabaseUrl && supabaseAnonKey);
+    const hasMonetization = !!(monetizationProvider && monetizationKeys);
+    if (!hasSupabase && !hasMonetization) return undefined;
+    const opts: ExportOptions = {};
+    if (hasSupabase) {
+      opts.supabaseUrl = supabaseUrl;
+      opts.supabaseAnonKey = supabaseAnonKey;
+    }
+    if (hasMonetization) {
+      opts.monetizationProvider = monetizationProvider;
+      opts.monetizationKeys = monetizationKeys;
+    }
+    return opts;
+  }, [supabaseUrl, supabaseAnonKey, monetizationProvider, monetizationKeys]);
 
   const files = useMemo(() => {
     if (!schema) return [];
     return exportToExpo(schema, exportOpts);
-  }, [schema, supabaseUrl, supabaseAnonKey]);
+  }, [schema, exportOpts]);
 
   const handleDownload = useCallback(async () => {
     if (!schema) return;
@@ -51,7 +71,7 @@ export function ExportPanel({
     } finally {
       setDownloading(false);
     }
-  }, [schema, projectName]);
+  }, [schema, projectName, exportOpts]);
 
   const handleCopy = useCallback((content: string, id: string) => {
     navigator.clipboard.writeText(content).catch(() => {});

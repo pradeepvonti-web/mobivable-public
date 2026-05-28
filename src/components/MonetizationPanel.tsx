@@ -29,14 +29,24 @@ const PROVIDERS: ProviderConfig[] = [
     color: "#5856D6",
     features: ["Paywalls", "A/B Testing", "Analytics", "Subscriptions", "One-time purchases"],
     docsUrl: "https://adapty.io",
+    // Labels are deliberately explicit about "Public": Adapty issues both a
+    // public SDK key (`public_live_...`, safe to embed in the mobile app)
+    // and a secret API key (server-only). Pasting the secret key here ships
+    // it inside the React Native binary — a few minutes with `apktool`
+    // would extract it. Mirroring RevenueCat's "Public API Key" label.
     fields: [
-      { key: "adapty_api_key", label: "Adapty API Key", placeholder: "public_live_..." },
+      { key: "adapty_api_key", label: "Public SDK Key", placeholder: "public_live_..." },
       { key: "adapty_placement_id", label: "Adapty Placement ID", placeholder: "your_placement_id" },
     ],
+    // setupSteps deliberately doesn't claim "Ask the AI to add the paywall" —
+    // the chat agents don't (yet) read project_env_vars or know about
+    // monetization-aware schema elements. The export pipeline does the wiring
+    // for you; from there a `showPaywall()` import is one line.
     setupSteps: [
       "Create an account at adapty.io",
-      "Enter your API key and placement ID above",
-      "Ask the AI to set up in-app purchases in your app",
+      "Paste your Public SDK Key + Placement ID above and Save",
+      "Export the project — the saved keys are baked into `lib/monetization.ts` and `initMonetization()` runs on app boot",
+      "Call `showPaywall()` from any screen to gate premium features",
     ],
   },
   {
@@ -66,16 +76,21 @@ const PROVIDERS: ProviderConfig[] = [
     color: "#635BFF",
     features: ["One-time payments", "Subscriptions", "Invoicing", "Payment links", "Webhooks"],
     docsUrl: "https://stripe.com",
+    // Only the publishable key + the default price id are collected here.
+    // The Stripe webhook secret is intentionally NOT a panel field: it
+    // belongs in your server (a Supabase edge function, a Cloudflare worker,
+    // etc.) and would be a high-impact leak if bundled into the React
+    // Native binary. The setup guide below points users at the right place
+    // for it.
     fields: [
       { key: "stripe_publishable_key", label: "Publishable Key", placeholder: "pk_live_..." },
       { key: "stripe_price_id", label: "Default Price ID", placeholder: "price_..." },
-      { key: "stripe_webhook_secret", label: "Webhook Secret", placeholder: "whsec_...", sensitive: true },
     ],
     setupSteps: [
       "Create an account at stripe.com",
       "Add your publishable key above",
       "Create products and price IDs in the Stripe dashboard",
-      "Set up webhook endpoints for server-side verification",
+      "On your own server (edge function, etc.) configure a webhook endpoint and store its signing secret there — never inside the mobile app",
     ],
   },
   {
@@ -93,12 +108,15 @@ const PROVIDERS: ProviderConfig[] = [
       { key: "admob_interstitial_unit_id", label: "Interstitial Ad Unit ID", placeholder: "ca-app-pub-xxxx/xxxxxxxxxx" },
       { key: "admob_rewarded_unit_id", label: "Rewarded Ad Unit ID", placeholder: "ca-app-pub-xxxx/xxxxxxxxxx" },
     ],
+    // Like Adapty above, the "Ask the AI" line is intentionally absent.
+    // The exported lib/monetization.ts and app.json config plugin already
+    // wire the IDs end-to-end; from there a single import is enough.
     setupSteps: [
-      "Create an AdMob account at admob.google.com",
-      "Register your iOS and Android app",
-      "Create banner, interstitial, and rewarded ad units",
-      "Paste the app IDs and unit IDs above",
-      "Ask the AI to place ad units inside your app screens",
+      "Create an AdMob account at admob.google.com and register your iOS + Android apps",
+      "Create banner, interstitial, and rewarded ad units (one set per platform)",
+      "Paste the iOS/Android App IDs and the three Ad Unit IDs above and Save",
+      "Export the project — the IDs land in `app.json` (config plugin) and `lib/monetization.ts`. Dev builds automatically use Google's TestIds so you don't risk an ad-policy strike during development.",
+      "Use `<BannerAd unitId={BANNER_UNIT_ID} size={BannerAdSize.FULL_BANNER} />` for banners, `showInterstitial()` to gate transitions, `showRewarded()` to grant in-app rewards",
     ],
   },
 ];

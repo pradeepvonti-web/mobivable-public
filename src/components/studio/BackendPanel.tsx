@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Database, Loader2, Sparkles } from "lucide-react";
+import { Cloud, Database, FunctionSquare, HardDrive, Loader2, Lock, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
+import { deployEdgeFunctions } from "@/lib/edge-functions.functions";
+import type { MEdgeFunction, MPgFunction, MStorageBucket } from "@/lib/mobile-app-schema";
 
 function BackendPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -314,30 +316,80 @@ function BackendDataModelSection({
   projectId: string;
   projectRef: string;
 }) {
-  type Col = { name: string; type: string; nullable?: boolean };
+  type Col = {
+    name: string;
+    type: string;
+    nullable?: boolean;
+    references?: { table: string; column?: string };
+  };
   type Tbl = { name: string; columns: Col[]; rls?: string };
   const [tables, setTables] = useState<Tbl[]>([]);
+  const [storage, setStorage] = useState<MStorageBucket[]>([]);
+  const [pgFns, setPgFns] = useState<MPgFunction[]>([]);
+  const [edgeFns, setEdgeFns] = useState<MEdgeFunction[]>([]);
   const [loading, setLoading] = useState(false);
   const [inferring, setInferring] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [deployingEdge, setDeployingEdge] = useState(false);
   const [pat, setPat] = useState("");
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const inferFn = useServerFn(inferBackendSpec);
   const applyFn = useServerFn(applyBackendSchema);
   const getFn = useServerFn(getBackendSpec);
+  const deployFn = useServerFn(deployEdgeFunctions);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const r = await getFn({ data: { projectId } });
-        if (r.ok && r.backend?.tables) setTables(r.backend.tables as Tbl[]);
+        if (r.ok && r.backend) {
+          if (r.backend.tables) setTables(r.backend.tables as Tbl[]);
+          if (r.backend.storage) setStorage(r.backend.storage);
+          if (r.backend.functions) setPgFns(r.backend.functions);
+          if (r.backend.edge_functions) setEdgeFns(r.backend.edge_functions);
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, [projectId, getFn]);
+
+  const hasSpec =
+    tables.length > 0 || storage.length > 0 || pgFns.length > 0 || edgeFns.length > 0;
+
+  async function handleDeployEdge() {
+    if (!pat.trim() || !projectRef.trim()) {
+      toast.error("Need Management PAT and Project Ref");
+      return;
+    }
+    setDeployingEdge(true);
+    setResult(null);
+    try {
+      const r = await deployFn({
+        data: {
+          projectId,
+          managementToken: pat.trim(),
+          projectRef: projectRef.trim(),
+        },
+      });
+      if (r.ok) {
+        setResult({ ok: true, text: r.summary });
+        toast.success(r.summary);
+      } else {
+        const errSummary = "summary" in r ? r.summary : ("error" in r ? r.error : "Deploy failed");
+        setResult({ ok: false, text: errSummary });
+        toast.error(errSummary);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setResult({ ok: false, text: msg });
+      toast.error(msg);
+    } finally {
+      setDeployingEdge(false);
+    }
+  }
 
   async function handleInfer() {
     setInferring(true);
@@ -347,6 +399,14 @@ function BackendDataModelSection({
       if (r.ok) {
         setTables((r.backend.tables ?? []) as Tbl[]);
         toast.success(`Inferred ${r.backend.tables?.length ?? 0} tables`);
+        // inferBackendSpec only updates tables — re-fetch the full spec so any
+        // architect/developer-emitted sections from agent runs stay rendered.
+        const fresh = await getFn({ data: { projectId } });
+        if (fresh.ok && fresh.backend) {
+          if (fresh.backend.storage) setStorage(fresh.backend.storage);
+          if (fresh.backend.functions) setPgFns(fresh.backend.functions);
+          if (fresh.backend.edge_functions) setEdgeFns(fresh.backend.edge_functions);
+        }
       } else {
         toast.error(r.error);
       }
@@ -414,43 +474,148 @@ function BackendDataModelSection({
 
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
-      ) : tables.length === 0 ? (
+      ) : !hasSpec ? (
         <p className="text-xs text-muted-foreground italic">
-          No tables yet. Click Generate to have AI infer the schema from your app.
+          No backend spec yet. Click Generate, or run an agent crew that includes
+          the Database Architect + Backend Developer roles.
         </p>
       ) : (
-        <div className="space-y-2">
-          {tables.map((t) => (
-            <div
-              key={t.name}
-              className="rounded-lg border border-border bg-background/60 p-3"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono font-semibold">{t.name}</span>
-                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                  RLS: {t.rls ?? "owner"}
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                {t.columns.map((c) => (
-                  <div
-                    key={c.name}
-                    className="flex items-center justify-between text-[10px] font-mono text-muted-foreground"
-                  >
-                    <span>{c.name}</span>
-                    <span>
-                      {c.type}
-                      {c.nullable === false ? " NOT NULL" : ""}
+        <>
+          {tables.length > 0 && (
+            <div className="space-y-2">
+              {tables.map((t) => (
+                <div
+                  key={t.name}
+                  className="rounded-lg border border-border bg-background/60 p-3"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-mono font-semibold">{t.name}</span>
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                      RLS: {t.rls ?? "owner"}
                     </span>
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-0.5">
+                    {t.columns.map((c) => (
+                      <div
+                        key={c.name}
+                        className="flex items-center justify-between text-[10px] font-mono text-muted-foreground"
+                      >
+                        <span className="flex items-center gap-1">
+                          {c.name}
+                          {c.references && (
+                            <span
+                              title={`FK → ${c.references.table}.${c.references.column ?? "id"}`}
+                              className="text-primary/70"
+                            >
+                              ↗
+                            </span>
+                          )}
+                        </span>
+                        <span>
+                          {c.type}
+                          {c.nullable === false ? " NOT NULL" : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {storage.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <HardDrive className="h-3 w-3" />
+                Storage buckets
+              </div>
+              {storage.map((b) => (
+                <div
+                  key={b.bucket}
+                  className="rounded-lg border border-border bg-background/60 p-3 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    {b.public ? (
+                      <Cloud className="h-3 w-3 text-emerald-500" aria-label="Public" />
+                    ) : (
+                      <Lock className="h-3 w-3 text-muted-foreground" aria-label="Private" />
+                    )}
+                    <span className="text-xs font-mono font-semibold">{b.bucket}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {b.public ? "public" : "owner"}
+                    {b.fileSizeLimit ? ` · ≤${Math.round(b.fileSizeLimit / 1024 / 1024)} MiB` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {pgFns.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <FunctionSquare className="h-3 w-3" />
+                Postgres functions
+              </div>
+              {pgFns.map((f) => (
+                <div
+                  key={f.name}
+                  className="rounded-lg border border-border bg-background/60 p-3"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-mono font-semibold">
+                      {f.name}({f.args ?? ""}) → {f.returns}
+                    </span>
+                    {f.securityDefiner && (
+                      <span
+                        className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500"
+                        title="Runs with the function owner's privileges — review before exposing."
+                      >
+                        DEFINER
+                      </span>
+                    )}
+                  </div>
+                  {f.description && (
+                    <p className="text-[10px] text-muted-foreground">{f.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {edgeFns.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <Zap className="h-3 w-3" />
+                Edge functions (Deno)
+              </div>
+              {edgeFns.map((f) => (
+                <div
+                  key={f.name}
+                  className="rounded-lg border border-border bg-background/60 p-3"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-mono font-semibold">{f.name}</span>
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                      {f.verifyJwt === false ? "no auth" : "JWT required"}
+                    </span>
+                  </div>
+                  {f.description && (
+                    <p className="text-[10px] text-muted-foreground">{f.description}</p>
+                  )}
+                  {f.envVars && f.envVars.length > 0 && (
+                    <p className="mt-1 text-[9px] font-mono text-muted-foreground">
+                      env: {f.envVars.join(", ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {tables.length > 0 && (
+      {hasSpec && (
         <div className="space-y-2 pt-2 border-t border-border">
           <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Supabase Management PAT
@@ -474,24 +639,46 @@ function BackendDataModelSection({
             </a>
             . Not stored — used only for this operation.
           </p>
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={applying || !pat.trim() || !projectRef.trim()}
-            className="w-full px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
-          >
-            {applying ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Applying schema…
-              </>
-            ) : (
-              <>
-                <Database className="h-3.5 w-3.5" />
-                Apply schema to your Supabase
-              </>
-            )}
-          </button>
+          {(tables.length > 0 || storage.length > 0 || pgFns.length > 0) && (
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={applying || !pat.trim() || !projectRef.trim()}
+              className="w-full px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {applying ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Applying schema…
+                </>
+              ) : (
+                <>
+                  <Database className="h-3.5 w-3.5" />
+                  Apply tables + storage + functions
+                </>
+              )}
+            </button>
+          )}
+          {edgeFns.length > 0 && (
+            <button
+              type="button"
+              onClick={handleDeployEdge}
+              disabled={deployingEdge || !pat.trim() || !projectRef.trim()}
+              className="w-full px-4 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {deployingEdge ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Deploying edge functions…
+                </>
+              ) : (
+                <>
+                  <Zap className="h-3.5 w-3.5" />
+                  Deploy {edgeFns.length} edge function{edgeFns.length === 1 ? "" : "s"}
+                </>
+              )}
+            </button>
+          )}
           {!projectRef.trim() && (
             <p className="text-[10px] text-amber-500">
               Set Project Ref above first.

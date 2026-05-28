@@ -167,38 +167,42 @@ function LoginPage() {
             {submitting ? "Authenticating…" : "Login"}
           </button>
 
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={async () => {
-              clearError();
-              setSubmitting(true);
-              const { error } = await supabase.auth.signInWithPassword({
-                email: "test@example.com",
-                password: "TestUser123!",
-              });
-              setSubmitting(false);
-              if (error) showAuthError(error.message, "user");
-              else navigate({ to: "/dashboard" });
-            }}
-            className="w-full py-3 border border-dashed border-primary text-primary font-display uppercase tracking-wider hover:bg-primary hover:text-background transition-all disabled:opacity-50"
-          >
-            Test Login
-          </button>
+          {import.meta.env.DEV && (
+            <>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={async () => {
+                  clearError();
+                  setSubmitting(true);
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: "test@example.com",
+                    password: "TestUser123!",
+                  });
+                  setSubmitting(false);
+                  if (error) showAuthError(error.message, "user");
+                  else navigate({ to: "/dashboard" });
+                }}
+                className="w-full py-3 border border-dashed border-primary text-primary font-display uppercase tracking-wider hover:bg-primary hover:text-background transition-all disabled:opacity-50"
+              >
+                Test Login (dev only)
+              </button>
 
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => {
-              setEmail("pradeepvonti@aksdataai.com");
-              setPassword("");
-              clearError();
-              document.getElementById("password")?.focus();
-            }}
-            className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
-          >
-            Admin Login
-          </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  setEmail("pradeepvonti@aksdataai.com");
+                  setPassword("");
+                  clearError();
+                  document.getElementById("password")?.focus();
+                }}
+                className="w-full py-3 border border-dashed border-accent text-accent-foreground font-display uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50"
+              >
+                Admin Login (dev only)
+              </button>
+            </>
+          )}
 
           <div className="border border-border/60 bg-muted/20 p-4 space-y-2 text-xs text-muted-foreground">
             <p className="font-mono text-[10px] uppercase tracking-widest text-foreground">

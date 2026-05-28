@@ -183,13 +183,10 @@ function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean, mone
     deps["@react-native-async-storage/async-storage"] = "1.23.1";
     deps["react-native-url-polyfill"] = "^2.0.0";
   }
-  if (monetizationProvider === "adapty") {
-    deps["react-native-adapty"] = "^2.11.0";
-  } else if (monetizationProvider === "revenuecat") {
-    deps["react-native-purchases"] = "^7.29.0";
-  } else if (monetizationProvider === "stripe") {
-    deps["@stripe/stripe-react-native"] = "^0.38.0";
-  }
+  const monetDep = monetizationProvider
+    ? MONETIZATION_NPM_DEP[monetizationProvider]
+    : undefined;
+  if (monetDep) deps[monetDep.pkg] = monetDep.version;
   return JSON.stringify({
     name,
     version: "1.0.0",
@@ -210,8 +207,40 @@ function generatePackageJson(schema: MobileAppSchema, hasSupabase: boolean, mone
   }, null, 2);
 }
 
+/**
+ * Single source of truth for which npm package each monetization provider
+ * needs. Used by both `generatePackageJson` (full project export) and
+ * `exportExpoProject` (barebones starter export) so the two paths can't
+ * drift apart.
+ */
+export const MONETIZATION_NPM_DEP: Record<string, { pkg: string; version: string }> = {
+  adapty: { pkg: "react-native-adapty", version: "^2.11.0" },
+  revenuecat: { pkg: "react-native-purchases", version: "^7.29.0" },
+  stripe: { pkg: "@stripe/stripe-react-native", version: "^0.38.0" },
+  admob: { pkg: "react-native-google-mobile-ads", version: "^14.2.0" },
+};
+
+/** Provider keys this monetization layer needs to read from `project_env_vars`. */
+export const MONETIZATION_ENV_KEYS = [
+  "monetization_provider",
+  "monetization_model",
+  "adapty_api_key",
+  "adapty_placement_id",
+  "revenuecat_api_key",
+  "revenuecat_entitlement_id",
+  "stripe_publishable_key",
+  "stripe_price_id",
+  // AdMob — IDs are NOT secret (they're embedded in the published binary
+  // by every AdMob app), so they're safe in this allow-list.
+  "admob_app_id_ios",
+  "admob_app_id_android",
+  "admob_banner_unit_id",
+  "admob_interstitial_unit_id",
+  "admob_rewarded_unit_id",
+] as const;
+
 // ─── Generate monetization lib ──────────────────────────────────
-function generateMonetizationLib(provider: string, keys: Record<string, string>): string {
+export function generateMonetizationLib(provider: string, keys: Record<string, string>): string {
   switch (provider) {
     case "adapty":
       return `import { adapty } from 'react-native-adapty';
@@ -307,14 +336,143 @@ export async function showPaywall(clientSecret: string) {
   return true;
 }
 `;
+    case "admob":
+      // AdMob — Google Mobile Ads SDK via react-native-google-mobile-ads.
+      //
+      // The IDs ARE embedded in published binaries — they're not secret.
+      // We swap in Google's TestIds while __DEV__ so devs don't risk an
+      // ad-policy violation by serving real ads to themselves during
+      // development (Google bans accounts that do this).
+      //
+      // Banner ads are rendered with <BannerAd unitId={BANNER_UNIT_ID} ... />.
+      // Interstitial + Rewarded are shown imperatively via the exported
+      // helpers. checkPremium() returns false — AdMob isn't a subscription
+      // model, so any paywall-gated code should fall through.
+      return `import mobileAds, {
+  BannerAd,
+  BannerAdSize,
+  InterstitialAd,
+  RewardedAd,
+  AdEventType,
+  RewardedAdEventType,
+  TestIds,
+} from 'react-native-google-mobile-ads';
+
+const PROD_BANNER = '${keys.admob_banner_unit_id || "ca-app-pub-XXXX/XXXX"}';
+const PROD_INTERSTITIAL = '${keys.admob_interstitial_unit_id || "ca-app-pub-XXXX/XXXX"}';
+const PROD_REWARDED = '${keys.admob_rewarded_unit_id || "ca-app-pub-XXXX/XXXX"}';
+
+export const BANNER_UNIT_ID = __DEV__ ? TestIds.BANNER : PROD_BANNER;
+export const INTERSTITIAL_UNIT_ID = __DEV__ ? TestIds.INTERSTITIAL : PROD_INTERSTITIAL;
+export const REWARDED_UNIT_ID = __DEV__ ? TestIds.REWARDED : PROD_REWARDED;
+
+export { BannerAd, BannerAdSize };
+
+// Call once in App.tsx useEffect — initializes the Google Mobile Ads SDK.
+export async function initMonetization() {
+  await mobileAds().initialize();
+}
+
+// Imperatively show an interstitial. Resolves true once shown + dismissed,
+// false on load error. Each call uses a fresh ad instance.
+export function showInterstitial(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ad = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID);
+    let settled = false;
+    const cleanup = () => {
+      unsubLoaded();
+      unsubClosed();
+      unsubError();
+    };
+    const unsubLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
+      ad.show();
+    });
+    const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
+      if (!settled) { settled = true; cleanup(); resolve(true); }
+    });
+    const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
+      if (!settled) { settled = true; cleanup(); resolve(false); }
+    });
+    ad.load();
+  });
+}
+
+// Imperatively show a rewarded ad. Resolves \`{ earned: true, amount }\` if
+// the user watched long enough to earn the reward, \`{ earned: false }\`
+// otherwise (cancelled, error, etc.).
+export function showRewarded(): Promise<{ earned: boolean; amount?: number; type?: string }> {
+  return new Promise((resolve) => {
+    const ad = RewardedAd.createForAdRequest(REWARDED_UNIT_ID);
+    let settled = false;
+    let reward: { amount?: number; type?: string } | null = null;
+    const cleanup = () => {
+      unsubLoaded();
+      unsubEarned();
+      unsubClosed();
+      unsubError();
+    };
+    const unsubLoaded = ad.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      ad.show();
+    });
+    const unsubEarned = ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (r: { amount?: number; type?: string }) => {
+      reward = r;
+    });
+    const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
+      if (!settled) { settled = true; cleanup(); resolve(reward ? { earned: true, ...reward } : { earned: false }); }
+    });
+    const unsubError = ad.addAdEventListener(AdEventType.ERROR, () => {
+      if (!settled) { settled = true; cleanup(); resolve({ earned: false }); }
+    });
+    ad.load();
+  });
+}
+
+// AdMob is not a subscription model — premium status doesn't apply here.
+// Returns false so paywall-gated UI leaves content unlocked for everyone.
+export async function checkPremium(): Promise<boolean> {
+  return false;
+}
+`;
     default:
       return `// No monetization provider configured\nexport async function initMonetization() {}\nexport async function checkPremium() { return false; }\n`;
   }
 }
 
 // ─── Generate app.json ──────────────────────────────────────────
-function generateAppJson(schema: MobileAppSchema): string {
+/**
+ * Build the AdMob expo-plugin entry. `react-native-google-mobile-ads` ships
+ * a config plugin that wires the iOS Info.plist and the Android manifest
+ * with the AdMob *app* IDs (different from the *unit* IDs in lib/monetization.ts)
+ * at prebuild time. Without these, the SDK boot crashes on a real device.
+ */
+function admobExpoPlugin(
+  keys: Record<string, string>,
+): unknown[] | null {
+  const ios = keys.admob_app_id_ios;
+  const android = keys.admob_app_id_android;
+  if (!ios && !android) return null;
+  return [
+    "react-native-google-mobile-ads",
+    {
+      ...(ios ? { ios_app_id: ios } : {}),
+      ...(android ? { android_app_id: android } : {}),
+      user_tracking_usage_description:
+        "This app uses tracking to provide personalized ads.",
+    },
+  ];
+}
+
+function generateAppJson(
+  schema: MobileAppSchema,
+  monetizationProvider?: string,
+  monetizationKeys?: Record<string, string>,
+): string {
   const slug = schema.name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+  const plugins: unknown[] = [];
+  if (monetizationProvider === "admob" && monetizationKeys) {
+    const admobPlugin = admobExpoPlugin(monetizationKeys);
+    if (admobPlugin) plugins.push(admobPlugin);
+  }
   return JSON.stringify({
     expo: {
       name: schema.name,
@@ -328,9 +486,13 @@ function generateAppJson(schema: MobileAppSchema): string {
       ios: { supportsTablet: true },
       android: { adaptiveIcon: { backgroundColor: "#ffffff" } },
       web: { bundler: "metro" },
+      ...(plugins.length > 0 ? { plugins } : {}),
     },
   }, null, 2);
 }
+
+/** Exported for the barebones export path (`exportExpoProject`) to share the helper. */
+export { admobExpoPlugin };
 
 // ─── Generate tsconfig.json ─────────────────────────────────────
 function generateTsConfig(): string {
@@ -714,7 +876,7 @@ export function exportToExpo(schema: MobileAppSchema, options?: ExportOptions): 
   const files: ExportedFile[] = [
     { path: hasSupabase ? "App.tsx" : "App.tsx", content: hasSupabase ? generateAppTsxWithAuth(schema) : generateAppTsx(schema) },
     { path: "package.json", content: generatePackageJson(schema, hasSupabase, options?.monetizationProvider) },
-    { path: "app.json", content: generateAppJson(schema) },
+    { path: "app.json", content: generateAppJson(schema, options?.monetizationProvider, options?.monetizationKeys) },
     { path: "tsconfig.json", content: generateTsConfig() },
     { path: "babel.config.js", content: `module.exports = function(api) {\n  api.cache(true);\n  return { presets: ['babel-preset-expo'] };\n};\n` },
   ];

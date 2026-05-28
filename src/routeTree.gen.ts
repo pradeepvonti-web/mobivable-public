@@ -33,6 +33,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as ApiPublicMaestroWebhookRouteImport } from './routes/api/public/maestro/webhook'
 import { Route as ApiPublicImageProxyRouteImport } from './routes/api/public/image.proxy'
 import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github.callback'
 
@@ -158,6 +159,11 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMaestroWebhookRoute = ApiPublicMaestroWebhookRouteImport.update({
+  id: '/api/public/maestro/webhook',
+  path: '/api/public/maestro/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicImageProxyRoute = ApiPublicImageProxyRouteImport.update({
   id: '/api/public/image/proxy',
   path: '/api/public/image/proxy',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
+  '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
+  '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
+  '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
+    | '/api/public/maestro/webhook'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
+    | '/api/public/maestro/webhook'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
+    | '/api/public/maestro/webhook'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -362,6 +374,7 @@ export interface RootRouteChildren {
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicImageProxyRoute: typeof ApiPublicImageProxyRoute
+  ApiPublicMaestroWebhookRoute: typeof ApiPublicMaestroWebhookRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -538,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/maestro/webhook': {
+      id: '/api/public/maestro/webhook'
+      path: '/api/public/maestro/webhook'
+      fullPath: '/api/public/maestro/webhook'
+      preLoaderRoute: typeof ApiPublicMaestroWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/image/proxy': {
       id: '/api/public/image/proxy'
       path: '/api/public/image/proxy'
@@ -598,6 +618,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicImageProxyRoute: ApiPublicImageProxyRoute,
+  ApiPublicMaestroWebhookRoute: ApiPublicMaestroWebhookRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
@@ -606,3 +627,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

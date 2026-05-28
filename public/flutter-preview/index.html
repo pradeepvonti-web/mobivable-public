@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Flutter Preview Engine</title>
+  <script>
+    // Force unregister any service workers to avoid aggressive caching of main.dart.js
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
+      });
+    }
+  </script>
   <style>
     /* Reset & full viewport, no scrollbars */
     *, *::before, *::after {
@@ -81,13 +91,15 @@
     });
 
     // Listen for postMessage from the parent window (the app builder).
+    // All four message types must be forwarded — cross-frame JS objects
+    // received by Dart's `html.window.onMessage` do not always satisfy
+    // `data is Map`, so we stringify here and route through the proven
+    // string callback path (`_flutterPreviewOnMessage`).
+    var FORWARDED_TYPES = ['SCHEMA_UPDATE', 'THEME_UPDATE', 'SCREEN_CHANGE', 'DEVICE_INFO', 'SCREENSHOT_REQUEST'];
     window.addEventListener('message', function (event) {
-      // Basic origin/data validation
       if (!event.data || typeof event.data !== 'object') return;
       var type = event.data.type;
-      if (type !== 'SCHEMA_UPDATE' && type !== 'THEME_UPDATE' && type !== 'SCREEN_CHANGE' && type !== 'DEVICE_INFO') return;
-
-      console.log('[flutter-preview host] received', type, 'onMessageExists=', (typeof window._flutterPreviewOnMessage === 'function'), 'screens=', (event.data.schema && event.data.schema.screens && event.data.schema.screens.length));
+      if (FORWARDED_TYPES.indexOf(type) === -1) return;
 
       var rawMsg = JSON.stringify(event.data);
       if (window._flutterPreviewOnMessage) {
@@ -107,24 +119,56 @@
       set: function(val) {
         loaderInstance = val;
         if (loaderInstance) {
+          // Disable service worker loading dynamically and add cache-busting
+          var originalLoad = loaderInstance.load;
+          loaderInstance.load = function(options) {
+            options = options || {};
+            options.serviceWorkerSettings = null;
+            var cacheBust = 'main.dart.js?v=' + new Date().getTime();
+            options.entrypointUrl = cacheBust;
+            options.mainJsPath = cacheBust;
+            return originalLoad.call(loaderInstance, options);
+          };
+
           loaderInstance.didCreateEngineInitializer = async function(engineInitializer) {
             let runner = await engineInitializer.initializeEngine();
             await runner.runApp();
-            
+
             // Hide the loading spinner
             var el = document.getElementById('loading');
             if (el) el.style.display = 'none';
-
-            // Notify parent that Flutter is ready so it can re-send latest state.
-            try {
-              window.parent.postMessage({ type: 'FLUTTER_READY' }, '*');
-            } catch (e) { /* ignore */ }
           };
         }
       },
       configurable: true,
       enumerable: true
     });
+
+    // Fallback: the _flutter.loader setter override above can race with
+    // flutter_bootstrap.js (which sets didCreateEngineInitializer on the same
+    // object). If our didCreateEngineInitializer gets overwritten, the spinner
+    // never hides and leaks through over the rendered app. As a safety net,
+    // hide #loading the moment the <flutter-view> element appears in the DOM.
+    (function hideLoadingWhenFlutterMounts() {
+      function hideLoading() {
+        var el = document.getElementById('loading');
+        if (el) el.style.display = 'none';
+      }
+      if (document.querySelector('flutter-view')) {
+        hideLoading();
+        return;
+      }
+      var observer = new MutationObserver(function() {
+        if (document.querySelector('flutter-view')) {
+          hideLoading();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      // Also force-hide after 15 s as a last resort — by then Flutter has
+      // either booted or the user has bigger problems than a stale spinner.
+      setTimeout(function() { hideLoading(); observer.disconnect(); }, 15000);
+    })();
   </script>
   <script src="flutter_bootstrap.js" defer></script>
 </body>

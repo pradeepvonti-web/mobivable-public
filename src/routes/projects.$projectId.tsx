@@ -96,7 +96,9 @@ import { AgentsMdPanel } from "@/components/AgentsMdPanel";
 import { ErrorConsolePanel, useConsoleCapture } from "@/components/ErrorConsolePanel";
 import { MonetizationPanel } from "@/components/MonetizationPanel";
 import { AIStudioPanel } from "@/components/AIStudioPanel";
-import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+// Removed import: KnowledgeBasePanel was a hardcoded-seed placeholder that
+// never touched the knowledge_items table. The sidebar now opens the real
+// KnowledgeDialog (imported below).
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { FigmaImportPanel } from "@/components/FigmaImportPanel";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
@@ -402,7 +404,10 @@ function ProjectPage() {
       }
     });
   }, []);
-  const isPro = userPlan === "pro" || isAdmin;
+  // "Pro" gates anything above free_beta/starter. scale and business are
+  // higher tiers than pro and should also have access. Previously this only
+  // matched "pro" exactly, locking scale/business users out of Backend etc.
+  const isPro = userPlan === "pro" || userPlan === "scale" || userPlan === "business" || isAdmin;
   const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
@@ -413,9 +418,17 @@ function ProjectPage() {
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
   const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
+  // Monetization config (provider + provider-specific keys) loaded from
+  // project_env_vars so the Export panel can bake them into the generated
+  // Expo project. Same allow-list used by the server-side exportExpoProject.
+  const [monetizationConfig, setMonetizationConfig] = useState<{ provider: string | null; keys: Record<string, string> }>({ provider: null, keys: {} });
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
   const [renderMode, setRenderMode] = useState<'react' | 'flutter'>('react');
+  // Phase B: per-screen PNG capture from the preview toolbar. Single handler
+  // for both render modes — React uses captureSimple on previewRootRef,
+  // Flutter uses the postMessage protocol exposed by flutter-bridge.ts.
+  const [capturingScreen, setCapturingScreen] = useState(false);
   const recentTemplatesKey = `mobivable:recentTemplates:${projectId}`;
   const [recentTemplates, setRecentTemplates] = useState<Record<string, string[]>>(() => {
     if (typeof window === "undefined") return {};
@@ -637,6 +650,27 @@ function ProjectPage() {
           .eq("user_id", u.user.id)
           .maybeSingle();
         if (integ) setProjectIntegration(integ);
+
+        // Monetization config — filtered to the export-safe allow-list so
+        // sensitive entries (e.g. stripe_webhook_secret) never reach the
+        // exported zip.
+        const { MONETIZATION_ENV_KEYS } = await import("@/lib/export-project");
+        const { data: monRows } = await (sb as any)
+          .from("project_env_vars")
+          .select("name,value")
+          .eq("project_id", projectId)
+          .eq("user_id", u.user.id)
+          .in("name", MONETIZATION_ENV_KEYS as readonly string[] as string[]);
+        if (monRows && Array.isArray(monRows)) {
+          const keys: Record<string, string> = {};
+          let provider: string | null = null;
+          for (const r of monRows as Array<{ name: string; value: string }>) {
+            if (typeof r.value !== "string") continue;
+            if (r.name === "monetization_provider") provider = r.value || null;
+            else keys[r.name] = r.value;
+          }
+          setMonetizationConfig({ provider, keys });
+        }
       }
     } catch { /* non-critical */ }
     return row;
@@ -661,6 +695,74 @@ function ProjectPage() {
       generateImagesFn({ data: { projectId } })
         .then(() => reloadProject())
         .catch((e) => console.error("[appImages]", e));
+    }
+  }
+
+  /**
+   * Capture the current preview screen as a PNG and download it. Works for
+   * both renderModes — for `react`, captures previewRootRef via SVG
+   * foreignObject (existing screenshot.ts lib); for `flutter`, sends a
+   * SCREENSHOT_REQUEST postMessage and awaits the FLUTTER_SCREENSHOT reply.
+   *
+   * Filename includes the project name + active screen title when known so
+   * a "capture-all" loop later can produce a sensible bundle.
+   */
+  async function handleCaptureScreen() {
+    if (capturingScreen) return;
+    setCapturingScreen(true);
+    try {
+      let dataUrl: string;
+      if (renderMode === 'flutter') {
+        const { captureFlutterScreenshot } = await import('@/lib/flutter-bridge');
+        const iframe = document.querySelector<HTMLIFrameElement>(
+          'iframe[title="Flutter Preview"]',
+        );
+        dataUrl = await captureFlutterScreenshot(iframe);
+      } else {
+        const root = previewRootRef.current;
+        if (!root) throw new Error('Preview not mounted yet.');
+        const { captureSimple } = await import('@/lib/screenshot');
+        // Hard timeout — captureSimple uses an SVG foreignObject → <img>
+        // pipeline that hangs indefinitely when the preview contains
+        // cross-origin images without CORS (the SVG → image load just
+        // never fires onload/onerror). 10 s is plenty for a real render;
+        // beyond that we want the toast, not "Capturing…" forever.
+        dataUrl = await Promise.race([
+          captureSimple(root),
+          new Promise<string>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Capture timed out after 10 s. The screen may contain cross-origin images without CORS headers — try Flutter preview mode, which captures via the Flutter engine and isn\'t affected.')),
+              10_000,
+            ),
+          ),
+        ]);
+      }
+
+      const { downloadDataUrl } = await import('@/lib/screenshot');
+      const schema = project?.result ? parseAppSchema(project.result) : null;
+      const projectSlug = (project?.name || schema?.name || 'app')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 40);
+      const screenTitle = (() => {
+        // The route tracks the active screen by ID, not index. Resolve to
+        // index for a clean filename fallback when the screen has no title.
+        const screens = schema?.screens ?? [];
+        const idx = activeScreenId ? screens.findIndex((s) => s.id === activeScreenId) : 0;
+        const safeIdx = idx >= 0 ? idx : 0;
+        const s = screens[safeIdx];
+        if (!s) return `screen-${safeIdx + 1}`;
+        const raw = (s.title ?? s.id ?? '').toString();
+        return raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `screen-${safeIdx + 1}`;
+      })();
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      downloadDataUrl(dataUrl, `${projectSlug}-${screenTitle}-${stamp}.png`);
+      toast.success('Screenshot saved');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Capture failed');
+    } finally {
+      setCapturingScreen(false);
     }
   }
 
@@ -1717,8 +1819,12 @@ function ProjectPage() {
                     </div>
                   )}
                   <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                    {new Date(project.created_at).toLocaleTimeString()} ·{" "}
-                    {project.model}
+                    {(() => {
+                      if (!project.created_at) return "Just now";
+                      const d = new Date(project.created_at);
+                      return isNaN(d.getTime()) ? "Just now" : d.toLocaleTimeString();
+                    })()}{" "}
+                    · {project.model}
                   </p>
                 </div>
               </div>
@@ -2456,12 +2562,12 @@ function ProjectPage() {
       )}
 
       {sidePanel === "knowledge" && (
-        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
-          <KnowledgeBasePanel
-            projectId={projectId}
-            onClose={() => setSidePanel(null)}
-          />
-        </section>
+        // KnowledgeDialog (the real, DB-backed one) is rendered as a modal —
+        // it's `fixed inset-0` and closes itself. We render it directly here
+        // when the sidebar route asks for Knowledge so users get the
+        // real-data feature, not the previous KnowledgeBasePanel placeholder
+        // (which never read or wrote knowledge_items).
+        <KnowledgeDialog onClose={() => setSidePanel(null)} />
       )}
 
       {sidePanel === "deployments" && (
@@ -2794,6 +2900,20 @@ function ProjectPage() {
               <span className="md:hidden">{genAssetsState === "running" ? "Generating" : "Assets"}</span>
             </button>
 
+            {/* Per-screen PNG capture. Works for both renderModes (React =
+                DOM capture, Flutter = postMessage round-trip). */}
+            <button
+              type="button"
+              onClick={() => void handleCaptureScreen()}
+              disabled={capturingScreen}
+              title="Save the current screen as a PNG"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
+            >
+              <Camera className={`h-3.5 w-3.5 ${capturingScreen ? "animate-pulse" : ""}`} />
+              <span className="hidden md:inline">{capturingScreen ? "Capturing…" : "Capture screen"}</span>
+              <span className="md:hidden">{capturingScreen ? "…" : "Capture"}</span>
+            </button>
+
             <div className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
@@ -2846,6 +2966,8 @@ function ProjectPage() {
               projectName={project?.name}
               supabaseUrl={projectIntegration.supabase_url ?? undefined}
               supabaseAnonKey={projectIntegration.supabase_anon_key ?? undefined}
+              monetizationProvider={monetizationConfig.provider ?? undefined}
+              monetizationKeys={monetizationConfig.provider ? monetizationConfig.keys : undefined}
             />
           </div>
         )}

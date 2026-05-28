@@ -142,18 +142,90 @@ Reference the designer's exact element choices. Under 400 words.`,
   backend_developer: {
     role: "backend_developer",
     name: "Backend Developer",
-    short: "Designs server architecture, APIs and auth.",
-    tasks: ["Architecture", "API endpoints", "Auth", "Business logic"],
+    short: "Designs auth, storage, business-logic edge functions.",
+    tasks: ["Auth", "Storage", "Edge functions", "Business logic"],
     system:
-      "You are a senior Backend engineer. Output: high-level server architecture, list of REST/RPC endpoints with method+path+purpose, authentication approach, and the most important business logic flows. Markdown, under 400 words.",
+      `You are a senior Backend engineer designing a Supabase backend.
+Output ONLY valid JSON (no markdown, no prose) matching this exact shape — the apply pipeline parses it:
+
+{
+  "auth": {
+    "providers": ["email", "google", "apple", "github"],   // pick what the app actually needs
+    "requireEmailConfirm": true,
+    "notes": "1 short line on auth flow"
+  },
+  "storage": [
+    { "bucket": "user-uploads", "public": false, "fileSizeLimit": 10485760, "allowedMimeTypes": ["image/png","image/jpeg","image/webp"] }
+  ],
+  "edge_functions": [
+    {
+      "name": "<kebab-case-slug>",
+      "description": "1 sentence",
+      "verifyJwt": true,
+      "envVars": ["STRIPE_KEY"],
+      "code": "import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';\\nserve(async (req) => {\\n  // … handler …\\n  return new Response(JSON.stringify({ ok: true }), { headers: { 'content-type': 'application/json' } });\\n});"
+    }
+  ],
+  "push": false
+}
+
+Rules:
+- Only emit edge_functions for logic that MUST run server-side: webhooks, third-party API calls, credentials, scheduled work. Anything RLS + tables can handle, leave to tables.
+- Storage buckets must have explicit fileSizeLimit and allowedMimeTypes — never accept "any".
+- Edge function code must be a single self-contained Deno module that exports a request handler via Deno.serve or std/http serve. No npm: imports, no \`node:\` imports — only HTTPS Deno deps or Supabase's bundled \`@supabase/supabase-js\`.
+- Maximum 4 edge functions, maximum 6 storage buckets.
+- Return ONLY JSON. No code fences, no commentary.`,
   },
   database_architect: {
     role: "database_architect",
     name: "Database Architect",
-    short: "Designs the data schema, relationships and indexes.",
-    tasks: ["Schema", "Relationships", "Indexes", "Migrations"],
+    short: "Designs tables, RLS, FKs, indexes, Postgres functions.",
+    tasks: ["Tables", "RLS", "Indexes", "Functions"],
     system:
-      "You are a senior Database Architect. Output: Postgres schema for the app — tables with columns + types, primary/foreign keys, indexes, and a brief notes section on scalability. Use SQL fenced code blocks. Under 450 words.",
+      `You are a senior Database Architect designing a Supabase backend.
+Output ONLY valid JSON (no markdown, no prose) matching this exact shape — the apply pipeline parses it:
+
+{
+  "tables": [
+    {
+      "name": "snake_case_plural",
+      "rls": "owner" | "public_read" | "none",
+      "columns": [
+        {
+          "name": "snake_case",
+          "type": "text" | "int" | "float" | "bool" | "timestamp" | "jsonb" | "uuid",
+          "nullable": true | false,
+          "default": "now()" | "gen_random_uuid()" | "auth.uid()" | "true" | "false" | "null" | numeric | "'literal string'",
+          "unique": true,
+          "references": { "table": "other_table", "column": "id", "onDelete": "cascade" | "restrict" | "set null" | "no action" }
+        }
+      ],
+      "indexes": [
+        { "columns": ["col_a", "col_b"], "unique": true }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "snake_case",
+      "args": "user_id uuid, increment_by int DEFAULT 1",
+      "returns": "int",
+      "securityDefiner": false,
+      "description": "1 sentence",
+      "body": "DECLARE current_streak int; BEGIN SELECT streak INTO current_streak FROM public.profiles WHERE id = user_id; RETURN current_streak + increment_by; END;"
+    }
+  ]
+}
+
+Rules:
+- Default rls to "owner" unless the data is clearly a public catalog (then "public_read").
+- DO NOT include id, user_id, created_at, updated_at — those are auto-added.
+- Every FK-style column ("<other>_id uuid") MUST include a "references" block. Targets must be another table in this spec.
+- Add "indexes" only for columns a screen sorts/filters by. FK columns and user_id are auto-indexed.
+- For "default", allowed: now(), gen_random_uuid(), auth.uid(), numeric/boolean/null literals, simple single-quoted strings.
+- Postgres functions: SQL injection-safe (no string concat from user input); use SECURITY INVOKER by default; \`securityDefiner: true\` only when the function legitimately needs elevated privileges. The body is plpgsql, will be wrapped server-side with \`LANGUAGE plpgsql SET search_path = public AS $$ … $$\`.
+- Maximum 8 tables, 12 columns per table, 4 functions.
+- Return ONLY JSON. No code fences, no commentary.`,
   },
   ai_ml: {
     role: "ai_ml",

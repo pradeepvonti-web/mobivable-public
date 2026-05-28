@@ -1,11 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Trash2, Plus, Eye, EyeOff } from "lucide-react";
+import { Loader2, Trash2, Plus, Eye, EyeOff, Copy, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { supabase } from "@/integrations/supabase/client";
 import { useTheme } from "@/components/theme-toggle";
+import {
+  issueMcpPat,
+  listMcpPats,
+  revokeMcpPat,
+  type ListedPat,
+} from "@/lib/mcp-pats.functions";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -19,6 +25,7 @@ export const Route = createFileRoute("/settings")({
 
 type ThemePref = "light" | "dark";
 type ApiKey = { id: string; name: string; value: string };
+type McpPat = ListedPat;
 
 // Loose typing wrapper so we can hit the new user_api_keys table before
 // the generated types regenerate.
@@ -60,6 +67,12 @@ function SettingsPage() {
   const [newValue, setNewValue] = useState("");
   const [addingKey, setAddingKey] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [pats, setPats] = useState<McpPat[]>([]);
+  const [patName, setPatName] = useState("");
+  const [issuingPat, setIssuingPat] = useState(false);
+  // The plaintext is returned exactly once. We hold it in memory until
+  // the user dismisses the reveal card; refresh = gone forever.
+  const [newPatPlaintext, setNewPatPlaintext] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated" || !session?.user) return;
@@ -88,6 +101,14 @@ function SettingsPage() {
         setTheme(pref);
       }
       setKeys((keysRes.data as ApiKey[] | null) ?? []);
+      // PATs come through a server fn rather than direct Supabase select
+      // so the list always reflects post-RLS reality.
+      try {
+        const patRes = await listMcpPats();
+        if (patRes.ok) setPats(patRes.tokens);
+      } catch {
+        // Non-fatal — the rest of settings still renders.
+      }
       setLoading(false);
     })();
   }, [status, session?.user?.id, setTheme]);
@@ -159,6 +180,68 @@ function SettingsPage() {
       return;
     }
     setKeys((k) => k.filter((row) => row.id !== id));
+  }
+
+  async function issuePat() {
+    const name = patName.trim();
+    if (!name) {
+      toast.error("Give the token a name (e.g. “Cursor laptop”).");
+      return;
+    }
+    setIssuingPat(true);
+    try {
+      const res = await issueMcpPat({ data: { name } });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      // Surface the plaintext for one-time copy. Refresh = gone forever.
+      setNewPatPlaintext(res.pat);
+      setPats((p) => [
+        {
+          id: res.token.id,
+          name: res.token.name,
+          prefix: res.token.prefix,
+          created_at: res.token.created_at,
+          last_used_at: null,
+          revoked_at: null,
+        },
+        ...p,
+      ]);
+      setPatName("");
+      toast.success("Token created — copy it now, you won’t see it again.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create token");
+    } finally {
+      setIssuingPat(false);
+    }
+  }
+
+  async function revokePat(id: string) {
+    if (!window.confirm("Revoke this token? Clients using it will stop working.")) return;
+    try {
+      const res = await revokeMcpPat({ data: { id } });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setPats((p) =>
+        p.map((t) => (t.id === id ? { ...t, revoked_at: new Date().toISOString() } : t)),
+      );
+      toast.success("Token revoked");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to revoke");
+    }
+  }
+
+  async function copyPlaintext() {
+    if (!newPatPlaintext) return;
+    try {
+      await navigator.clipboard.writeText(newPatPlaintext);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Clipboard blocked — select and copy manually.");
+    }
   }
 
   if (status === "loading" || loading) {
@@ -302,6 +385,106 @@ function SettingsPage() {
               Add
             </button>
           </div>
+        </Card>
+
+        <Card
+          title="MCP access tokens"
+          description="Personal Access Tokens for the Mobivable MCP server. Paste one into Cursor, Claude Code, or Claude Desktop to let an agent drive your projects."
+        >
+          {newPatPlaintext && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                <strong>Copy this now.</strong> Mobivable never stores the plaintext — once
+                you leave this page it’s gone, and you’ll need to issue a new token.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono break-all">
+                  {newPatPlaintext}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyPlaintext}
+                  className="h-8 px-2 inline-flex items-center gap-1 rounded-md border border-border hover:bg-muted text-xs"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewPatPlaintext(null)}
+                  className="h-8 px-2 inline-flex items-center rounded-md hover:bg-muted text-xs text-muted-foreground"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {pats.length === 0 && (
+              <p className="text-xs text-muted-foreground">No tokens yet.</p>
+            )}
+            {pats.map((t) => {
+              const revoked = !!t.revoked_at;
+              return (
+                <div
+                  key={t.id}
+                  className={
+                    "flex items-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 " +
+                    (revoked ? "opacity-60" : "")
+                  }
+                >
+                  <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium w-44 truncate">{t.name}</span>
+                  <code className="text-[11px] font-mono text-muted-foreground">
+                    {t.prefix}…
+                  </code>
+                  <span className="ml-auto text-[11px] text-muted-foreground">
+                    {revoked
+                      ? `revoked ${new Date(t.revoked_at!).toLocaleDateString()}`
+                      : t.last_used_at
+                        ? `last used ${new Date(t.last_used_at).toLocaleDateString()}`
+                        : "never used"}
+                  </span>
+                  {!revoked && (
+                    <button
+                      type="button"
+                      onClick={() => revokePat(t.id)}
+                      className="h-7 px-2 grid place-items-center rounded-md hover:bg-muted text-muted-foreground hover:text-destructive text-xs"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 border-t border-border pt-4">
+            <input
+              type="text"
+              value={patName}
+              onChange={(e) => setPatName(e.target.value)}
+              placeholder="Token name (e.g. Cursor laptop)"
+              className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+            />
+            <button
+              type="button"
+              onClick={issuePat}
+              disabled={issuingPat}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {issuingPat ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              Generate token
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Endpoint:{" "}
+            <code className="font-mono">{`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/mcp`}</code>
+          </p>
         </Card>
 
         <div className="flex items-center gap-3">

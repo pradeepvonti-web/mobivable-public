@@ -397,6 +397,77 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
 
         const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
 
+        // Pass 0: Capture the structured backend spec from the database
+        // architect + backend developer agents (each emits JSON, per agents.ts).
+        // Reuses the same MBackend shape that the BackendPanel + applyBackendSchema
+        // pipeline already consumes, so the spec is ready-to-apply with no second
+        // AI call.
+        try {
+          const {
+            parseBackendSpecFromText,
+            mergeBackendSpec,
+            validateBackendSpec,
+          } = await import("./backend-provision.functions");
+
+          const architectOutput =
+            completedTasks.find((t) => t.role === "database_architect")?.output;
+          const developerOutput =
+            completedTasks.find((t) => t.role === "backend_developer")?.output;
+
+          const architectSpec = architectOutput
+            ? parseBackendSpecFromText(architectOutput)
+            : null;
+          const developerSpec = developerOutput
+            ? parseBackendSpecFromText(developerOutput)
+            : null;
+
+          if (architectSpec || developerSpec) {
+            const merged = mergeBackendSpec(architectSpec, developerSpec);
+            const validation = validateBackendSpec(merged);
+            if (validation.ok) {
+              await supabase
+                .from("projects")
+                .update({ backend_spec: merged })
+                .eq("id", project.id);
+
+              const counts = {
+                tables: merged.tables?.length ?? 0,
+                functions: merged.functions?.length ?? 0,
+                storage: merged.storage?.length ?? 0,
+                edge_functions: merged.edge_functions?.length ?? 0,
+              };
+              const parts: string[] = [];
+              if (counts.tables) parts.push(`${counts.tables} tables`);
+              if (counts.functions) parts.push(`${counts.functions} PG functions`);
+              if (counts.storage) parts.push(`${counts.storage} storage buckets`);
+              if (counts.edge_functions)
+                parts.push(`${counts.edge_functions} edge functions`);
+              const summary =
+                parts.length > 0
+                  ? `🗄️ **Backend designed:** ${parts.join(", ")}. Open the Backend panel → paste your Supabase Management PAT → Apply / Deploy.`
+                  : null;
+              if (summary) {
+                await supabase.from("agent_messages").insert({
+                  run_id: data.runId,
+                  project_id: project.id,
+                  user_id: userId,
+                  role: "summary_agent",
+                  content: summary,
+                });
+              }
+            } else {
+              console.error(
+                "[finalizeAgentRun] Backend spec validation rejected:",
+                validation.error,
+              );
+              // Don't persist invalid spec — leave any existing backend_spec untouched.
+            }
+          }
+        } catch (e) {
+          // Non-fatal: backend spec extraction is best-effort.
+          console.error("[finalizeAgentRun] Backend spec extraction failed:", e);
+        }
+
         // Pass 1: Extract structured design brief from agent outputs
         let designBrief = '';
         try {
@@ -453,10 +524,17 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
           }
         }
 
+        // Pull saved knowledge items (PRDs, ingested URLs, design notes) so
+        // the final schema rewrite respects user-provided context. Empty
+        // string if the user has nothing saved — keeps the prompt tidy.
+        const { loadKnowledgeForUser } = await import("./knowledge-context");
+        const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);
+
         const userPrompt =
           `Build a premium mobile app based on the following specifications.\n\n` +
           `## App Idea\n${project.prompt}\n\n` +
           (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
+          (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
           `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
           designBrief + `\n\n` +
           `## CRITICAL INSTRUCTIONS\n` +
