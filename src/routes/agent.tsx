@@ -38,6 +38,8 @@ import {
   Camera,
   Eye,
   EyeOff,
+  ListChecks,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
@@ -59,6 +61,7 @@ import {
   type AgentEvent,
 } from "@/lib/mcp-agent.functions";
 import { createSnackSession } from "@/lib/snack-preview.functions";
+import { listSkills, expandSkillMentions, type SkillRow } from "@/lib/skills.functions";
 
 export const Route = createFileRoute("/agent")({
   component: AgentPage,
@@ -96,6 +99,8 @@ type Msg = {
   toolCalls?: ToolCall[];
   toolCallId?: string;
   isError?: boolean;
+  /** Plan-only assistant turn — the UI renders a "Run plan" CTA. */
+  isPlan?: boolean;
 };
 
 type ProjectOpt = { id: string; name: string; result: string | null };
@@ -140,6 +145,10 @@ function AgentPage() {
   const [snackError, setSnackError] = useState<string | null>(null);
   const createSnackFn = useServerFn(createSnackSession);
 
+  // ── Skills + Plan Mode state ──
+  const [skills, setSkills] = useState<SkillRow[]>([]);
+  const skillsFn = useServerFn(listSkills);
+
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeProjectId) ?? null,
     [projects, activeProjectId],
@@ -178,6 +187,22 @@ function AgentPage() {
       setProjects((data as ProjectOpt[] | null) ?? []);
     })();
   }, [status, session?.user?.id]);
+
+  // Skills load lazily — most sessions never need them, so we don't
+  // block the page on the fetch. Eslint warning silenced because the
+  // effect intentionally fires once per auth state change.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    (async () => {
+      try {
+        const res = await skillsFn({ data: undefined });
+        if (res.ok) setSkills(res.skills);
+      } catch {
+        // Non-fatal — the composer still works without @-substitution.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // When the active project changes, reset the iframe-ready flag — the new
   // project's schema needs to land before screenshot capture is meaningful.
@@ -265,6 +290,7 @@ function AgentPage() {
                 tool_calls_json: string | null;
                 tool_call_id: string | null;
                 is_error: boolean;
+                is_plan: boolean;
                 created_at: string;
               }[];
             };
@@ -306,6 +332,7 @@ function AgentPage() {
             id: row.id,
             role: row.role,
             content: row.content,
+            isPlan: row.is_plan,
             toolCalls: parsedCalls
               ? parsedCalls.map((tc) => ({
                   id: tc.id,
@@ -355,9 +382,28 @@ function AgentPage() {
     if (activeId === id) setActiveId(threads.find((th) => th.id !== id)?.id ?? null);
   }
 
-  async function send() {
-    const content = input.trim();
-    if (!content || sending) return;
+  /**
+   * "Run plan" CTA on a plan-only assistant turn. Sends the plan back
+   * as the next user message wrapped in an explicit "execute this"
+   * preamble so the agent knows the human approved it. The agent loop
+   * runs normally (tools enabled) and produces the actual result.
+   */
+  async function runPlan(planContent: string) {
+    if (!activeId || sending) return;
+    const wrapped =
+      "Execute the plan above. Carry out each step in order, calling the " +
+      "tools you proposed.\n\n----\nApproved plan:\n" +
+      planContent.trim();
+    await sendInternal(activeId, wrapped, false);
+  }
+
+  /** Pure user action: read composer state, expand skills, dispatch. */
+  async function send(planOnly = false) {
+    const raw = input.trim();
+    if (!raw || sending) return;
+    // Skill expansion happens BEFORE we persist + send so the user's
+    // copy in chat reads as the verbatim prompt the model receives.
+    const content = expandSkillMentions(raw, skills);
     if (!activeId) {
       // First message in a fresh session — auto-mint a thread.
       const res = await createFn({ data: {} });
@@ -370,13 +416,13 @@ function AgentPage() {
       // The effect that hydrates on activeId change would clobber our
       // in-flight stream — short-circuit by calling sendInternal with
       // the new id directly.
-      await sendInternal(res.thread.id, content);
+      await sendInternal(res.thread.id, content, planOnly);
       return;
     }
-    await sendInternal(activeId, content);
+    await sendInternal(activeId, content, planOnly);
   }
 
-  async function sendInternal(threadId: string, content: string) {
+  async function sendInternal(threadId: string, content: string, planOnly = false) {
     setSending(true);
     setInput("");
     setMessages((prev) => [
@@ -419,7 +465,14 @@ function AgentPage() {
           assistantMsgId = `asst-${Date.now()}-${ev.n}`;
           setMessages((prev) => [
             ...prev,
-            { id: assistantMsgId!, role: "assistant", content: "" },
+            {
+              id: assistantMsgId!,
+              role: "assistant",
+              content: "",
+              // Tag plan turns locally so the Run-plan CTA renders even
+              // before refresh hydrates the row.
+              isPlan: planOnly,
+            },
           ]);
           break;
         }
@@ -513,6 +566,7 @@ function AgentPage() {
           activeProjectId: activeProject?.id,
           screenshotDataUrl,
           screenshotAltText,
+          planOnly,
         },
       });
       for await (const ev of stream as AsyncIterable<AgentEvent>) {
@@ -654,7 +708,12 @@ function AgentPage() {
                 <EmptyState />
               )}
               {messages.map((m) => (
-                <MessageBubble key={m.id} message={m} />
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  onRunPlan={runPlan}
+                  canRunPlan={!sending && status === "authenticated"}
+                />
               ))}
               {sending && (
                 <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -669,7 +728,7 @@ function AgentPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  send();
+                  send(false);
                 }}
                 className="flex items-end gap-2"
               >
@@ -679,7 +738,7 @@ function AgentPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                       e.preventDefault();
-                      send();
+                      send(e.shiftKey);
                     }
                   }}
                   placeholder="Ask the agent to do something — e.g. 'list my projects' or 'create a new project from this idea: …'"
@@ -687,24 +746,36 @@ function AgentPage() {
                   disabled={sending}
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                 />
-                <button
-                  type="submit"
-                  disabled={sending || !input.trim()}
-                  className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  Send
-                </button>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="submit"
+                    disabled={sending || !input.trim()}
+                    className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Send
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => send(true)}
+                    disabled={sending || !input.trim()}
+                    title="Draft a plan first — the agent describes what it'll do without running anything."
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    <ListChecks className="h-3.5 w-3.5" /> Plan
+                  </button>
+                </div>
               </form>
               <p className="mt-2 text-[10px] text-muted-foreground">
-                ⌘/Ctrl + Enter to send.
+                ⌘/Ctrl+Enter to send · Shift+⌘/Ctrl+Enter to plan first
+                {skills.length > 0 ? " · `@skill-name` expands a saved skill." : ""}
                 {activeProject && previewVisible && previewMode === "web"
-                  ? " A preview screenshot is attached so the agent can see what you see."
-                  : " Each turn consumes 1 AI credit."}
+                  ? " · A preview screenshot is attached."
+                  : ""}
               </p>
             </div>
           </section>
@@ -838,7 +909,15 @@ function EmptyState() {
   );
 }
 
-function MessageBubble({ message }: { message: Msg }) {
+function MessageBubble({
+  message,
+  onRunPlan,
+  canRunPlan,
+}: {
+  message: Msg;
+  onRunPlan?: (planContent: string) => void;
+  canRunPlan?: boolean;
+}) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -849,9 +928,14 @@ function MessageBubble({ message }: { message: Msg }) {
     );
   }
 
-  // Assistant — markdown + optional tool-call timeline.
+  // Assistant — markdown + optional tool-call timeline + optional plan CTA.
   return (
     <div className="flex flex-col gap-2">
+      {message.isPlan && (
+        <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+          <ListChecks className="h-3 w-3" /> Plan draft
+        </div>
+      )}
       {message.content && (
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -860,6 +944,16 @@ function MessageBubble({ message }: { message: Msg }) {
       {message.toolCalls?.map((tc) => (
         <ToolCallCard key={tc.id} call={tc} />
       ))}
+      {message.isPlan && onRunPlan && (
+        <button
+          type="button"
+          disabled={!canRunPlan}
+          onClick={() => onRunPlan(message.content)}
+          className="self-start inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          <Play className="h-3 w-3" /> Run plan
+        </button>
+      )}
     </div>
   );
 }

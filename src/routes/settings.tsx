@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Trash2, Plus, Eye, EyeOff, Copy, KeyRound } from "lucide-react";
+import {
+  Loader2,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  Copy,
+  KeyRound,
+  Sparkles,
+  Save,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { PageShell } from "@/components/PageShell";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +24,12 @@ import {
   revokeMcpPat,
   type ListedPat,
 } from "@/lib/mcp-pats.functions";
+import {
+  listSkills,
+  upsertSkill,
+  deleteSkill,
+  type SkillRow,
+} from "@/lib/skills.functions";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -69,6 +87,15 @@ function SettingsPage() {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [pats, setPats] = useState<McpPat[]>([]);
   const [patName, setPatName] = useState("");
+  // ── Skills ──
+  const [skills, setSkills] = useState<SkillRow[]>([]);
+  const [editingSkill, setEditingSkill] = useState<
+    { id: string | null; name: string; body: string } | null
+  >(null);
+  const [savingSkill, setSavingSkill] = useState(false);
+  const listSkillsFn = useServerFn(listSkills);
+  const upsertSkillFn = useServerFn(upsertSkill);
+  const deleteSkillFn = useServerFn(deleteSkill);
   const [issuingPat, setIssuingPat] = useState(false);
   // The plaintext is returned exactly once. We hold it in memory until
   // the user dismisses the reveal card; refresh = gone forever.
@@ -109,9 +136,62 @@ function SettingsPage() {
       } catch {
         // Non-fatal — the rest of settings still renders.
       }
+      try {
+        const skillsRes = await listSkillsFn({ data: undefined });
+        if (skillsRes.ok) setSkills(skillsRes.skills);
+      } catch {
+        // Skills load is non-blocking too.
+      }
       setLoading(false);
     })();
   }, [status, session?.user?.id, setTheme]);
+
+  async function saveSkill() {
+    if (!editingSkill) return;
+    const name = editingSkill.name.trim();
+    const body = editingSkill.body.trim();
+    if (!name || !body) {
+      toast.error("Both name and body are required.");
+      return;
+    }
+    setSavingSkill(true);
+    try {
+      const res = await upsertSkillFn({
+        data: { id: editingSkill.id ?? undefined, name, body },
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setSkills((prev) => {
+        const idx = prev.findIndex((s) => s.id === res.skill.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = res.skill;
+          return next.sort(
+            (a, b) =>
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          );
+        }
+        return [res.skill, ...prev];
+      });
+      setEditingSkill(null);
+      toast.success("Skill saved");
+    } finally {
+      setSavingSkill(false);
+    }
+  }
+
+  async function removeSkill(id: string) {
+    if (!window.confirm("Delete this skill? Chats that referenced it will see the literal @name token.")) return;
+    const res = await deleteSkillFn({ data: { id } });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setSkills((prev) => prev.filter((s) => s.id !== id));
+    if (editingSkill?.id === id) setEditingSkill(null);
+  }
 
   async function saveProfile() {
     if (!session?.user) return;
@@ -485,6 +565,112 @@ function SettingsPage() {
             Endpoint:{" "}
             <code className="font-mono">{`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/mcp`}</code>
           </p>
+        </Card>
+
+        <Card
+          title="Skills"
+          description="Reusable prompt snippets. Type `@skill-name` in the agent composer and we'll expand it on send."
+        >
+          <div className="space-y-2">
+            {skills.length === 0 && !editingSkill && (
+              <p className="text-xs text-muted-foreground">
+                No skills yet. Save your house style, project-specific
+                instructions, or recurring asks so the agent picks them up
+                with one keystroke.
+              </p>
+            )}
+            {skills.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                <code className="text-xs font-mono w-40 truncate">@{s.name}</code>
+                <span className="flex-1 truncate text-xs text-muted-foreground">
+                  {s.body.replace(/\s+/g, " ").slice(0, 80)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingSkill({ id: s.id, name: s.name, body: s.body })
+                  }
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSkill(s.id)}
+                  className="h-7 w-7 grid place-items-center rounded-md hover:bg-muted text-muted-foreground hover:text-destructive"
+                  aria-label="Delete skill"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {editingSkill ? (
+            <div className="mt-4 border-t border-border pt-4 space-y-2">
+              <input
+                type="text"
+                value={editingSkill.name}
+                onChange={(e) =>
+                  setEditingSkill({ ...editingSkill, name: e.target.value })
+                }
+                placeholder="skill-name"
+                pattern="^[a-z0-9][a-z0-9_-]{0,39}$"
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono"
+              />
+              <textarea
+                value={editingSkill.body}
+                onChange={(e) =>
+                  setEditingSkill({ ...editingSkill, body: e.target.value })
+                }
+                placeholder="The skill body — instructions, style guide, recurring asks. Up to 8 KB."
+                rows={6}
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono resize-y"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveSkill}
+                  disabled={savingSkill}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {savingSkill ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingSkill(null)}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {editingSkill.body.length.toLocaleString()} / 8,192 chars
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() =>
+                  setEditingSkill({ id: null, name: "", body: "" })
+                }
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="h-3.5 w-3.5" /> New skill
+              </button>
+            </div>
+          )}
         </Card>
 
         <div className="flex items-center gap-3">

@@ -142,7 +142,7 @@ export const getAgentThread = createServerFn({ method: "POST" })
       supabaseAdmin as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
     )
       .from("mcp_agent_messages")
-      .select("id, role, content, tool_calls, tool_call_id, is_error, created_at")
+      .select("id, role, content, tool_calls, tool_call_id, is_error, is_plan, created_at")
       .eq("thread_id", data.threadId)
       .order("created_at", { ascending: true })) as {
       data:
@@ -156,6 +156,7 @@ export const getAgentThread = createServerFn({ method: "POST" })
             tool_calls: unknown;
             tool_call_id: string | null;
             is_error: boolean;
+            is_plan: boolean;
             created_at: string;
           }[]
         | null;
@@ -171,6 +172,7 @@ export const getAgentThread = createServerFn({ method: "POST" })
       tool_calls_json: m.tool_calls == null ? null : JSON.stringify(m.tool_calls),
       tool_call_id: m.tool_call_id,
       is_error: m.is_error,
+      is_plan: m.is_plan,
       created_at: m.created_at,
     }));
     return { ok: true as const, thread, messages: serializableMsgs };
@@ -385,6 +387,11 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
           .max(2_500_000)
           .optional(),
         screenshotAltText: z.string().max(200).optional(),
+        // Plan Mode: the agent returns ONE turn with a numbered plan and
+        // does not call tools. The UI renders the plan with a "Run plan"
+        // CTA. Lovable shipped this Feb 2026 — table-stakes for users
+        // arriving from competitors.
+        planOnly: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -476,6 +483,29 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
     const msgs: AgentMsg[] = [
       { role: "system", content: MCP_AGENT_SYSTEM_PROMPT },
     ];
+
+    // Plan-only system override: tell the model exactly what shape we
+    // want and that tools are off-limits for this turn. We still send
+    // the tool manifest so the model can REFERENCE specific tools in
+    // the plan — it just must not call them.
+    if (data.planOnly) {
+      msgs.push({
+        role: "system",
+        content:
+          `PLAN MODE. Do NOT call any tools on this turn. Instead, return ` +
+          `a numbered markdown plan that the user can review. For each ` +
+          `step, state:\n` +
+          `  1. The user-visible goal of the step (one sentence).\n` +
+          `  2. Which MCP tool you intend to call (by exact name) and ` +
+          `the key arguments — or "(no tool, just summarize)" if you ` +
+          `won't need one.\n` +
+          `  3. A brief reason this step is needed.\n\n` +
+          `Keep the plan tight (3–7 steps). Don't pad. End with a ` +
+          `one-line "On approval I'll execute the steps above." Do not ` +
+          `write the actual answer yet — the user must click "Run plan" ` +
+          `first.`,
+      });
+    }
 
     // When the UI sent an `activeProjectId`, give the model a one-shot
     // hint up-front. The model can still call `get_project` to pull the
@@ -605,8 +635,12 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
       }
 
       // ── persist assistant turn ──
+      // In plan-only mode we throw away any tool calls the model emitted
+      // despite the instructions — the whole point is the user reviews
+      // before anything runs. The text alone is persisted as is_plan=true.
+      const planTurn = data.planOnly === true;
       const toolCallsForRow =
-        completedTools.length > 0
+        !planTurn && completedTools.length > 0
           ? completedTools.map((t) => ({
               id: t.id,
               name: t.name,
@@ -619,12 +653,19 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
         role: "assistant",
         content: assistantText,
         tool_calls: toolCallsForRow,
+        is_plan: planTurn,
       });
       msgs.push({
         role: "assistant",
         content: assistantText,
         tool_calls: toolCallsForRow ?? undefined,
       });
+
+      // Plan mode: one turn, no tools, done.
+      if (planTurn) {
+        yield { type: "done" };
+        return;
+      }
 
       // No tools called → we have the final answer.
       if (completedTools.length === 0) {
