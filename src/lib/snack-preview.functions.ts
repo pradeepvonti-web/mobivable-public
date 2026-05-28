@@ -28,20 +28,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { parseAppSchema } from "@/lib/code-gen";
+import { renderSchemaToRn, type SchemaTheme } from "@/lib/rn-renderer";
 
 const SNACK_SAVE_URL = "https://exp.host/--/api/v2/snack/save";
 const SNACK_SDK_VERSION = "51.0.0";
 
 interface ParsedSchemaForSnack {
-  primary: string;
-  background: string;
-  card: string;
-  text: string;
-  muted: string;
-  firstScreenTitle: string;
-  /** Up to 6 short labels we pull from the first screen's elements so the
-   *  on-device preview isn't an empty page. */
-  bullets: string[];
+  theme: SchemaTheme;
+  firstScreen: {
+    id?: string;
+    title?: string;
+    elements?: unknown[];
+    scrollable?: boolean;
+  } | null;
 }
 
 function extractForSnack(
@@ -49,31 +48,19 @@ function extractForSnack(
   schemaRaw: string | null,
 ): ParsedSchemaForSnack {
   const schema = parseAppSchema(schemaRaw ?? "");
-  const firstScreen = schema?.screens?.[0];
-  const bullets: string[] = [];
-  if (firstScreen && Array.isArray(firstScreen.elements)) {
-    for (const el of firstScreen.elements as Array<{ text?: string; label?: string; title?: string }>) {
-      const t = (el.text ?? el.label ?? el.title ?? "").toString().trim();
-      if (t && t.length <= 60) bullets.push(t);
-      if (bullets.length >= 6) break;
-    }
-  }
-  if (bullets.length === 0 && prompt) {
-    // Fall back to a one-liner from the seed prompt so the screen isn't blank.
-    bullets.push(prompt.replace(/\s+/g, " ").trim().slice(0, 80));
-  }
-
+  const firstScreen = schema?.screens?.[0] ?? null;
   // Theme heuristics — same approach exportExpoProject uses to lift colors
   // out of the designer agent's markdown. Keeps the two surfaces in sync.
   const hexFromPrompt = (prompt + " " + (schemaRaw ?? "")).match(/#[0-9a-fA-F]{6}/g) ?? [];
   return {
-    primary: hexFromPrompt[2] || hexFromPrompt[0] || "#6366f1",
-    background: hexFromPrompt[0] || "#0a0a0f",
-    card: hexFromPrompt[1] || "#161623",
-    text: hexFromPrompt[4] || "#ffffff",
-    muted: hexFromPrompt[5] || "#9ca3af",
-    firstScreenTitle: firstScreen?.title?.toString().slice(0, 40) || "Home",
-    bullets,
+    theme: {
+      primary: hexFromPrompt[2] || hexFromPrompt[0] || "#6366f1",
+      background: hexFromPrompt[0] || "#0a0a0f",
+      card: hexFromPrompt[1] || "#161623",
+      text: hexFromPrompt[4] || "#ffffff",
+      muted: hexFromPrompt[5] || "#9ca3af",
+    },
+    firstScreen,
   };
 }
 
@@ -81,79 +68,20 @@ function buildSnackFiles(args: {
   name: string;
   prompt: string;
   schema: ParsedSchemaForSnack;
-}): Record<string, { contents: string; type: "CODE" }> {
-  const { name, prompt, schema } = args;
-  // App.tsx — single screen renderer. Intentionally narrow scope: theme
-  // colors, first-screen title, element bullet list. A future iteration
-  // will compile the full MobileAppSchema into RN components.
-  const appTsx = `import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-
-const theme = {
-  background: ${JSON.stringify(schema.background)},
-  card: ${JSON.stringify(schema.card)},
-  primary: ${JSON.stringify(schema.primary)},
-  text: ${JSON.stringify(schema.text)},
-  muted: ${JSON.stringify(schema.muted)},
-};
-
-const bullets = ${JSON.stringify(schema.bullets)};
-
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.root} edges={["top"]}>
-        <StatusBar style="light" />
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.kicker}>${name.replace(/[<>"&]/g, "").slice(0, 40).toUpperCase()}</Text>
-          <Text style={styles.h1}>${schema.firstScreenTitle.replace(/[<>"&]/g, "")}</Text>
-          <Text style={styles.lead}>
-            ${prompt.replace(/[<>"&]/g, "").replace(/\s+/g, " ").trim().slice(0, 200)}
-          </Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Preview on your phone</Text>
-            <Text style={styles.cardBody}>
-              This is the project's current theme rendered on a real React
-              Native runtime. Scan the QR with Expo Go to feel it on your own
-              device.
-            </Text>
-          </View>
-          {bullets.map((b, i) => (
-            <View key={i} style={styles.bullet}>
-              <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}>{b}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
-    </SafeAreaProvider>
-  );
-}
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.background },
-  content: { padding: 24, gap: 16 },
-  kicker: { color: theme.primary, fontSize: 11, letterSpacing: 3, fontWeight: "600" },
-  h1: { color: theme.text, fontSize: 30, fontWeight: "800" },
-  lead: { color: theme.muted, fontSize: 15, lineHeight: 22 },
-  card: {
-    backgroundColor: theme.card,
-    borderRadius: 16,
-    padding: 18,
-    gap: 8,
-    marginTop: 12,
-  },
-  cardTitle: { color: theme.text, fontSize: 18, fontWeight: "700" },
-  cardBody: { color: theme.muted, fontSize: 14, lineHeight: 20 },
-  bullet: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
-  bulletDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: theme.primary },
-  bulletText: { color: theme.text, fontSize: 15, flex: 1 },
-});
-`;
-
+}): { code: Record<string, { contents: string; type: "CODE" }>; dependencies: Record<string, string> } {
+  const { name, schema } = args;
+  // Real schema-to-RN render. The shared rn-renderer is the single
+  // source of truth — Snack preview, the Expo export's Home, and any
+  // future device-capture pipeline all go through it so they paint the
+  // same thing.
+  const rendered = renderSchemaToRn({
+    appName: name,
+    theme: schema.theme,
+    screen: schema.firstScreen ?? { title: "Home", elements: [] },
+  });
   return {
-    "App.tsx": { contents: appTsx, type: "CODE" },
+    code: { "App.tsx": { contents: rendered.appTsx, type: "CODE" } },
+    dependencies: rendered.dependencies,
   };
 }
 
@@ -175,7 +103,7 @@ export const createSnackSession = createServerFn({ method: "POST" })
     }
 
     const schema = extractForSnack(project.prompt ?? "", project.result ?? null);
-    const code = buildSnackFiles({
+    const { code, dependencies } = buildSnackFiles({
       name: project.name || "Mobivable App",
       prompt: project.prompt ?? "",
       schema,
@@ -183,22 +111,19 @@ export const createSnackSession = createServerFn({ method: "POST" })
 
     // Snack's save endpoint — anonymous, 24h TTL, no auth required.
     // Body shape from https://github.com/expo/snack docs.
+    const snackDeps: Record<string, { version: string; isUserSpecified: true }> = {};
+    for (const [pkg, ver] of Object.entries(dependencies)) {
+      snackDeps[pkg] = { version: ver, isUserSpecified: true };
+    }
     const body = {
       manifest: {
         name: (project.name || "Mobivable preview").slice(0, 40),
         description: "Mobivable preview — generated for on-device viewing.",
         sdkVersion: SNACK_SDK_VERSION,
-        dependencies: {
-          "react-native-safe-area-context": "4.10.5",
-        },
+        dependencies,
       },
       code,
-      dependencies: {
-        "react-native-safe-area-context": {
-          version: "4.10.5",
-          isUserSpecified: true,
-        },
-      },
+      dependencies: snackDeps,
     };
 
     let saveRes: Response;
