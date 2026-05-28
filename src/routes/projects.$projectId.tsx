@@ -52,6 +52,7 @@ import {
   DollarSign,
   Bell,
   Store,
+  CloudUpload,
   Brain,
   BookOpen as BookOpenIcon,
   Rocket,
@@ -117,6 +118,7 @@ import { BackendPanel } from "@/components/studio/BackendPanel";
 import { EnvPanel } from "@/components/studio/EnvPanel";
 import { NativeCapabilitiesPanel } from "@/components/studio/NativeCapabilitiesPanel";
 import { StoreListingPanel } from "@/components/studio/StoreListingPanel";
+import { OtaUpdatesPanel } from "@/components/studio/OtaUpdatesPanel";
 import { AssetsPanel } from "@/components/studio/AssetsPanel";
 import { KnowledgeDialog } from "@/components/studio/KnowledgeDialog";
 import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
@@ -277,6 +279,7 @@ const SIDE_ITEMS = [
   { icon: DollarSign, label: "Monetization" },
   { icon: Bell, label: "Native" },
   { icon: Store, label: "Store Listing" },
+  { icon: CloudUpload, label: "OTA Updates" },
   { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
   { icon: BookOpenIcon, label: "Knowledge" },
@@ -414,7 +417,7 @@ function ProjectPage() {
   // higher tiers than pro and should also have access. Previously this only
   // matched "pro" exactly, locking scale/business users out of Backend etc.
   const isPro = userPlan === "pro" || userPlan === "scale" || userPlan === "business" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "native" | "store" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "native" | "store" | "ota" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1515,6 +1518,7 @@ function ProjectPage() {
               (label === "Monetization" && sidePanel === "monetization") ||
               (label === "Native" && sidePanel === "native") ||
               (label === "Store Listing" && sidePanel === "store") ||
+              (label === "OTA Updates" && sidePanel === "ota") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets") ||
               (label === "Knowledge" && sidePanel === "knowledge") ||
@@ -1554,6 +1558,8 @@ function ProjectPage() {
                     setSidePanel("native");
                   } else if (label === "Store Listing") {
                     setSidePanel("store");
+                  } else if (label === "OTA Updates") {
+                    setSidePanel("ota");
                   } else if (label === "Knowledge") {
                     setSidePanel("knowledge");
                   } else if (label === "Deployments") {
@@ -2484,6 +2490,34 @@ function ProjectPage() {
           </header>
           <div className="flex-1 overflow-y-auto p-4">
             <StoreListingPanel projectId={projectId} />
+          </div>
+        </section>
+      )}
+
+      {sidePanel === "ota" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <CloudUpload className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">OTA Updates</h2>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  Ship JS-only fixes via EAS Update — no store review
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSidePanel(null)}
+              className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              Close
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">
+            <OtaUpdatesPanel projectId={projectId} />
           </div>
         </section>
       )}

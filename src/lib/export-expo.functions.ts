@@ -77,6 +77,30 @@ export const exportExpoProject = createServerFn({ method: "POST" })
     };
     const storeListing = (listingRow?.store_listing ?? {}) as StoreListing;
 
+    // ─── OTA / EAS Update config ───
+    // EAS Update settings live on project_env_vars (set by the OTA
+    // panel via upsertOtaConfig). When all three are present we wire
+    // the expo-updates plugin + `extra.eas.projectId` into app.json and
+    // ship an eas.json with the standard preview / production
+    // channels. Without them we skip — the user can opt in later
+    // without changing the export path.
+    const { data: otaEnvRows } = await supabase
+      .from("project_env_vars")
+      .select("name, value")
+      .eq("project_id", data.projectId)
+      .eq("user_id", userId)
+      .in("name", ["EAS_PROJECT_ID", "EAS_OWNER", "EAS_UPDATE_URL"]);
+    const otaEnv: Record<string, string> = {};
+    for (const row of otaEnvRows ?? []) {
+      if (row?.name && typeof row.value === "string") {
+        otaEnv[row.name] = row.value.trim();
+      }
+    }
+    const otaConfigured =
+      !!otaEnv.EAS_PROJECT_ID && !!otaEnv.EAS_OWNER;
+    const otaUpdateUrl =
+      otaEnv.EAS_UPDATE_URL || `https://u.expo.dev/${otaEnv.EAS_PROJECT_ID ?? ""}`;
+
     // ─── Monetization config (from project_env_vars) ───
     // The MonetizationPanel persists provider + provider-specific public keys
     // here. We pull only the ENV keys an export can safely bundle into a React
@@ -152,6 +176,12 @@ export const exportExpoProject = createServerFn({ method: "POST" })
     // Native-capabilities catalog adds whatever each opted-in capability
     // declares (expo-notifications, stripe-react-native, etc.).
     Object.assign(dependencies, capabilityEmission.dependencies);
+    // OTA: expo-updates is the runtime that fetches new JS bundles. We
+    // only add it when the user has configured EAS; otherwise the app
+    // ships without the update check on boot.
+    if (otaConfigured) {
+      dependencies["expo-updates"] = "~0.25.27";
+    }
 
     // package.json — pinned to current Expo SDK 51 baseline
     zip.file(
@@ -193,6 +223,11 @@ export const exportExpoProject = createServerFn({ method: "POST" })
     // order. Each is a `[name, options]` tuple per Expo config-plugin spec.
     for (const plugin of capabilityEmission.expoPlugins) {
       appJsonPlugins.push(plugin);
+    }
+    // OTA / EAS Update plugin. Has to come AFTER expo-router so the
+    // update payload includes the router's prebuild artifacts.
+    if (otaConfigured) {
+      appJsonPlugins.push("expo-updates");
     }
 
     const iosBlock: Record<string, unknown> = { supportsTablet: true };
@@ -241,12 +276,56 @@ export const exportExpoProject = createServerFn({ method: "POST" })
             web: { bundler: "metro" },
             plugins: appJsonPlugins,
             ...(hasIcon ? { icon: "./assets/icon.png" } : {}),
+            // OTA wiring — when the user has configured EAS, embed the
+            // Update URL, runtimeVersion policy, owner, and extra.eas
+            // so `eas update --branch <channel>` picks up everything
+            // out of the box.
+            ...(otaConfigured
+              ? {
+                  owner: otaEnv.EAS_OWNER,
+                  runtimeVersion: { policy: "appVersion" },
+                  updates: {
+                    url: otaUpdateUrl,
+                    fallbackToCacheTimeout: 0,
+                  },
+                  extra: {
+                    eas: { projectId: otaEnv.EAS_PROJECT_ID },
+                  },
+                }
+              : {}),
           },
         },
         null,
         2,
       ),
     );
+
+    // eas.json — channel routing. Without it `eas update --branch foo`
+    // works but `eas build` doesn't know which channel maps to which
+    // build profile. preview maps to internal testing, production to
+    // store builds.
+    if (otaConfigured) {
+      zip.file(
+        "eas.json",
+        JSON.stringify(
+          {
+            cli: { version: ">= 5.0.0", appVersionSource: "remote" },
+            build: {
+              development: {
+                developmentClient: true,
+                distribution: "internal",
+                channel: "development",
+              },
+              preview: { distribution: "internal", channel: "preview" },
+              production: { channel: "production" },
+            },
+            submit: { production: {} },
+          },
+          null,
+          2,
+        ),
+      );
+    }
 
     // ── store/listing.json ──
     // The single source-of-truth for the App Store Connect / Play Console
