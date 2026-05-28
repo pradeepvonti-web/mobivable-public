@@ -144,3 +144,48 @@ export function onFlutterMessage(
   window.addEventListener('message', handler);
   return () => window.removeEventListener('message', handler);
 }
+
+/** Resolve when the iframe fires `FLUTTER_READY`. Times out so a
+ *  half-bundled engine doesn't hang the caller forever. If the engine
+ *  was already ready before this was called (e.g. we mounted it just
+ *  to capture), the first SCHEMA_UPDATE round-trip will still work, so
+ *  the timeout is "good enough" rather than "exactly right". */
+export function waitForFlutterReady(
+  iframe: HTMLIFrameElement | null,
+  timeoutMs = 12_000,
+): Promise<void> {
+  if (!iframe) {
+    return Promise.reject(new Error('Flutter iframe is not mounted.'));
+  }
+  return new Promise((resolve, reject) => {
+    const handler = (ev: MessageEvent) => {
+      const data = ev.data as { type?: string };
+      if (data?.type === 'FLUTTER_READY') {
+        window.removeEventListener('message', handler);
+        clearTimeout(timer);
+        resolve();
+      }
+    };
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      reject(new Error(`Flutter engine didn't fire READY within ${timeoutMs / 1000}s.`));
+    }, timeoutMs);
+    window.addEventListener('message', handler);
+  });
+}
+
+/** Push DEVICE_INFO + SCREEN_CHANGE in one call so the renderer has
+ *  the right MediaQuery before paint. Doesn't wait — caller pairs this
+ *  with a small post-message settle delay before capture. */
+export function setupFlutterFrame(
+  iframe: HTMLIFrameElement | null,
+  args: {
+    width: number;
+    height: number;
+    os: 'ios' | 'android';
+    screenIndex: number;
+  },
+): void {
+  sendDeviceInfoToFlutter(iframe, args.width, args.height, args.os);
+  sendScreenChangeToFlutter(iframe, args.screenIndex);
+}

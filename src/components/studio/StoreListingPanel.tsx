@@ -31,6 +31,7 @@ import {
   X,
   Smartphone,
   Tablet,
+  Camera as CameraIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,14 +41,28 @@ import {
   type StoreListing,
   type StoreScreenshot,
 } from "@/lib/store-listing.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { parseAppSchema } from "@/lib/code-gen";
+import {
+  getFlutterPreviewUrl,
+  sendSchemaToFlutter,
+  setupFlutterFrame,
+  captureFlutterScreenshot,
+  waitForFlutterReady,
+} from "@/lib/flutter-bridge";
 
 interface DeviceSlot {
   id: string;
   label: string;
-  /** Required dimensions for the upload — width × height. */
+  /** Required pixel dimensions for the upload — width × height. */
   width: number;
   height: number;
-  /** Whether iPad-like or phone-like — affects the slot icon. */
+  /** CSS / MediaQuery dimensions Flutter uses to lay out the widget tree.
+   *  Auto-capture pushes these to the engine so layouts that respond to
+   *  device size render correctly before capture. */
+  cssWidth: number;
+  cssHeight: number;
+  os: "ios" | "android";
   kind: "phone" | "tablet";
   /** Required by Apple's review or just nice to have? */
   required: "ios" | "android" | "both" | "optional";
@@ -55,13 +70,17 @@ interface DeviceSlot {
 
 // Apple + Google ask for these baseline slots in late-2025 review. Apple
 // in particular rejects builds that lack the 6.7" / 6.5" sizes.
+// `cssWidth/cssHeight` are the device's CSS-pixel dimensions (logical
+// resolution) — what Flutter's MediaQuery reports. The physical
+// `width/height` is target × pixelRatio (Apple usually wants 3x phones,
+// 2x tablets), which Flutter's `toImage(pixelRatio: …)` honors.
 const DEVICE_SLOTS: DeviceSlot[] = [
-  { id: "iphone_6_7", label: "iPhone 6.7\"", width: 1290, height: 2796, kind: "phone", required: "ios" },
-  { id: "iphone_6_5", label: "iPhone 6.5\"", width: 1242, height: 2688, kind: "phone", required: "ios" },
-  { id: "iphone_5_5", label: "iPhone 5.5\"", width: 1242, height: 2208, kind: "phone", required: "optional" },
-  { id: "ipad_12_9", label: "iPad 12.9\"", width: 2048, height: 2732, kind: "tablet", required: "ios" },
-  { id: "android_phone", label: "Android phone", width: 1080, height: 1920, kind: "phone", required: "android" },
-  { id: "android_tablet", label: "Android tablet", width: 1600, height: 2560, kind: "tablet", required: "optional" },
+  { id: "iphone_6_7", label: "iPhone 6.7\"", width: 1290, height: 2796, cssWidth: 430, cssHeight: 932, os: "ios", kind: "phone", required: "ios" },
+  { id: "iphone_6_5", label: "iPhone 6.5\"", width: 1242, height: 2688, cssWidth: 414, cssHeight: 896, os: "ios", kind: "phone", required: "ios" },
+  { id: "iphone_5_5", label: "iPhone 5.5\"", width: 1242, height: 2208, cssWidth: 414, cssHeight: 736, os: "ios", kind: "phone", required: "optional" },
+  { id: "ipad_12_9", label: "iPad 12.9\"", width: 2048, height: 2732, cssWidth: 1024, cssHeight: 1366, os: "ios", kind: "tablet", required: "ios" },
+  { id: "android_phone", label: "Android phone", width: 1080, height: 1920, cssWidth: 360, cssHeight: 640, os: "android", kind: "phone", required: "android" },
+  { id: "android_tablet", label: "Android tablet", width: 1600, height: 2560, cssWidth: 800, cssHeight: 1280, os: "android", kind: "tablet", required: "optional" },
 ];
 
 const CATEGORIES = [
@@ -96,6 +115,18 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
   const iconInputRef = useRef<HTMLInputElement | null>(null);
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const screenshotSlotRef = useRef<DeviceSlot | null>(null);
+  // ── Auto-capture state ──
+  const [autoCapturing, setAutoCapturing] = useState(false);
+  /** Human-readable progress shown next to the spinner during a sweep. */
+  const [captureStatus, setCaptureStatus] = useState<string | null>(null);
+  /** Schema parsed from the project's `result`. We hold it locally so we
+   *  can name screens in the progress text and iterate without an extra
+   *  fetch per device. Null until the project is loaded or there's no
+   *  generated schema yet. */
+  const [schema, setSchema] = useState<{
+    screens?: { id?: string; title?: string }[];
+  } | null>(null);
+  const captureIframeRef = useRef<HTMLIFrameElement | null>(null);
   const getFn = useServerFn(getStoreListing);
   const upsertFn = useServerFn(upsertStoreListing);
   const uploadFn = useServerFn(uploadStoreAsset);
@@ -126,6 +157,26 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
     };
   }, [projectId, getFn]);
 
+  // Load the project's MobileAppSchema for auto-capture. Direct Supabase
+  // hit — RLS scopes us to the owner, and this panel is already gated on
+  // an authenticated session.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("result")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (cancelled) return;
+      const parsed = parseAppSchema((data?.result as string | null) ?? "");
+      setSchema(parsed as typeof schema);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
   const screenshotsByDevice = useMemo(() => {
     const map = new Map<string, StoreScreenshot[]>();
     for (const s of listing.screenshots ?? []) {
@@ -136,6 +187,147 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
     for (const arr of map.values()) arr.sort((a, b) => a.ordinal - b.ordinal);
     return map;
   }, [listing.screenshots]);
+
+  /**
+   * Auto-capture sweep. Iterates every device × every screen, asking the
+   * hidden Flutter iframe to render that combination, snapshots the
+   * PNG, and uploads it into the matching slot. Persists incrementally
+   * so a half-failed sweep still saves what completed — refreshing the
+   * panel after a stall shows the captures that landed.
+   *
+   * Caveats:
+   *   - PNG dimensions are approximate (Flutter's pixelRatio doesn't
+   *     give us exact 1290×2796 unless we resize the iframe to the CSS
+   *     dim and capture at 3x). Apple/Google review tolerance handles
+   *     it; the user can swap individual slots manually for pixel-
+   *     perfect store pages.
+   *   - Snapshots replace existing screenshots for the same device
+   *     (we drop the old set first) so re-runs don't pile up
+   *     duplicates.
+   */
+  async function runAutoCapture() {
+    if (autoCapturing) return;
+    if (!schema || !schema.screens || schema.screens.length === 0) {
+      toast.error("This project doesn't have any generated screens yet. Open Chat and ask the agent to build one first.");
+      return;
+    }
+
+    setAutoCapturing(true);
+    setCaptureStatus("Booting capture engine…");
+
+    // Yield a frame so React mounts the hidden iframe before we read
+    // `captureIframeRef.current` — the ref is null until the gated JSX
+    // renders.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const iframe = captureIframeRef.current;
+    if (!iframe) {
+      setAutoCapturing(false);
+      setCaptureStatus(null);
+      toast.error("Capture iframe didn't mount.");
+      return;
+    }
+
+    // Snapshot here so we can show "Saved" cleanly at the end.
+    const allCaptures: StoreScreenshot[] = [];
+    const startedAt = Date.now();
+
+    try {
+      // Wait for engine READY then push the schema. waitForFlutterReady
+      // can resolve immediately if the engine was already up; we retry
+      // schema push after a short delay because the engine drops early
+      // SCHEMA_UPDATE events if it hasn't fully wired its message
+      // listener yet.
+      try {
+        await waitForFlutterReady(iframe, 12_000);
+      } catch (e) {
+        // Engine might already be up from a prior open; push schema
+        // anyway and rely on the per-screen settle delay.
+        void e;
+      }
+      sendSchemaToFlutter(iframe, schema as never);
+      await new Promise((r) => setTimeout(r, 400));
+
+      const screens = schema.screens ?? [];
+      const totalSteps = DEVICE_SLOTS.length * screens.length;
+      let step = 0;
+
+      for (const slot of DEVICE_SLOTS) {
+        for (let i = 0; i < screens.length; i++) {
+          step += 1;
+          const screen = screens[i];
+          const screenTitle = screen.title ?? screen.id ?? `Screen ${i + 1}`;
+          setCaptureStatus(
+            `${slot.label} · ${screenTitle} (${step}/${totalSteps})`,
+          );
+
+          setupFlutterFrame(iframe, {
+            width: slot.cssWidth,
+            height: slot.cssHeight,
+            os: slot.os,
+            screenIndex: i,
+          });
+          // Let the renderer settle. 600 ms is enough for a layout swap
+          // + paint at the engine's typical idle frame budget; tighter
+          // values produce blank captures.
+          await new Promise((r) => setTimeout(r, 600));
+
+          let dataUrl: string;
+          try {
+            dataUrl = await captureFlutterScreenshot(iframe, 8_000);
+          } catch (err) {
+            console.warn("[auto-capture]", slot.id, screenTitle, err);
+            continue;
+          }
+
+          const upload = await uploadFn({
+            data: {
+              projectId,
+              kind: "screenshot",
+              dataUrl,
+              slot: slot.id,
+            },
+          });
+          if (!upload.ok) {
+            toast.error(`Upload failed for ${slot.label}: ${upload.error}`);
+            continue;
+          }
+          allCaptures.push({
+            device: slot.id,
+            url: upload.url,
+            ordinal: allCaptures.filter((c) => c.device === slot.id).length,
+          });
+
+          // Incremental persist every 4 captures so a stall doesn't
+          // throw away the work that finished. We're loose with the
+          // existing screenshots — auto-capture replaces all device
+          // rows it touched. To preserve user-uploaded ones for devices
+          // we DIDN'T capture, we union with the prior state filtered
+          // to slots we left alone.
+          if (step % 4 === 0 || step === totalSteps) {
+            const touchedDevices = new Set(allCaptures.map((c) => c.device));
+            const preserved = (listing.screenshots ?? []).filter(
+              (s) => !touchedDevices.has(s.device),
+            );
+            const next = [...preserved, ...allCaptures];
+            const persist = await upsertFn({
+              data: { projectId, patch: { screenshots: next } },
+            });
+            if (persist.ok) setListing(persist.listing);
+          }
+        }
+      }
+
+      const dur = Math.round((Date.now() - startedAt) / 100) / 10;
+      toast.success(
+        `Captured ${allCaptures.length} screenshot${allCaptures.length === 1 ? "" : "s"} in ${dur}s.`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Auto-capture failed.");
+    } finally {
+      setAutoCapturing(false);
+      setCaptureStatus(null);
+    }
+  }
 
   async function saveDraft() {
     setSaving(true);
@@ -497,9 +689,35 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
 
       {/* ── Screenshots ── */}
       <section className="space-y-3">
-        <h3 className="text-xs uppercase tracking-wider text-muted-foreground">
-          Screenshots
-        </h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground">
+            Screenshots
+          </h3>
+          <button
+            type="button"
+            onClick={runAutoCapture}
+            disabled={autoCapturing || !schema?.screens?.length}
+            title={
+              !schema?.screens?.length
+                ? "Generate the app first — there are no screens to capture yet."
+                : "Capture every screen at every required device size."
+            }
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {autoCapturing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <CameraIcon className="h-3 w-3" />
+            )}
+            Auto-capture
+          </button>
+        </div>
+        {autoCapturing && captureStatus && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {captureStatus}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Apple requires screenshots for at least the iPhone 6.7" and the
           iPad 12.9" sizes. Google requires the Android phone size.
@@ -607,6 +825,33 @@ export function StoreListingPanel({ projectId }: { projectId: string }) {
         and writes <code>store/listing.json</code> with this metadata so a
         downstream <code>eas submit</code> step can pick it up.
       </p>
+
+      {/* ── Capture iframe (off-screen) ──
+          Mounted only when a capture is in flight so the engine doesn't
+          eat ~50 MB on every panel open. Positioned absolute + opacity 0
+          rather than display:none so the canvas can paint (Flutter web
+          skips raster for display:none subtrees). */}
+      {autoCapturing && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: -10000,
+            top: 0,
+            width: 430,
+            height: 932,
+            pointerEvents: "none",
+            opacity: 0,
+          }}
+        >
+          <iframe
+            ref={captureIframeRef}
+            title="Capture Engine"
+            src={getFlutterPreviewUrl()}
+            style={{ width: "100%", height: "100%", border: 0 }}
+          />
+        </div>
+      )}
     </div>
   );
 }
