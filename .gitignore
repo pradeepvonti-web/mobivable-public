@@ -32,6 +32,10 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+.claude/
+
+# Local debug artifacts (typecheck logs etc.)
+tsc.out.txt
 *.suo
 *.ntvs*
 *.njsproj

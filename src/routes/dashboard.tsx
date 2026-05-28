@@ -229,6 +229,29 @@ function DashboardPage() {
       <div className="space-y-12 max-w-4xl mx-auto">
         <AppPromptComposer />
 
+        {/* ─── Agent CTA ─── */}
+        <Link
+          // Cast: routeTree.gen.ts isn't aware of /agent.tsx until the
+          // Vite plugin regenerates it on dev/build pickup.
+          to={"/agent" as never}
+          className="group block border border-border p-5 hover:border-primary transition-colors"
+        >
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary grid place-items-center">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-display text-base">Open the Agent</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Chat across all your projects · powered by your MCP tools
+              </p>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors">
+              /agent →
+            </span>
+          </div>
+        </Link>
+
         {/* ─── Quick Stats Bar ─── */}
         {!loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

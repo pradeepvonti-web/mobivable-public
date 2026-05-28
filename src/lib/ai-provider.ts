@@ -415,6 +415,115 @@ export async function callAIStreaming(
   return { ok: true, response: res, provider: provider.name, model };
 }
 
+// ─── Streaming API with tool use (Anthropic + OpenAI-compat) ───
+//
+// Used by the in-studio MCP agent loop. Differences from callAIStreaming:
+//   - Tools are passed to the model so it can emit tool_use blocks.
+//   - Caller gets back the active provider id so they can parse the SSE
+//     in the right shape (Anthropic uses content_block_* events; OpenAI
+//     uses choices[].delta.tool_calls).
+//   - System prompt is taken separately because Anthropic puts it in a
+//     top-level `system` field, not a message.
+//
+// Why a separate function from callAIStreaming: tool-use requests have
+// strictly different request bodies (tools array, tool_choice, etc.), and
+// the response stream events need different parsing. Forking the function
+// is cleaner than threading a half-dozen optional flags.
+
+export interface AnthropicToolDef {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+export interface OpenAIToolDef {
+  type: "function";
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+}
+
+export interface ProviderNeutralMsg {
+  /** Pre-converted messages — caller already shaped them per provider. */
+  anthropic?: { role: "user" | "assistant"; content: unknown }[];
+  openai?: {
+    role: "system" | "user" | "assistant" | "tool";
+    content: string | null;
+    tool_calls?: unknown[];
+    tool_call_id?: string;
+    name?: string;
+  }[];
+}
+
+export async function callAIToolsStreaming(args: {
+  system: string;
+  messages: ProviderNeutralMsg;
+  tools: { anthropic: AnthropicToolDef[]; openai: OpenAIToolDef[] };
+  modelHint?: string;
+}): Promise<
+  | { ok: true; response: Response; provider: AIProvider; model: string }
+  | { ok: false; error: string }
+> {
+  const provider = detectProvider();
+  if (!provider) {
+    return { ok: false, error: "No AI provider configured." };
+  }
+  const key = provider.getKey();
+  if (!key) return { ok: false, error: `${provider.name} API key missing.` };
+  const model = resolveModel(args.modelHint ?? "", provider);
+  const url = provider.baseUrl || process.env.AI_BASE_URL || "";
+
+  if (provider.id === "anthropic") {
+    const body = {
+      model,
+      max_tokens: 8192,
+      system: args.system,
+      messages: args.messages.anthropic ?? [],
+      tools: args.tools.anthropic,
+      stream: true,
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...provider.authHeader(key),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `Anthropic error (${res.status}): ${text.slice(0, 200)}` };
+    }
+    return { ok: true, response: res, provider: provider.id, model };
+  }
+
+  // All other providers speak the OpenAI tool-calls protocol. Some (Gemini
+  // via Google's OpenAI-compat endpoint, Groq) reject tool-use in streaming
+  // mode — the caller surfaces those errors so the user knows to switch
+  // models, rather than us trying to silently fall back.
+  const body = {
+    model,
+    messages: args.messages.openai ?? [],
+    tools: args.tools.openai,
+    tool_choice: "auto" as const,
+    stream: true,
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...provider.authHeader(key),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      error: `${provider.name} error (${res.status}): ${text.slice(0, 200)}`,
+    };
+  }
+  return { ok: true, response: res, provider: provider.id, model };
+}
+
 // ─── Image generation (for asset creation) ──────────────────────
 export async function callAIImage(
   prompt: string,

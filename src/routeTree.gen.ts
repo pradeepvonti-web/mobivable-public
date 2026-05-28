@@ -24,11 +24,13 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as BlogRouteImport } from './routes/blog'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as ApiPublicMcpRouteImport } from './routes/api/public/mcp'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -112,6 +114,11 @@ const BlogRoute = BlogRouteImport.update({
   path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -136,6 +143,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AdminRoute,
+} as any)
+const ApiPublicMcpRoute = ApiPublicMcpRouteImport.update({
+  id: '/api/public/mcp',
+  path: '/api/public/mcp',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
@@ -178,6 +190,7 @@ const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent': typeof AgentRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -196,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
   '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
@@ -207,6 +221,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent': typeof AgentRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -225,6 +240,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
   '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
@@ -237,6 +253,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent': typeof AgentRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -255,6 +272,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
   '/api/public/maestro/webhook': typeof ApiPublicMaestroWebhookRoute
@@ -268,6 +286,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/agent'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -286,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
     | '/api/public/maestro/webhook'
@@ -297,6 +317,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/agent'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -315,6 +336,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
     | '/api/public/maestro/webhook'
@@ -326,6 +348,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/agent'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -344,6 +367,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
     | '/api/public/maestro/webhook'
@@ -356,6 +380,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  AgentRoute: typeof AgentRoute
   BlogRoute: typeof BlogRoute
   CheckoutRoute: typeof CheckoutRouteWithChildren
   CommunityRoute: typeof CommunityRoute
@@ -372,6 +397,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ApiPublicMcpRoute: typeof ApiPublicMcpRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicImageProxyRoute: typeof ApiPublicImageProxyRoute
   ApiPublicMaestroWebhookRoute: typeof ApiPublicMaestroWebhookRoute
@@ -488,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -522,6 +555,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/api/public/mcp': {
+      id: '/api/public/mcp'
+      path: '/api/public/mcp'
+      fullPath: '/api/public/mcp'
+      preLoaderRoute: typeof ApiPublicMcpRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
@@ -600,6 +640,7 @@ const CheckoutRouteWithChildren = CheckoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  AgentRoute: AgentRoute,
   BlogRoute: BlogRoute,
   CheckoutRoute: CheckoutRouteWithChildren,
   CommunityRoute: CommunityRoute,
@@ -616,6 +657,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ApiPublicMcpRoute: ApiPublicMcpRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicImageProxyRoute: ApiPublicImageProxyRoute,
   ApiPublicMaestroWebhookRoute: ApiPublicMaestroWebhookRoute,

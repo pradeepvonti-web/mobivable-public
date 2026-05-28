@@ -99,10 +99,7 @@ async function authenticate(
   return { userId: row.user_id, patHash };
 }
 
-// The Vite plugin regenerates `routeTree.gen.ts` on dev/build pickup, at
-// which point this path becomes a known key in `FileRoutesByPath`. Until
-// then TS doesn't know about it, so we cast.
-export const Route = createFileRoute("/api/public/mcp" as never)({
+export const Route = createFileRoute("/api/public/mcp")({
   server: {
     handlers: {
       // GET acts as a tiny health probe — useful when wiring clients up
