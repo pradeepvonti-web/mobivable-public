@@ -10,6 +10,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test --grep \"@tier-1|@tier-2\"",
+    "test:e2e:smoke": "playwright test --grep \"@tier-1\"",
+    "test:e2e:mocked": "playwright test --grep \"@tier-2\"",
+    "test:e2e:live": "playwright test --grep \"@tier-3\"",
+    "test:e2e:report": "playwright show-report",
     "format": "prettier --write .",
     "postinstall": "node -e \"console.log('\\n\\x1b[36m[lovable]\\x1b[0m Dependencies installed. If the dev server was already running, restart it (Ctrl+C then `bun dev`) so Vite picks up new packages.\\n')\""
   },
@@ -85,6 +90,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^1.7.0",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.16.5",

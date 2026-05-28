@@ -36,6 +36,12 @@ dist-ssr
 
 # Local debug artifacts (typecheck logs etc.)
 tsc.out.txt
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/tests/e2e/.auth/
 *.suo
 *.ntvs*
 *.njsproj

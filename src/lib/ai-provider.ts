@@ -446,7 +446,10 @@ export interface ProviderNeutralMsg {
   anthropic?: { role: "user" | "assistant"; content: unknown }[];
   openai?: {
     role: "system" | "user" | "assistant" | "tool";
-    content: string | null;
+    // Widened to `unknown` because multimodal user messages carry an
+    // array of content parts (image_url + text), not a plain string.
+    // The caller already shaped it per OpenAI's spec.
+    content: unknown;
     tool_calls?: unknown[];
     tool_call_id?: string;
     name?: string;

@@ -1,0 +1,107 @@
+name: e2e (nightly · live LLM)
+
+# Tier 3 — talks to a real provider. Costs money, can flake on model
+# release days. Runs on a cron + on-demand only; never on PR.
+
+on:
+  schedule:
+    # 08:30 UTC daily — pick whatever time matches your team's morning
+    # so failures land before the day starts.
+    - cron: "30 8 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Capture Supabase URLs + keys
+        run: |
+          status=$(supabase status --output env)
+          {
+            echo "SUPABASE_URL=$(echo "$status" | grep '^API_URL=' | cut -d= -f2-)"
+            echo "SUPABASE_PUBLISHABLE_KEY=$(echo "$status" | grep '^ANON_KEY=' | cut -d= -f2-)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$status" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2-)"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply migrations
+        run: supabase db reset --linked=false
+
+      - name: Build studio
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ env.SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Start studio (preview)
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ env.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+          # Real key — required for tier 3.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          npm run preview -- --port 5173 &
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5173 >/dev/null; then break; fi
+            sleep 1
+          done
+
+      - name: Run tier-3 specs
+        env:
+          CI: "true"
+          E2E_BASE_URL: http://localhost:5173
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ env.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: npx playwright test --grep "@tier-3"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-nightly
+          path: playwright-report
+          retention-days: 14
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true
