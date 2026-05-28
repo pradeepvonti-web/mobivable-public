@@ -1,29 +1,28 @@
 /**
  * Store submission orchestration.
  *
- * V1 behavior (honest):
- *   - Record the submission intent in `store_submissions`.
- *   - Verify the user has the right credentials configured.
- *   - Return a structured "what to do next" payload the UI surfaces as a
- *     checklist (download export → run `eas submit -p ios --path …`).
- *   - For Play we use the latest eas_builds row's artifact_url if one
- *     exists; for iOS the user typically has to upload through Transporter
- *     or EAS submit because ASC API uploads need an installed Transporter
- *     binary.
+ * Android (Play Internal Track):
+ *   - We have the full direct path: service-account JSON → JWT → OAuth →
+ *     edits API → upload .aab → assign to internal → commit. Runs
+ *     synchronously inside `submitToStores` so the user gets a single
+ *     succeeded/failed response with a real versionCode.
  *
- * V2 will:
- *   - Sign a JWT for ASC API and call POST /v1/builds for iOS uploads.
- *   - Use the Google Play Publishing API directly (uploadAabRelease) for
- *     Android, since service-account JSON gives us everything we need.
+ * iOS (TestFlight):
+ *   - Still scaffolding. The ASC API v1 /builds upload requires the
+ *     Transporter binary or `altool` for the actual chunked upload;
+ *     pure-API upload exists but is poorly documented and requires
+ *     Apple's CDN handshake. We surface instructions until a Node
+ *     side-worker ships that wraps `xcrun altool --upload-app`.
  *
- * This file deliberately stops short of running shell commands or
- * holding credentials beyond the call duration — secrets are loaded,
- * decrypted, used, and discarded inside this handler.
+ * Credentials are loaded, decrypted via APP_SECRET_ENCRYPTION_KEY, used
+ * inside this handler, and discarded — never returned to the browser.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { decryptAtRest } from "./at-rest-crypto.server";
+import { uploadAabToInternal } from "./play-store-client.server";
 
 export interface SubmissionRow {
   id: string;
@@ -198,45 +197,147 @@ export const submitToStores = createServerFn({ method: "POST" })
       };
     }
 
-    // ── 5. instructions payload ──
-    // V1 doesn't shell out — the studio doesn't currently have a worker
-    // sandbox to run `eas submit` from. The instructions block names
-    // exactly what the user runs locally; the credentials they need
-    // already live in `store_credentials` and they can pull them via
-    // the future `submit-runner` worker.
-    const instructions: SubmitInstructions =
-      data.platform === "ios"
-        ? {
+    // ── 5. live execution path ──
+    // Android has a clean HTTP-only path via the Play Publishing API.
+    // We run it synchronously here — uploads take ~10–30 s for typical
+    // .aab sizes; users see a spinner and a final status in one click.
+    // iOS still requires Transporter / altool for the actual chunked
+    // upload, so for now we surface instructions instead.
+    if (data.platform === "android") {
+      // The Play API needs the applicationId (Android package name) —
+      // we look it up from project_env_vars under ANDROID_PACKAGE_NAME.
+      // Without it, surface a clear error and let the user set it once.
+      // Reading via the admin client (project ownership already checked
+      // above) keeps the path consistent with the rest of this handler.
+      const { data: pkgRow } = (await adm
+        .from("project_env_vars")
+        .select("value")
+        .eq("project_id", data.projectId)
+        .eq("user_id", userId)
+        .eq("name", "ANDROID_PACKAGE_NAME")
+        .maybeSingle()) as { data: { value: string | null } | null };
+      const packageName =
+        typeof pkgRow?.value === "string" ? pkgRow.value.trim() : "";
+
+      if (!packageName) {
+        await markFailed(
+          row.id,
+          "Set ANDROID_PACKAGE_NAME in this project's AI & Env Keys (e.g. com.acme.lemonade). Play uses it as the package identifier.",
+        );
+        return {
+          ok: false as const,
+          error:
+            "Add an `ANDROID_PACKAGE_NAME` env key on this project first (Settings → AI & Env Keys, e.g. com.acme.lemonade).",
+        };
+      }
+      if (!artifactUrl) {
+        await markFailed(
+          row.id,
+          "No finished Android build with an artifact_url. Run an EAS release build first.",
+        );
+        return {
+          ok: false as const,
+          error:
+            "No finished Android build yet. Run an EAS Android release build first so a .aab artifact exists.",
+        };
+      }
+      if (!creds?.play_service_account_ciphertext) {
+        // Defense in depth — credential check already guarded above.
+        await markFailed(row.id, "Play credentials missing at execution time.");
+        return { ok: false as const, error: "Play credentials missing." };
+      }
+
+      // Flip to in_progress so the UI shows a live spinner on refresh.
+      await adm
+        .from("store_submissions")
+        .update({ status: "in_progress" })
+        .eq("id", row.id)
+        .eq("user_id", userId);
+
+      try {
+        const serviceAccountJson = await decryptAtRest(
+          creds.play_service_account_ciphertext,
+        );
+        const result = await uploadAabToInternal({
+          serviceAccountJson,
+          packageName,
+          aabUrl: artifactUrl,
+        });
+        const finishedAt = new Date().toISOString();
+        const storeRecordId = `versionCode:${result.versionCode}/${result.trackStatus}`;
+        const { data: finalRow } = (await adm
+          .from("store_submissions")
+          .update({
+            status: "succeeded",
+            store_record_id: storeRecordId,
+            finished_at: finishedAt,
+          })
+          .eq("id", row.id)
+          .eq("user_id", userId)
+          .select(
+            "id, project_id, platform, status, error_text, store_record_id, created_at, updated_at, finished_at",
+          )
+          .single()) as { data: SubmissionRow | null };
+        return {
+          ok: true as const,
+          submission: finalRow ?? row,
+          instructions: {
             summary:
-              "Recorded the submission intent. Until the in-studio submit worker ships, finish it locally:",
+              `Uploaded version ${result.versionCode} to the Play Internal track (status: ${result.trackStatus}).`,
             steps: [
-              artifactUrl
-                ? `Download the .ipa from ${artifactUrl}.`
-                : "Run a release build first (Side panel → Code Export → Build for iOS) so an .ipa is ready.",
-              "Install Transporter (Mac App Store) or have eas-cli installed.",
-              "Run: eas submit -p ios --path <ipa> --apple-id <your-apple-id> --asc-app-id <ASC_APP_ID>",
-              "The credentials you stored in Settings → Store credentials sign the upload — Transporter / eas-cli reads them from your ASC profile.",
-              "Once Apple processes the build (~10 min), it shows up in TestFlight → Internal Testing.",
+              "Open Play Console → Internal testing → Releases and review the draft.",
+              "Add your tester emails on Internal testing → Testers.",
+              "Click Roll out when you're ready to push to your testers' devices.",
             ],
             artifactUrl,
-          }
-        : {
-            summary:
-              "Recorded the submission intent. Until the in-studio submit worker ships, finish it locally:",
-            steps: [
-              artifactUrl
-                ? `Download the .aab from ${artifactUrl}.`
-                : "Run a release build first (Side panel → Code Export → Build for Android) so an .aab is ready.",
-              "Install Google's official `playbrowser` cli or use eas-cli.",
-              "Run: eas submit -p android --path <aab> --track internal",
-              "Or upload directly in Play Console → Internal testing → Create release. The service-account JSON in Settings authenticates the upload.",
-            ],
-            artifactUrl,
-          };
+          },
+        };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        await markFailed(row.id, message);
+        return {
+          ok: false as const,
+          error: `Play upload failed: ${message}`,
+        };
+      }
+    }
+
+    // ── iOS scaffolding path (unchanged) ──
+    // Until a Node side-worker wraps `xcrun altool --upload-app`, the
+    // ASC API v1 build upload requires Transporter-style chunked upload
+    // which Cloudflare Workers can't perform cleanly. Surface the exact
+    // CLI commands the user runs locally; their credentials in
+    // store_credentials are used by Transporter / eas-cli once installed.
+    const instructions: SubmitInstructions = {
+      summary:
+        "Recorded the iOS submission intent. The in-studio runner doesn't ship iOS uploads yet — finish it locally:",
+      steps: [
+        artifactUrl
+          ? `Download the .ipa from ${artifactUrl}.`
+          : "Run a release build first (Side panel → Code Export → Build for iOS) so an .ipa is ready.",
+        "Install Transporter (Mac App Store) or have eas-cli installed.",
+        "Run: eas submit -p ios --path <ipa> --apple-id <your-apple-id> --asc-app-id <ASC_APP_ID>",
+        "The credentials you stored in Settings → Store credentials sign the upload — Transporter / eas-cli reads them from your ASC profile.",
+        "Once Apple processes the build (~10 min), it shows up in TestFlight → Internal Testing.",
+      ],
+      artifactUrl,
+    };
 
     return {
       ok: true as const,
       submission: row,
       instructions,
     };
+
+    async function markFailed(rowId: string, errorText: string): Promise<void> {
+      await adm
+        .from("store_submissions")
+        .update({
+          status: "failed",
+          error_text: errorText,
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", rowId)
+        .eq("user_id", userId);
+    }
   });
