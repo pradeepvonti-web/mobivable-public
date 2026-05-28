@@ -12,7 +12,15 @@
  */
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, CreditCard, Camera, Fingerprint, Loader2, Sparkles } from "lucide-react";
+import {
+  Bell,
+  CreditCard,
+  Camera,
+  Fingerprint,
+  Loader2,
+  Sparkles,
+  ShieldCheck,
+} from "lucide-react";
 import { listProjectNativeCapabilities } from "@/lib/native-capabilities.functions";
 import {
   NATIVE_CAPABILITIES,
@@ -25,6 +33,7 @@ const ICONS: Record<NativeCapabilityId, typeof Bell> = {
   stripe_payments: CreditCard,
   camera: Camera,
   biometrics: Fingerprint,
+  app_tracking_transparency: ShieldCheck,
 };
 
 export function NativeCapabilitiesPanel({ projectId }: { projectId: string }) {
@@ -69,8 +78,9 @@ export function NativeCapabilitiesPanel({ projectId }: { projectId: string }) {
           Ask the agent (in <code>/agent</code>) or your MCP client to{" "}
           <code className="font-mono">add_push_notifications</code>,{" "}
           <code className="font-mono">add_stripe_iap</code>,{" "}
-          <code className="font-mono">add_camera_capture</code>, or{" "}
-          <code className="font-mono">add_biometrics</code> on this project.
+          <code className="font-mono">add_camera_capture</code>,{" "}
+          <code className="font-mono">add_biometrics</code>, or{" "}
+          <code className="font-mono">add_att_prompt</code> on this project.
           The next export will include all the right deps, app.json plugins,
           iOS Info.plist strings, and Android permissions.
         </p>

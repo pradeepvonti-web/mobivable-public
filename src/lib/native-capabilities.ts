@@ -40,7 +40,8 @@ export type NativeCapabilityId =
   | "push_notifications"
   | "stripe_payments"
   | "camera"
-  | "biometrics";
+  | "biometrics"
+  | "app_tracking_transparency";
 
 /** What the catalog tells the exporter to emit per capability. */
 export interface CapabilitySpec {
@@ -250,6 +251,44 @@ export const NATIVE_CAPABILITIES: Record<NativeCapabilityId, CapabilitySpec> = {
       "Falls back to passcode on devices without enrolled biometrics. Handle that branch in your auth flow.",
     ],
   },
+
+  app_tracking_transparency: {
+    id: "app_tracking_transparency",
+    label: "App Tracking Transparency (iOS)",
+    summary:
+      "expo-tracking-transparency. Required by Apple before any cross-app advertising id can be requested.",
+    dependencies: {
+      "expo-tracking-transparency": "~4.0.2",
+    },
+    expoPlugins: [
+      [
+        "expo-tracking-transparency",
+        {
+          userTrackingPermission: "{{tracking_usage}}",
+        },
+      ],
+    ],
+    iosInfoPlist: {
+      NSUserTrackingUsageDescription: "{{tracking_usage}}",
+    },
+    androidPermissions: [],
+    configSchema: {
+      type: "object",
+      properties: {
+        tracking_usage: {
+          type: "string",
+          description:
+            "Plain-language reason shown in the iOS ATT prompt. Apple rejects vague strings — name the benefit (e.g. 'See ads that match your interests instead of generic ones.').",
+        },
+      },
+      required: ["tracking_usage"],
+      additionalProperties: false,
+    },
+    notes: [
+      "Call `requestTrackingPermissionsAsync()` once, after the user understands what tracking buys them — not on first launch.",
+      "Apple will reject the build if you read IDFA without showing the prompt first.",
+    ],
+  },
 };
 
 /** Type guard / id list for callers that need to iterate. */
@@ -273,7 +312,11 @@ export function applyConfigTemplate<T extends string | unknown[] | Record<string
     }) as T;
   }
   if (Array.isArray(value)) {
-    return value.map((v) => applyConfigTemplate(v as never, config)) as T;
+    // Map result is `unknown[]` after recursion; an `as T` cast is the
+    // weakest link the compiler accepts without re-deriving T's array
+    // element type. Routes through `unknown` so strict overlap rules
+    // don't complain.
+    return value.map((v) => applyConfigTemplate(v as never, config)) as unknown as T;
   }
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};

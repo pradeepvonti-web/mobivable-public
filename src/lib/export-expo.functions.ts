@@ -14,6 +14,7 @@ import {
   emitForCapabilities,
   type NativeCapabilityRow,
 } from "./native-capabilities";
+import type { StoreListing } from "./store-listing.functions";
 
 function slug(s: string): string {
   return (s || "my-app")
@@ -62,6 +63,19 @@ export const exportExpoProject = createServerFn({ method: "POST" })
     };
     const capabilityRows = (capRow?.native_capabilities ?? []) as NativeCapabilityRow[];
     const capabilityEmission = emitForCapabilities(capabilityRows);
+
+    // ─── Store listing ───
+    // Read alongside the capabilities (same `loose cast` for the new
+    // column). Icon is downloaded into assets/ at zip time; metadata is
+    // emitted as `store/listing.json` for `eas submit` to consume.
+    const { data: listingRow } = (await sbLoose
+      .from("projects")
+      .select("store_listing")
+      .eq("id", data.projectId)
+      .maybeSingle()) as {
+      data: { store_listing: StoreListing | null } | null;
+    };
+    const storeListing = (listingRow?.store_listing ?? {}) as StoreListing;
 
     // ─── Monetization config (from project_env_vars) ───
     // The MonetizationPanel persists provider + provider-specific public keys
@@ -192,12 +206,31 @@ export const exportExpoProject = createServerFn({ method: "POST" })
       androidBlock.permissions = capabilityEmission.androidPermissions;
     }
 
+    // Pull the master icon into the zip if the user uploaded one. Expo's
+    // prebuild handles all per-platform resizing from this single source.
+    let hasIcon = false;
+    if (typeof storeListing.icon_url === "string" && storeListing.icon_url.startsWith("https://")) {
+      try {
+        const iconRes = await fetch(storeListing.icon_url);
+        if (iconRes.ok) {
+          const bytes = new Uint8Array(await iconRes.arrayBuffer());
+          zip.file("assets/icon.png", bytes);
+          hasIcon = true;
+        }
+      } catch (e) {
+        // Non-fatal — the export should succeed even if we can't fetch the
+        // icon (storage hiccup, replaced URL, etc.). User sees the missing
+        // assets/icon.png and re-uploads.
+        console.warn("[export-expo] icon fetch failed", e);
+      }
+    }
+
     zip.file(
       "app.json",
       JSON.stringify(
         {
           expo: {
-            name: appName,
+            name: storeListing.title || appName,
             slug: pkgSlug,
             version: "1.0.0",
             orientation: "portrait",
@@ -207,7 +240,35 @@ export const exportExpoProject = createServerFn({ method: "POST" })
             android: androidBlock,
             web: { bundler: "metro" },
             plugins: appJsonPlugins,
+            ...(hasIcon ? { icon: "./assets/icon.png" } : {}),
           },
+        },
+        null,
+        2,
+      ),
+    );
+
+    // ── store/listing.json ──
+    // The single source-of-truth for the App Store Connect / Play Console
+    // metadata. Future `eas submit` step or a Fastlane fastfile reads
+    // this verbatim. We always emit it (even empty) so downstream tooling
+    // can rely on the path.
+    zip.file(
+      "store/listing.json",
+      JSON.stringify(
+        {
+          title: storeListing.title ?? "",
+          subtitle: storeListing.subtitle ?? "",
+          description: storeListing.description ?? "",
+          keywords: storeListing.keywords ?? [],
+          primary_category: storeListing.primary_category ?? "",
+          secondary_category: storeListing.secondary_category ?? "",
+          age_rating: storeListing.age_rating ?? "",
+          support_url: storeListing.support_url ?? "",
+          marketing_url: storeListing.marketing_url ?? "",
+          privacy_policy_url: storeListing.privacy_policy_url ?? "",
+          whats_new: storeListing.whats_new ?? "",
+          screenshots: storeListing.screenshots ?? [],
         },
         null,
         2,

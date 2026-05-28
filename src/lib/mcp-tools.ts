@@ -563,6 +563,7 @@ function buildNativeCapabilityTools(): McpTool[] {
     stripe_payments: "add_stripe_iap",
     camera: "add_camera_capture",
     biometrics: "add_biometrics",
+    app_tracking_transparency: "add_att_prompt",
   };
 
   const perCapTools: McpTool[] = (Object.keys(NAME_MAP) as NativeCapabilityId[]).map((id) => {
