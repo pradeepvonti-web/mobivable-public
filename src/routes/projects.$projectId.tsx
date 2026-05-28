@@ -50,6 +50,7 @@ import {
   ChevronRight,
   Terminal,
   DollarSign,
+  Bell,
   Brain,
   BookOpen as BookOpenIcon,
   Rocket,
@@ -113,6 +114,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { HistoryDialog } from "@/components/studio/HistoryDialog";
 import { BackendPanel } from "@/components/studio/BackendPanel";
 import { EnvPanel } from "@/components/studio/EnvPanel";
+import { NativeCapabilitiesPanel } from "@/components/studio/NativeCapabilitiesPanel";
 import { AssetsPanel } from "@/components/studio/AssetsPanel";
 import { KnowledgeDialog } from "@/components/studio/KnowledgeDialog";
 import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
@@ -271,6 +273,7 @@ const SIDE_ITEMS = [
   { icon: Terminal, label: "Console" },
   { icon: Database, label: "Backend" },
   { icon: DollarSign, label: "Monetization" },
+  { icon: Bell, label: "Native" },
   { icon: Sparkles, label: "AI & Env Keys" },
   { icon: ImageIcon, label: "Assets" },
   { icon: BookOpenIcon, label: "Knowledge" },
@@ -408,7 +411,7 @@ function ProjectPage() {
   // higher tiers than pro and should also have access. Previously this only
   // matched "pro" exactly, locking scale/business users out of Backend etc.
   const isPro = userPlan === "pro" || userPlan === "scale" || userPlan === "business" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "native" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -1507,6 +1510,7 @@ function ProjectPage() {
               (label === "Console" && sidePanel === "console") ||
               (label === "Backend" && sidePanel === "backend") ||
               (label === "Monetization" && sidePanel === "monetization") ||
+              (label === "Native" && sidePanel === "native") ||
               (label === "AI & Env Keys" && sidePanel === "env") ||
               (label === "Assets" && sidePanel === "assets") ||
               (label === "Knowledge" && sidePanel === "knowledge") ||
@@ -1542,6 +1546,8 @@ function ProjectPage() {
                     setSidePanel("console");
                   } else if (label === "Monetization") {
                     setSidePanel("monetization");
+                  } else if (label === "Native") {
+                    setSidePanel("native");
                   } else if (label === "Knowledge") {
                     setSidePanel("knowledge");
                   } else if (label === "Deployments") {
@@ -2418,6 +2424,34 @@ function ProjectPage() {
           projectId={projectId}
           onClose={() => setSidePanel(null)}
         />
+      )}
+
+      {sidePanel === "native" && (
+        <section className="flex flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col bg-card/40">
+          <header className="p-4 border-b border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <Bell className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base truncate">Native</h2>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  Push, payments, camera, biometrics — wired on export
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSidePanel(null)}
+              className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              Close
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">
+            <NativeCapabilitiesPanel projectId={projectId} />
+          </div>
+        </section>
       )}
 
       {/* ─── Version History Panel ─── */}

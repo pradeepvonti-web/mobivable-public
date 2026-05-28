@@ -16,6 +16,11 @@
  * automatically. No casing-table edits or branching needed.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  NATIVE_CAPABILITIES,
+  type NativeCapabilityId,
+  type NativeCapabilityRow,
+} from "./native-capabilities";
 
 export interface McpToolContext {
   userId: string;
@@ -467,6 +472,15 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
 
+  // ─── Native capabilities ───────────────────────────────────────────
+  // Per-capability tools wire the right deps + Expo config plugins +
+  // iOS Info.plist strings + Android permissions onto the project. The
+  // Expo exporter reads `projects.native_capabilities` at zip time and
+  // emits everything declared in `native-capabilities.ts` for each row.
+  //
+  // Lovable can't do this — they output web. This is the moat.
+  ...buildNativeCapabilityTools(),
+
   // ─── Action ─────────────────────────────────────────────────────────
   // Long-running studio actions (Expo zip export, backend provisioning,
   // Maestro Cloud dispatch) live behind TanStack `createServerFn` middleware
@@ -475,11 +489,204 @@ export const MCP_TOOLS: McpTool[] = [
   //
   // To expose them through MCP we need to extract each handler's inner body
   // into a (userId, params) → result function the MCP can call with the
-  // admin client. That refactor is intentionally deferred: ship the 14
-  // read/write tools first, prove the wire end-to-end, then lift the heavy
+  // admin client. That refactor is intentionally deferred: ship the read/
+  // write tools first, prove the wire end-to-end, then lift the heavy
   // actions in a follow-up. For now MCP callers should drive these from the
   // studio UI; we'll surface them once the impls are extracted.
 ];
+
+// ─── Native capabilities helpers ────────────────────────────────────
+
+/**
+ * Upsert a native capability row onto a project. Read-modify-write so
+ * adding `push_notifications` twice replaces the prior row rather than
+ * stacking two identical plugin blocks (which `expo prebuild` rejects).
+ */
+async function upsertNativeCapability(
+  userId: string,
+  projectId: string,
+  id: NativeCapabilityId,
+  config: Record<string, string>,
+): Promise<{ rows: NativeCapabilityRow[]; spec: typeof NATIVE_CAPABILITIES[NativeCapabilityId] }> {
+  await assertOwnsProject(userId, projectId);
+  const spec = NATIVE_CAPABILITIES[id];
+  if (!spec) throw new Error(`Unknown native capability: ${id}`);
+  const required = spec.configSchema.required ?? [];
+  for (const r of required) {
+    if (!config[r] || !config[r].trim()) {
+      throw new Error(`Missing required config field for ${id}: \`${r}\``);
+    }
+  }
+
+  // native_capabilities is a brand-new column that the generated
+  // Database types don't know about yet — loose cast bypasses the
+  // strict column-name check on read + write.
+  const adm = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { data: row, error: readErr } = (await adm
+    .from("projects")
+    .select("native_capabilities")
+    .eq("id", projectId)
+    .single()) as {
+    data: { native_capabilities: NativeCapabilityRow[] | null } | null;
+    error: { message: string } | null;
+  };
+  if (readErr) throw new Error(readErr.message);
+  const current = (row?.native_capabilities ?? []) as NativeCapabilityRow[];
+
+  const next: NativeCapabilityRow[] = [
+    ...current.filter((r) => r.id !== id),
+    {
+      id,
+      config,
+      added_at: new Date().toISOString(),
+      added_by: "agent",
+    },
+  ];
+
+  const { error: writeErr } = (await adm
+    .from("projects")
+    .update({ native_capabilities: next })
+    .eq("id", projectId)
+    .eq("user_id", userId)) as { error: { message: string } | null };
+  if (writeErr) throw new Error(writeErr.message);
+
+  return { rows: next, spec };
+}
+
+/** Build the per-capability MCP tools from the catalog. */
+function buildNativeCapabilityTools(): McpTool[] {
+  // Public tool names are user-friendly aliases (`add_camera_capture`)
+  // even though the underlying catalog id is `camera`. Keeps the manifest
+  // legible without dragging the same renaming into the data layer.
+  const NAME_MAP: Record<NativeCapabilityId, string> = {
+    push_notifications: "add_push_notifications",
+    stripe_payments: "add_stripe_iap",
+    camera: "add_camera_capture",
+    biometrics: "add_biometrics",
+  };
+
+  const perCapTools: McpTool[] = (Object.keys(NAME_MAP) as NativeCapabilityId[]).map((id) => {
+    const spec = NATIVE_CAPABILITIES[id];
+    const toolName = NAME_MAP[id];
+    return {
+      name: toolName,
+      description:
+        `${spec.label}: ${spec.summary} ` +
+        `On success, the Expo exporter will wire the right deps, app.json plugins, iOS Info.plist strings, and Android permissions. ` +
+        (spec.notes.length ? `Caveats: ${spec.notes.join(" ")}` : ""),
+      inputSchema: {
+        type: "object",
+        properties: {
+          project_id: { type: "string", description: "UUID of the target project." },
+          ...spec.configSchema.properties,
+        },
+        required: ["project_id", ...(spec.configSchema.required ?? [])],
+        additionalProperties: false,
+      },
+      async run(args, ctx) {
+        const projectId = uuid(args, "project_id");
+        const config: Record<string, string> = {};
+        for (const key of Object.keys(spec.configSchema.properties)) {
+          const v = args[key];
+          if (typeof v === "string") config[key] = v;
+        }
+        const { spec: usedSpec } = await upsertNativeCapability(ctx.userId, projectId, id, config);
+        return {
+          ok: true,
+          capability: id,
+          label: usedSpec.label,
+          // Echo back what the exporter will emit so the agent can show
+          // the user a confirmation without an extra get_project round-trip.
+          will_install: Object.keys(usedSpec.dependencies),
+          notes: usedSpec.notes,
+        };
+      },
+    };
+  });
+
+  perCapTools.push({
+    name: "list_native_capabilities",
+    description: "List the native capabilities currently wired onto a project.",
+    inputSchema: {
+      type: "object",
+      properties: { project_id: { type: "string" } },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const adm = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { data, error } = (await adm
+        .from("projects")
+        .select("native_capabilities")
+        .eq("id", projectId)
+        .single()) as {
+        data: { native_capabilities: NativeCapabilityRow[] | null } | null;
+        error: { message: string } | null;
+      };
+      if (error) throw new Error(error.message);
+      const rows = (data?.native_capabilities ?? []) as NativeCapabilityRow[];
+      return {
+        capabilities: rows.map((r) => ({
+          id: r.id,
+          label: NATIVE_CAPABILITIES[r.id]?.label ?? r.id,
+          added_at: r.added_at,
+          added_by: r.added_by,
+          // Don't echo full config — Stripe keys + APNs team ids are
+          // sensitive-ish. The agent can ask the user if it needs them.
+          configured_fields: Object.keys(r.config),
+        })),
+      };
+    },
+  });
+
+  perCapTools.push({
+    name: "remove_native_capability",
+    description: "Remove a native capability from a project. The exporter will stop emitting its deps and config.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        capability: {
+          type: "string",
+          description: "Catalog id (e.g. push_notifications, stripe_payments, camera, biometrics).",
+        },
+      },
+      required: ["project_id", "capability"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      const cap = str(args, "capability");
+      if (!(cap in NATIVE_CAPABILITIES)) {
+        throw new Error(`Unknown capability id: ${cap}`);
+      }
+      await assertOwnsProject(ctx.userId, projectId);
+      const adm = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { data, error: readErr } = (await adm
+        .from("projects")
+        .select("native_capabilities")
+        .eq("id", projectId)
+        .single()) as {
+        data: { native_capabilities: NativeCapabilityRow[] | null } | null;
+        error: { message: string } | null;
+      };
+      if (readErr) throw new Error(readErr.message);
+      const current = (data?.native_capabilities ?? []) as NativeCapabilityRow[];
+      const next = current.filter((r) => r.id !== cap);
+      const { error: writeErr } = (await adm
+        .from("projects")
+        .update({ native_capabilities: next })
+        .eq("id", projectId)
+        .eq("user_id", ctx.userId)) as { error: { message: string } | null };
+      if (writeErr) throw new Error(writeErr.message);
+      return { ok: true, removed: cap, remaining: next.map((r) => r.id) };
+    },
+  });
+
+  return perCapTools;
+}
 
 // Keep `bool` referenced so eslint's no-unused-imports rule doesn't trip
 // when only `str` / `num` / `uuid` end up in the running tools.

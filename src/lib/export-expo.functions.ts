@@ -10,6 +10,10 @@ import {
   admobExpoPlugin,
   generateMonetizationLib,
 } from "./export-project";
+import {
+  emitForCapabilities,
+  type NativeCapabilityRow,
+} from "./native-capabilities";
 
 function slug(s: string): string {
   return (s || "my-app")
@@ -43,6 +47,21 @@ export const exportExpoProject = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!project || project.user_id !== userId)
       return { ok: false as const, error: "Project not found" };
+
+    // ─── Native capabilities ───
+    // Read the jsonb array, ask the catalog what to emit. Loose cast
+    // because the column is brand-new and the generated types don't
+    // know it yet.
+    const sbLoose = supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data: capRow } = (await sbLoose
+      .from("projects")
+      .select("native_capabilities")
+      .eq("id", data.projectId)
+      .maybeSingle()) as {
+      data: { native_capabilities: NativeCapabilityRow[] | null } | null;
+    };
+    const capabilityRows = (capRow?.native_capabilities ?? []) as NativeCapabilityRow[];
+    const capabilityEmission = emitForCapabilities(capabilityRows);
 
     // ─── Monetization config (from project_env_vars) ───
     // The MonetizationPanel persists provider + provider-specific public keys
@@ -116,6 +135,9 @@ export const exportExpoProject = createServerFn({ method: "POST" })
     if (hasMonetization && monetizationDep) {
       dependencies[monetizationDep.pkg] = monetizationDep.version;
     }
+    // Native-capabilities catalog adds whatever each opted-in capability
+    // declares (expo-notifications, stripe-react-native, etc.).
+    Object.assign(dependencies, capabilityEmission.dependencies);
 
     // package.json — pinned to current Expo SDK 51 baseline
     zip.file(
@@ -153,6 +175,23 @@ export const exportExpoProject = createServerFn({ method: "POST" })
       const plugin = admobExpoPlugin(envMap);
       if (plugin) appJsonPlugins.push(plugin);
     }
+    // Plugins from the native-capabilities catalog are appended in row
+    // order. Each is a `[name, options]` tuple per Expo config-plugin spec.
+    for (const plugin of capabilityEmission.expoPlugins) {
+      appJsonPlugins.push(plugin);
+    }
+
+    const iosBlock: Record<string, unknown> = { supportsTablet: true };
+    if (Object.keys(capabilityEmission.iosInfoPlist).length > 0) {
+      iosBlock.infoPlist = capabilityEmission.iosInfoPlist;
+    }
+    const androidBlock: Record<string, unknown> = {
+      adaptiveIcon: { backgroundColor: bg },
+    };
+    if (capabilityEmission.androidPermissions.length > 0) {
+      androidBlock.permissions = capabilityEmission.androidPermissions;
+    }
+
     zip.file(
       "app.json",
       JSON.stringify(
@@ -164,8 +203,8 @@ export const exportExpoProject = createServerFn({ method: "POST" })
             orientation: "portrait",
             userInterfaceStyle: "automatic",
             scheme: pkgSlug,
-            ios: { supportsTablet: true },
-            android: { adaptiveIcon: { backgroundColor: bg } },
+            ios: iosBlock,
+            android: androidBlock,
             web: { bundler: "metro" },
             plugins: appJsonPlugins,
           },
