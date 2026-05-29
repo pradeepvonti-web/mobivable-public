@@ -50,6 +50,12 @@ export interface StoreListing {
   rating: number | null;
   iconUrl: string | null;
   screenshotUrls: string[];
+  // True when we reached the listing but couldn't auto-fetch any screenshots.
+  // Some App Store apps omit screenshots from the public Lookup API, and
+  // Apple's web page loads them client-side behind a token we can't get from
+  // a server fetch. Rather than dead-end, we return the metadata we do have
+  // and let the UI ask the user to upload screenshots manually.
+  screenshotsUnavailable: boolean;
   sourceUrl: string;
 }
 
@@ -184,6 +190,7 @@ async function fetchAppleListing(parsed: ParsedStoreUrl, sourceUrl: string): Pro
     rating: typeof r.averageUserRating === "number" ? Math.round(r.averageUserRating * 10) / 10 : null,
     iconUrl: r.artworkUrl512 ?? r.artworkUrl100 ?? null,
     screenshotUrls: screenshots,
+    screenshotsUnavailable: screenshots.length === 0,
     sourceUrl,
   };
 }
@@ -248,6 +255,7 @@ async function fetchGoogleListing(parsed: ParsedStoreUrl, sourceUrl: string): Pr
     rating: null,
     iconUrl,
     screenshotUrls: screenshots,
+    screenshotsUnavailable: screenshots.length === 0,
     sourceUrl,
   };
 }
@@ -271,15 +279,9 @@ export const ingestAppStore = createServerFn({ method: "POST" })
           ? await fetchAppleListing(parsed, data.url.trim())
           : await fetchGoogleListing(parsed, data.url.trim());
 
-      if (listing.screenshotUrls.length === 0) {
-        return {
-          ok: false as const,
-          error:
-            parsed.store === "google"
-              ? "Couldn't extract screenshots from the Play listing — Google may have changed their markup. Try uploading screenshots manually."
-              : "That App Store listing had no screenshots to analyze.",
-        };
-      }
+      // Empty screenshots is NOT a failure — return the metadata we have and
+      // let the UI offer manual upload. Many valid listings simply don't
+      // expose screenshots through the public API / server-fetchable HTML.
       return { ok: true as const, listing };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : "Failed to read the store listing." };

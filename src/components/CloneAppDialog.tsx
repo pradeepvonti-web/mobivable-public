@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ImagePlus, Loader2, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -10,7 +10,10 @@ import { generateProject } from "@/lib/generate-project.functions";
 
 const FALLBACK_MODEL = "Gemini 3 Flash";
 
-type Stage = "input" | "analyzing" | "review" | "generating";
+type Stage = "input" | "screenshots" | "analyzing" | "review" | "generating";
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB per image
+const MAX_UPLOADS = 10;
 
 function confidenceClass(c: Confidence): string {
   if (c === "high") return "bg-emerald-500/15 text-emerald-500 border-emerald-500/30";
@@ -38,6 +41,10 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [listing, setListing] = useState<StoreListing | null>(null);
   const [spec, setSpec] = useState<CloneSpec | null>(null);
+  // Screenshots the user uploaded when auto-fetch came up empty (public URLs).
+  const [uploads, setUploads] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   function model(): string {
     try {
@@ -47,7 +54,7 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
     return FALLBACK_MODEL;
   }
 
-  async function handleScrapeAndAnalyze() {
+  async function handleScrape() {
     const u = url.trim();
     if (!u || busy) return;
     setBusy(true);
@@ -60,31 +67,86 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
         return;
       }
       setListing(ing.listing);
-      setStage("analyzing");
+      // Common path: screenshots fetched → analyze straight away. Otherwise
+      // route to the upload step so the user can supply screenshots manually.
+      if (ing.listing.screenshotUrls.length > 0) {
+        await runAnalyze(ing.listing, ing.listing.screenshotUrls);
+      } else {
+        setStage("screenshots");
+        setBusy(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to read the listing.");
+      setStage("input");
+      setBusy(false);
+    }
+  }
 
+  async function runAnalyze(l: StoreListing, screenshotUrls: string[]) {
+    setBusy(true);
+    setError(null);
+    setStage("analyzing");
+    try {
       const an = await analyzeFn({
         data: {
-          title: ing.listing.title,
-          description: ing.listing.description,
-          category: ing.listing.category,
-          screenshotUrls: ing.listing.screenshotUrls,
+          title: l.title,
+          description: l.description,
+          category: l.category,
+          screenshotUrls,
           model: model(),
         },
       });
       if (!an.ok) {
         setError(an.error);
-        setStage("input");
-        setBusy(false);
+        setStage(listing && listing.screenshotUrls.length === 0 ? "screenshots" : "input");
         return;
       }
       setSpec(an.spec);
       setStage("review");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to analyze the listing.");
-      setStage("input");
+      setError(e instanceof Error ? e.message : "Failed to analyze the screens.");
+      setStage(listing && listing.screenshotUrls.length === 0 ? "screenshots" : "input");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setError(null);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setError("You must be signed in to upload screenshots.");
+      return;
+    }
+    const remaining = MAX_UPLOADS - uploads.length;
+    const picked = Array.from(files).slice(0, remaining);
+    setUploading(true);
+    const added: string[] = [];
+    for (const file of picked) {
+      if (!file.type.startsWith("image/")) {
+        setError(`${file.name} is not an image.`);
+        continue;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setError(`${file.name} is larger than 10 MB.`);
+        continue;
+      }
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+      const path = `${u.user.id}/clone/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("project-attachments")
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (upErr) {
+        setError(upErr.message);
+        continue;
+      }
+      const { data: pub } = supabase.storage.from("project-attachments").getPublicUrl(path);
+      added.push(pub.publicUrl);
+    }
+    if (added.length) setUploads((prev) => [...prev, ...added]);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleGenerate() {
@@ -187,7 +249,7 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !busy && url.trim()) {
                       e.preventDefault();
-                      void handleScrapeAndAnalyze();
+                      void handleScrape();
                     }
                   }}
                   placeholder="https://apps.apple.com/us/app/…/id…  or  https://play.google.com/store/apps/details?id=…"
@@ -197,7 +259,7 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
                 />
                 <button
                   type="button"
-                  onClick={() => void handleScrapeAndAnalyze()}
+                  onClick={() => void handleScrape()}
                   disabled={busy || !url.trim()}
                   className="h-10 px-4 inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
                 >
@@ -206,6 +268,62 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
             </>
+          )}
+
+          {stage === "screenshots" && listing && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                {listing.iconUrl && (
+                  <img src={listing.iconUrl} alt="" className="h-12 w-12 rounded-xl border border-border object-cover" />
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{listing.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {listing.developer ? `${listing.developer} · ` : ""}
+                    {listing.category ?? (listing.store === "apple" ? "App Store" : "Google Play")}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+                We couldn't pull this app's screenshots automatically — {listing.store === "apple" ? "Apple" : "Google"} doesn't
+                expose them for every listing. Upload the screenshots (from the store page) and we'll analyze those.
+              </div>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void handleUpload(e.target.files)}
+              />
+              {uploads.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {uploads.map((src, i) => (
+                    <div key={src} className="relative h-32 w-20 shrink-0">
+                      <img src={src} alt="" className="h-full w-full rounded-lg border border-border object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setUploads((p) => p.filter((_, j) => j !== i))}
+                        className="absolute -top-1.5 -right-1.5 h-5 w-5 grid place-items-center rounded-full bg-background border border-border hover:bg-muted"
+                        aria-label="Remove screenshot"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading || uploads.length >= MAX_UPLOADS}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent/40 disabled:opacity-50"
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                {uploads.length === 0 ? "Upload screenshots" : "Add more"}
+              </button>
+            </div>
           )}
 
           {stage === "review" && spec && listing && (
@@ -354,6 +472,23 @@ export function CloneAppDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
+
+        {stage === "screenshots" && listing && (
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-border">
+            <button type="button" onClick={() => { setStage("input"); setUploads([]); }} className="h-9 px-3 inline-flex items-center rounded-md text-sm font-medium hover:bg-muted/60">
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => void runAnalyze(listing, uploads)}
+              disabled={busy || uploading || uploads.length === 0}
+              className="h-9 px-4 inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            >
+              <Sparkles className="h-4 w-4" />
+              Analyze {uploads.length > 0 ? `${uploads.length} screen${uploads.length === 1 ? "" : "s"}` : "screens"}
+            </button>
+          </div>
+        )}
 
         {stage === "review" && (
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-border">
