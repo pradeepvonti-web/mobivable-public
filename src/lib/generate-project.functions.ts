@@ -10,7 +10,15 @@ const SYSTEM_PROMPT = CODE_GEN_SYSTEM_PROMPT;
 export const generateProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ projectId: z.string().uuid() }).parse(input),
+    z
+      .object({
+        projectId: z.string().uuid(),
+        // When present (e.g. from the "clone from store listing" confirm gate),
+        // pass 1 is skipped and this brief drives pass 2 directly. It's a
+        // serialized CloneSpec — a superset of the DESIGN_BRIEF schema.
+        designBrief: z.string().max(40_000).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -36,8 +44,16 @@ export const generateProject = createServerFn({ method: "POST" })
       catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
       // ── PASS 1: design brief (palette, typography, mood, references, layouts) ──
-      const briefRes = await callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model);
-      const brief = briefRes.ok ? briefRes.text.trim() : "";
+      // Skipped when the caller supplies a brief (clone-from-store flow): the
+      // CloneSpec already went through the vision pass + user-confirm gate, so
+      // re-deriving it here would discard the user's corrections.
+      let brief: string;
+      if (data.designBrief?.trim()) {
+        brief = data.designBrief.trim();
+      } else {
+        const briefRes = await callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model);
+        brief = briefRes.ok ? briefRes.text.trim() : "";
+      }
 
       // ── PASS 2: compose full schema, following the brief strictly ──
       const userPrompt = brief

@@ -353,6 +353,125 @@ async function callAnthropic(
   };
 }
 
+// ─── Vision API: non-streaming chat with image inputs ──────────
+//
+// Sends one or more images alongside a text prompt and returns the model's
+// text reply. Used by the "clone an app from its store listing" flow to turn
+// store screenshots into a structured spec.
+//
+// Image inputs are passed as URLs (e.g. App Store CDN screenshot URLs). Every
+// provider we target accepts remote image URLs:
+//   - OpenAI-compatible (OpenAI, Gemini openai-compat, OpenRouter): the
+//     `image_url` content-part form used elsewhere in the codebase.
+//   - Anthropic: the `source: { type: "url" }` image block.
+//
+// Providers without vision (Groq's Llama, Mixtral) will reject the request;
+// the error surfaces to the caller so the user can switch models rather than
+// us silently degrading.
+const MAX_VISION_IMAGES = 10;
+
+export async function callAIVision(
+  system: string,
+  user: string,
+  imageUrls: string[],
+  modelHint?: string,
+): Promise<AIResult> {
+  const provider = detectProvider();
+  if (!provider) {
+    return { ok: false, error: "No AI provider configured. Set an API key in environment variables." };
+  }
+  const key = provider.getKey();
+  if (!key) return { ok: false, error: `${provider.name} API key is missing.` };
+
+  const images = imageUrls.filter((u) => /^https?:\/\//i.test(u)).slice(0, MAX_VISION_IMAGES);
+  if (images.length === 0) {
+    return { ok: false, error: "No valid image URLs provided for vision analysis." };
+  }
+
+  const model = resolveModel(modelHint ?? "", provider);
+  const url = provider.baseUrl || process.env.AI_BASE_URL || "";
+
+  try {
+    if (provider.id === "anthropic") {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { ...provider.authHeader(key), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          max_tokens: 8192,
+          system,
+          messages: [
+            {
+              role: "user",
+              content: [
+                ...images.map((u) => ({ type: "image", source: { type: "url", url: u } })),
+                { type: "text", text: user },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        return {
+          ok: false,
+          error: res.status === 429
+            ? "Anthropic rate limit reached."
+            : `Anthropic vision error (${res.status}): ${body.slice(0, 200)}`,
+        };
+      }
+      const json = (await res.json()) as { content?: { type: string; text: string }[] };
+      return {
+        ok: true,
+        text: json.content?.find((c) => c.type === "text")?.text?.trim() ?? "",
+        provider: provider.name,
+        model,
+      };
+    }
+
+    // OpenAI-compatible providers: image_url content parts.
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { ...provider.authHeader(key), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: [
+              ...images.map((u) => ({ type: "image_url", image_url: { url: u } })),
+              { type: "text", text: user },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const msg =
+        res.status === 429
+          ? "Rate limit reached. Try again shortly."
+          : res.status === 401
+            ? `${provider.name}: Invalid API key.`
+            : `${provider.name} vision error (${res.status}): ${body.slice(0, 200)}`;
+      return { ok: false, error: msg };
+    }
+    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    return {
+      ok: true,
+      text: json.choices?.[0]?.message?.content?.trim() ?? "",
+      provider: provider.name,
+      model,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? `${provider.name}: ${e.message}` : "Vision call failed",
+    };
+  }
+}
+
 // ─── Streaming API (OpenAI-compatible only) ─────────────────────
 export async function callAIStreaming(
   messages: AIMessage[],

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Image as ImageIcon, Send, ChevronDown, Loader2, X } from "lucide-react";
+import { Image as ImageIcon, Send, ChevronDown, Loader2, X, Smartphone } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { CloneAppDialog } from "@/components/CloneAppDialog";
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
   {
@@ -152,6 +153,7 @@ export function AppPromptComposer() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
+  const [cloneOpen, setCloneOpen] = useState(false);
   const typedPlaceholder = useTypewriter(TYPED_PHRASES, !prompt && !submitting);
 
   async function handleFiles(files: FileList | null) {
@@ -335,6 +337,14 @@ export function AppPromptComposer() {
                   {s.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setCloneOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/40 font-display text-xs uppercase tracking-wider text-primary hover:border-primary hover:bg-primary/10 transition-colors"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                Clone an app
+              </button>
             </div>
 
             {/* Right cluster */}
@@ -404,6 +414,8 @@ export function AppPromptComposer() {
           </div>
         </div>
       </div>
+
+      {cloneOpen && <CloneAppDialog onClose={() => setCloneOpen(false)} />}
     </section>
   );
 }
