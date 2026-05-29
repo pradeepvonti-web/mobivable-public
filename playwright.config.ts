@@ -36,7 +36,10 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
 
-  globalSetup: require.resolve("./tests/e2e/global-setup.ts"),
+  // Path string (not require.resolve) — the project is ESM ("type":"module"),
+  // so `require` is undefined here. Playwright resolves this relative to the
+  // config file.
+  globalSetup: "./tests/e2e/global-setup.ts",
 
   use: {
     baseURL,

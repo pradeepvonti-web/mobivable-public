@@ -18,7 +18,11 @@
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+
+// ESM ("type":"module") has no __dirname; derive it from import.meta.url.
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const TEST_USER_EMAIL = "playwright@mobivable.test";
 export const TEST_USER_PASSWORD = "playwright-fixture-pw!42";
