@@ -13,18 +13,22 @@ CREATE TABLE public.project_integrations (
 
 ALTER TABLE public.project_integrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users view own integrations" ON public.project_integrations;
 CREATE POLICY "Users view own integrations"
   ON public.project_integrations FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users insert own integrations" ON public.project_integrations;
 CREATE POLICY "Users insert own integrations"
   ON public.project_integrations FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users update own integrations" ON public.project_integrations;
 CREATE POLICY "Users update own integrations"
   ON public.project_integrations FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users delete own integrations" ON public.project_integrations;
 CREATE POLICY "Users delete own integrations"
   ON public.project_integrations FOR DELETE
   USING (auth.uid() = user_id);

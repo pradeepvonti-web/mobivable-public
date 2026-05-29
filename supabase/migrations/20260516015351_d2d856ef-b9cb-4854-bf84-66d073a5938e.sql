@@ -13,16 +13,19 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 create policy "Users can view their own profile"
   on public.profiles for select
   to authenticated
   using (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   to authenticated
   using (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 create policy "Users can insert their own profile"
   on public.profiles for insert
   to authenticated

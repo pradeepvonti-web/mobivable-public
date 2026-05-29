@@ -20,21 +20,25 @@ CREATE INDEX IF NOT EXISTS idx_project_phases_project ON public.project_phases(p
 ALTER TABLE public.project_phases ENABLE ROW LEVEL SECURITY;
 
 -- RLS: owner of project can manage their phases
+DROP POLICY IF EXISTS "own_select_phases" ON public.project_phases;
 CREATE POLICY "own_select_phases" ON public.project_phases
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "own_insert_phases" ON public.project_phases;
 CREATE POLICY "own_insert_phases" ON public.project_phases
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "own_update_phases" ON public.project_phases;
 CREATE POLICY "own_update_phases" ON public.project_phases
   FOR UPDATE USING (
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "own_delete_phases" ON public.project_phases;
 CREATE POLICY "own_delete_phases" ON public.project_phases
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())

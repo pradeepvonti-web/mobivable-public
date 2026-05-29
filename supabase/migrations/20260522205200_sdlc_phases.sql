@@ -18,11 +18,13 @@ CREATE TABLE IF NOT EXISTS project_phases (
 -- RLS
 ALTER TABLE project_phases ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own project phases" ON project_phases;
 CREATE POLICY "Users can view own project phases" ON project_phases
   FOR SELECT USING (
     project_id IN (SELECT id FROM projects WHERE user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Users can manage own project phases" ON project_phases;
 CREATE POLICY "Users can manage own project phases" ON project_phases
   FOR ALL USING (
     project_id IN (SELECT id FROM projects WHERE user_id = auth.uid())

@@ -49,6 +49,7 @@ CREATE TRIGGER trg_touch_store_credentials
 
 ALTER TABLE public.store_credentials ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_store_credentials_all" ON public.store_credentials;
 CREATE POLICY "own_store_credentials_all" ON public.store_credentials
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
@@ -96,5 +97,6 @@ CREATE TRIGGER trg_touch_store_submission
 
 ALTER TABLE public.store_submissions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_store_submissions_all" ON public.store_submissions;
 CREATE POLICY "own_store_submissions_all" ON public.store_submissions
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

@@ -6,10 +6,12 @@ CREATE TABLE public.app_settings (
 
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read app settings" ON public.app_settings;
 CREATE POLICY "Anyone can read app settings"
 ON public.app_settings FOR SELECT
 USING (true);
 
+DROP POLICY IF EXISTS "Service role can manage app settings" ON public.app_settings;
 CREATE POLICY "Service role can manage app settings"
 ON public.app_settings FOR ALL
 USING (auth.role() = 'service_role')

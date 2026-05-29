@@ -14,12 +14,16 @@ create table if not exists public.eas_apps (
 
 alter table public.eas_apps enable row level security;
 
+DROP POLICY IF EXISTS "eas_apps_select_own" ON public.eas_apps;
 create policy "eas_apps_select_own" on public.eas_apps
   for select using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_apps_insert_own" ON public.eas_apps;
 create policy "eas_apps_insert_own" on public.eas_apps
   for insert with check (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_apps_update_own" ON public.eas_apps;
 create policy "eas_apps_update_own" on public.eas_apps
   for update using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_apps_delete_own" ON public.eas_apps;
 create policy "eas_apps_delete_own" on public.eas_apps
   for delete using (auth.uid() = user_id);
 
@@ -49,12 +53,16 @@ create index if not exists eas_builds_project_idx on public.eas_builds(project_i
 
 alter table public.eas_builds enable row level security;
 
+DROP POLICY IF EXISTS "eas_builds_select_own" ON public.eas_builds;
 create policy "eas_builds_select_own" on public.eas_builds
   for select using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_builds_insert_own" ON public.eas_builds;
 create policy "eas_builds_insert_own" on public.eas_builds
   for insert with check (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_builds_update_own" ON public.eas_builds;
 create policy "eas_builds_update_own" on public.eas_builds
   for update using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "eas_builds_delete_own" ON public.eas_builds;
 create policy "eas_builds_delete_own" on public.eas_builds
   for delete using (auth.uid() = user_id);
 

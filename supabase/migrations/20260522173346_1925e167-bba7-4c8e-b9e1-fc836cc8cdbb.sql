@@ -18,12 +18,16 @@ CREATE TABLE public.project_backends (
 
 ALTER TABLE public.project_backends ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select_backends" ON public.project_backends;
 CREATE POLICY "own_select_backends" ON public.project_backends
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_backends" ON public.project_backends;
 CREATE POLICY "own_insert_backends" ON public.project_backends
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_backends" ON public.project_backends;
 CREATE POLICY "own_update_backends" ON public.project_backends
   FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_backends" ON public.project_backends;
 CREATE POLICY "own_delete_backends" ON public.project_backends
   FOR DELETE USING (auth.uid() = user_id);
 
@@ -49,12 +53,16 @@ CREATE INDEX project_migrations_project_idx ON public.project_migrations (projec
 
 ALTER TABLE public.project_migrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select_pmig" ON public.project_migrations;
 CREATE POLICY "own_select_pmig" ON public.project_migrations
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_pmig" ON public.project_migrations;
 CREATE POLICY "own_insert_pmig" ON public.project_migrations
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_pmig" ON public.project_migrations;
 CREATE POLICY "own_update_pmig" ON public.project_migrations
   FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_pmig" ON public.project_migrations;
 CREATE POLICY "own_delete_pmig" ON public.project_migrations
   FOR DELETE USING (auth.uid() = user_id);
 
@@ -63,4 +71,12 @@ ALTER TABLE public.projects
   ADD COLUMN IF NOT EXISTS backend_spec jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 -- Realtime so the Backend panel can subscribe to status changes
-ALTER PUBLICATION supabase_realtime ADD TABLE public.project_backends;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'project_backends'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.project_backends;
+  END IF;
+END $$;

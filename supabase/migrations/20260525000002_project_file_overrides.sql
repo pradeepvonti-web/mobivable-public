@@ -8,6 +8,7 @@ create table if not exists project_file_overrides (
   unique(project_id, file_path)
 );
 alter table project_file_overrides enable row level security;
+DROP POLICY IF EXISTS "Users can manage own file overrides" ON project_file_overrides;
 create policy "Users can manage own file overrides" on project_file_overrides for all using (
   user_id = auth.uid()
 );

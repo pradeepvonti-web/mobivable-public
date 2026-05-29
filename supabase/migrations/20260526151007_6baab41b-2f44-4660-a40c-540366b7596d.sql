@@ -1,6 +1,7 @@
 
 -- 1. app_settings: restrict SELECT to authenticated only
 DROP POLICY IF EXISTS "Anyone can read app settings" ON public.app_settings;
+DROP POLICY IF EXISTS "Authenticated can read app settings" ON public.app_settings;
 CREATE POLICY "Authenticated can read app settings"
   ON public.app_settings
   FOR SELECT

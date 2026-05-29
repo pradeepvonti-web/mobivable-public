@@ -11,16 +11,19 @@ CREATE INDEX idx_project_messages_project_created ON public.project_messages(pro
 
 ALTER TABLE public.project_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Owners can view their project messages" ON public.project_messages;
 CREATE POLICY "Owners can view their project messages"
 ON public.project_messages FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Owners can insert their project messages" ON public.project_messages;
 CREATE POLICY "Owners can insert their project messages"
 ON public.project_messages FOR INSERT
 TO authenticated
 WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Owners can delete their project messages" ON public.project_messages;
 CREATE POLICY "Owners can delete their project messages"
 ON public.project_messages FOR DELETE
 TO authenticated

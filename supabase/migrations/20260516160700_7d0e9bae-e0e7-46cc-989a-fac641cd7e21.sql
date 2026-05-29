@@ -14,18 +14,22 @@ create index project_env_vars_project_idx on public.project_env_vars(project_id)
 
 alter table public.project_env_vars enable row level security;
 
+DROP POLICY IF EXISTS "Users read own env vars" ON public.project_env_vars;
 create policy "Users read own env vars"
   on public.project_env_vars for select
   using (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users insert own env vars" ON public.project_env_vars;
 create policy "Users insert own env vars"
   on public.project_env_vars for insert
   with check (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users update own env vars" ON public.project_env_vars;
 create policy "Users update own env vars"
   on public.project_env_vars for update
   using (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users delete own env vars" ON public.project_env_vars;
 create policy "Users delete own env vars"
   on public.project_env_vars for delete
   using (auth.uid() = user_id);

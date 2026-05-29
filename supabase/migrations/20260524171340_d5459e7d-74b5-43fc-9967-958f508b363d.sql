@@ -20,12 +20,16 @@ CREATE TABLE public.project_monetization (
 
 ALTER TABLE public.project_monetization ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select" ON public.project_monetization;
 CREATE POLICY "own_select" ON public.project_monetization
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert" ON public.project_monetization;
 CREATE POLICY "own_insert" ON public.project_monetization
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update" ON public.project_monetization;
 CREATE POLICY "own_update" ON public.project_monetization
   FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete" ON public.project_monetization;
 CREATE POLICY "own_delete" ON public.project_monetization
   FOR DELETE USING (auth.uid() = user_id);
 

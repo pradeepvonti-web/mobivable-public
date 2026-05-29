@@ -63,5 +63,6 @@ CREATE TRIGGER trg_touch_ota_publish
 
 ALTER TABLE public.ota_publishes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_ota_publishes_all" ON public.ota_publishes;
 CREATE POLICY "own_ota_publishes_all" ON public.ota_publishes
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

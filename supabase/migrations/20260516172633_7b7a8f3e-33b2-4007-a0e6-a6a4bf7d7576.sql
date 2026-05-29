@@ -12,12 +12,16 @@ create table public.user_connectors (
 
 alter table public.user_connectors enable row level security;
 
+DROP POLICY IF EXISTS "own_select_connectors" ON public.user_connectors;
 create policy "own_select_connectors" on public.user_connectors
   for select to authenticated using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_connectors" ON public.user_connectors;
 create policy "own_insert_connectors" on public.user_connectors
   for insert to authenticated with check (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_connectors" ON public.user_connectors;
 create policy "own_update_connectors" on public.user_connectors
   for update to authenticated using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_connectors" ON public.user_connectors;
 create policy "own_delete_connectors" on public.user_connectors
   for delete to authenticated using (auth.uid() = user_id);
 

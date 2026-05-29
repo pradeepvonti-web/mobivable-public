@@ -9,9 +9,13 @@ CREATE TABLE public.user_project_prefs (
 
 ALTER TABLE public.user_project_prefs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select_prefs" ON public.user_project_prefs;
 CREATE POLICY "own_select_prefs" ON public.user_project_prefs FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_prefs" ON public.user_project_prefs;
 CREATE POLICY "own_insert_prefs" ON public.user_project_prefs FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_prefs" ON public.user_project_prefs;
 CREATE POLICY "own_update_prefs" ON public.user_project_prefs FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_prefs" ON public.user_project_prefs;
 CREATE POLICY "own_delete_prefs" ON public.user_project_prefs FOR DELETE USING (auth.uid() = user_id);
 
 CREATE TRIGGER user_project_prefs_set_updated_at

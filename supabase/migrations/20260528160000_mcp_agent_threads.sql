@@ -73,8 +73,10 @@ ALTER TABLE public.mcp_agent_threads  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mcp_agent_messages ENABLE ROW LEVEL SECURITY;
 
 -- Owners can do anything to their own threads + the messages inside them.
+DROP POLICY IF EXISTS "own_threads_all" ON public.mcp_agent_threads;
 CREATE POLICY "own_threads_all" ON public.mcp_agent_threads
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "own_messages_all" ON public.mcp_agent_messages;
 CREATE POLICY "own_messages_all" ON public.mcp_agent_messages
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

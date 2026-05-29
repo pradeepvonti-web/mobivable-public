@@ -12,8 +12,11 @@ create table if not exists public.project_snapshots (
 );
 create index if not exists idx_snapshots_project on public.project_snapshots(project_id, created_at desc);
 alter table public.project_snapshots enable row level security;
+DROP POLICY IF EXISTS "Users can view own project snapshots" ON public.project_snapshots;
 create policy "Users can view own project snapshots" on public.project_snapshots for select using (user_id = auth.uid());
+DROP POLICY IF EXISTS "Users can insert own snapshots" ON public.project_snapshots;
 create policy "Users can insert own snapshots" on public.project_snapshots for insert with check (user_id = auth.uid());
+DROP POLICY IF EXISTS "Users can delete own snapshots" ON public.project_snapshots;
 create policy "Users can delete own snapshots" on public.project_snapshots for delete using (user_id = auth.uid());
 
 create table if not exists public.project_file_overrides (
@@ -26,6 +29,7 @@ create table if not exists public.project_file_overrides (
   unique(project_id, file_path)
 );
 alter table public.project_file_overrides enable row level security;
+DROP POLICY IF EXISTS "Users can manage own file overrides" ON public.project_file_overrides;
 create policy "Users can manage own file overrides" on public.project_file_overrides for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create table if not exists public.project_secrets (
@@ -40,6 +44,7 @@ create table if not exists public.project_secrets (
   unique(project_id, key_name)
 );
 alter table public.project_secrets enable row level security;
+DROP POLICY IF EXISTS "Users can manage own project secrets" ON public.project_secrets;
 create policy "Users can manage own project secrets" on public.project_secrets for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create table if not exists public.app_templates (
@@ -59,5 +64,7 @@ create table if not exists public.app_templates (
 );
 create index if not exists idx_templates_category on public.app_templates(category);
 alter table public.app_templates enable row level security;
+DROP POLICY IF EXISTS "Anyone can view templates" ON public.app_templates;
 create policy "Anyone can view templates" on public.app_templates for select using (true);
+DROP POLICY IF EXISTS "Auth users can insert templates" ON public.app_templates;
 create policy "Auth users can insert templates" on public.app_templates for insert with check (auth.uid() is not null);

@@ -13,8 +13,10 @@ CREATE TABLE public.github_connections (
 ALTER TABLE public.github_connections ENABLE ROW LEVEL SECURITY;
 
 -- Users can see whether they're connected (but token is sensitive — we'll never select it client-side)
+DROP POLICY IF EXISTS "own_select" ON public.github_connections;
 CREATE POLICY "own_select" ON public.github_connections
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete" ON public.github_connections;
 CREATE POLICY "own_delete" ON public.github_connections
   FOR DELETE USING (auth.uid() = user_id);
 

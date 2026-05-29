@@ -19,10 +19,12 @@ create index idx_subscriptions_paddle_id on public.subscriptions(paddle_subscrip
 
 alter table public.subscriptions enable row level security;
 
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
 create policy "Users can view own subscription"
   on public.subscriptions for select
   using (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Service role can manage subscriptions" ON public.subscriptions;
 create policy "Service role can manage subscriptions"
   on public.subscriptions for all
   using (auth.role() = 'service_role');

@@ -15,12 +15,16 @@ CREATE TABLE IF NOT EXISTS public.user_api_keys (
 
 ALTER TABLE public.user_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select_api_keys" ON public.user_api_keys;
 CREATE POLICY "own_select_api_keys" ON public.user_api_keys
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_api_keys" ON public.user_api_keys;
 CREATE POLICY "own_insert_api_keys" ON public.user_api_keys
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_api_keys" ON public.user_api_keys;
 CREATE POLICY "own_update_api_keys" ON public.user_api_keys
   FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_api_keys" ON public.user_api_keys;
 CREATE POLICY "own_delete_api_keys" ON public.user_api_keys
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 

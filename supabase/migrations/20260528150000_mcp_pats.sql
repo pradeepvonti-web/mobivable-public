@@ -36,10 +36,13 @@ CREATE INDEX IF NOT EXISTS mvbl_pats_user_id_idx ON public.mvbl_pats (user_id);
 -- listing / revoking from the studio UI must be scoped to the owner.
 ALTER TABLE public.mvbl_pats ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_select_mvbl_pats" ON public.mvbl_pats;
 CREATE POLICY "own_select_mvbl_pats" ON public.mvbl_pats
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_mvbl_pats" ON public.mvbl_pats;
 CREATE POLICY "own_update_mvbl_pats" ON public.mvbl_pats
   FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_mvbl_pats" ON public.mvbl_pats;
 CREATE POLICY "own_delete_mvbl_pats" ON public.mvbl_pats
   FOR DELETE USING (auth.uid() = user_id);
 -- INSERT is performed server-side via supabaseAdmin only — the hash and

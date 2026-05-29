@@ -10,12 +10,14 @@ create table if not exists public.password_reset_audit (
 
 alter table public.password_reset_audit enable row level security;
 
+DROP POLICY IF EXISTS "Admins can read password reset audit" ON public.password_reset_audit;
 create policy "Admins can read password reset audit"
   on public.password_reset_audit
   for select
   to authenticated
   using (has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Service role manages password reset audit" ON public.password_reset_audit;
 create policy "Service role manages password reset audit"
   on public.password_reset_audit
   for all

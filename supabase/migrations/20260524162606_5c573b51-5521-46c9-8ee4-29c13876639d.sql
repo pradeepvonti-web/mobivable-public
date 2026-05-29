@@ -13,10 +13,12 @@ create table public.ai_credit_balances (
 
 alter table public.ai_credit_balances enable row level security;
 
+DROP POLICY IF EXISTS "Users view own credit balance" ON public.ai_credit_balances;
 create policy "Users view own credit balance"
   on public.ai_credit_balances for select
   using (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Service role manages credit balances" ON public.ai_credit_balances;
 create policy "Service role manages credit balances"
   on public.ai_credit_balances for all
   using (auth.role() = 'service_role')
@@ -37,10 +39,12 @@ create index idx_ai_credit_ledger_user_created on public.ai_credit_ledger(user_i
 
 alter table public.ai_credit_ledger enable row level security;
 
+DROP POLICY IF EXISTS "Users view own credit ledger" ON public.ai_credit_ledger;
 create policy "Users view own credit ledger"
   on public.ai_credit_ledger for select
   using (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Service role manages credit ledger" ON public.ai_credit_ledger;
 create policy "Service role manages credit ledger"
   on public.ai_credit_ledger for all
   using (auth.role() = 'service_role')

@@ -11,12 +11,16 @@ create table public.knowledge_items (
 
 alter table public.knowledge_items enable row level security;
 
+DROP POLICY IF EXISTS "own_select_knowledge" ON public.knowledge_items;
 create policy "own_select_knowledge" on public.knowledge_items
   for select to authenticated using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_insert_knowledge" ON public.knowledge_items;
 create policy "own_insert_knowledge" on public.knowledge_items
   for insert to authenticated with check (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_update_knowledge" ON public.knowledge_items;
 create policy "own_update_knowledge" on public.knowledge_items
   for update to authenticated using (auth.uid() = user_id);
+DROP POLICY IF EXISTS "own_delete_knowledge" ON public.knowledge_items;
 create policy "own_delete_knowledge" on public.knowledge_items
   for delete to authenticated using (auth.uid() = user_id);
 

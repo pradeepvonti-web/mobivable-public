@@ -55,5 +55,6 @@ CREATE TRIGGER trg_touch_mcp_agent_skill
 
 ALTER TABLE public.mcp_agent_skills ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "own_skills_all" ON public.mcp_agent_skills;
 CREATE POLICY "own_skills_all" ON public.mcp_agent_skills
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
