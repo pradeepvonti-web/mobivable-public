@@ -40,5 +40,19 @@ CREATE POLICY "own_delete_phases" ON public.project_phases
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())
   );
 
--- Enable realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.project_phases;
+-- Enable realtime.
+-- Idempotent: the earlier migration 20260522205200_sdlc_phases already adds
+-- this same table to the publication, so a bare ADD here raises SQLSTATE
+-- 42710 ("already member of publication") and aborts the migration — which
+-- is what made `supabase start` fail in CI. Guard the add.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'project_phases'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.project_phases;
+  END IF;
+END $$;
