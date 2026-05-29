@@ -29,4 +29,12 @@ CREATE POLICY "Users can manage own project phases" ON project_phases
   );
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE project_phases;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = '''supabase_realtime''' AND schemaname = '''public''' AND tablename = '''project_phases'''
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.project_phases;
+  END IF;
+END $$;
