@@ -57,11 +57,15 @@ jobs:
       - name: Capture Supabase URLs + keys
         id: supabase
         run: |
+          # `supabase status --output env` emits values wrapped in double
+          # quotes (API_URL="http://127.0.0.1:54321"). cut keeps the quotes,
+          # which then makes supabase-js reject the URL ("Invalid supabaseUrl").
+          # Strip surrounding quotes with `tr -d '"'`.
           status=$(supabase status --output env)
           {
-            echo "SUPABASE_URL=$(echo "$status" | grep '^API_URL=' | cut -d= -f2-)"
-            echo "SUPABASE_PUBLISHABLE_KEY=$(echo "$status" | grep '^ANON_KEY=' | cut -d= -f2-)"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$status" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2-)"
+            echo "SUPABASE_URL=$(echo "$status" | grep '^API_URL=' | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_PUBLISHABLE_KEY=$(echo "$status" | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$status" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"')"
           } >> "$GITHUB_ENV"
 
       # `supabase start` already applies the migrations in supabase/migrations
