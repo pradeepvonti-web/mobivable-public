@@ -3,6 +3,11 @@ import { Sun, Moon } from "lucide-react";
 
 type Theme = "light" | "dark";
 const STORAGE_KEY = "mobivable:theme";
+// What the server always renders (window is undefined there). The client's
+// FIRST render must use this same value so hydration matches; the real theme
+// is applied to <html> by themeNoFlashScript pre-hydration and re-synced into
+// React state in useTheme's effect right after mount.
+const SSR_THEME: Theme = "dark";
 
 function readInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
@@ -19,7 +24,7 @@ function applyTheme(theme: Theme) {
 }
 
 // Global theme store — single source of truth shared by every useTheme() caller.
-let currentTheme: Theme = typeof window === "undefined" ? "dark" : readInitialTheme();
+let currentTheme: Theme = typeof window === "undefined" ? SSR_THEME : readInitialTheme();
 const listeners = new Set<(t: Theme) => void>();
 
 function setThemeGlobal(theme: Theme) {
@@ -58,7 +63,10 @@ if (typeof window !== "undefined") {
 }
 
 export function useTheme() {
-  const [theme, setLocal] = useState<Theme>(currentTheme);
+  // Start from the SSR default so server HTML and the first client render
+  // agree (no hydration mismatch). The effect below immediately resyncs to
+  // the real theme (localStorage / system pref) after mount.
+  const [theme, setLocal] = useState<Theme>(SSR_THEME);
 
   useEffect(() => {
     // Resync in case the module-level value changed before mount.
