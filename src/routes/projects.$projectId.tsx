@@ -1304,9 +1304,11 @@ function ProjectPage() {
         </Link>
         <button
           type="button"
+          onClick={() => setLeftSidebarOpen((v) => !v)}
+          aria-pressed={leftSidebarOpen}
           className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           aria-label="Toggle sidebar"
-          title="Sidebar"
+          title={leftSidebarOpen ? "Hide sidebar" : "Show sidebar"}
         >
           <PanelLeft className="h-4 w-4" />
         </button>
