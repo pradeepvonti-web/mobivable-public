@@ -376,6 +376,7 @@ function ProjectPage() {
     })();
   }, [agentStorageKey, selectedAgent, projectId]);
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [briefOpen, setBriefOpen] = useState(false);
   const [paneTab, setPaneTab] = useState<"preview" | "code" | "agents" | "export" | "screenshots">("preview");
   const { theme, setTheme } = useTheme();
