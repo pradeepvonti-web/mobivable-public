@@ -378,7 +378,7 @@ function BackendDataModelSection({
         setResult({ ok: true, text: r.summary });
         toast.success(r.summary);
       } else {
-        const errSummary = "summary" in r ? r.summary : ("error" in r ? r.error : "Deploy failed");
+        const errSummary = ("summary" in r ? r.summary : ("error" in r ? r.error : "Deploy failed")) ?? "Deploy failed";
         setResult({ ok: false, text: errSummary });
         toast.error(errSummary);
       }
