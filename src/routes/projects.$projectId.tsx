@@ -1606,7 +1606,7 @@ function ProjectPage() {
       </aside>
 
       {/* Chat thread */}
-      <section className={`${sidePanel !== null ? "hidden" : mobileView === "chat" ? "flex" : "hidden"} ${sidePanel !== null ? "lg:hidden" : "lg:flex"} flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
+      <section className={`${sidePanel !== null ? "hidden" : mobileView === "chat" ? "flex" : "hidden"} ${sidePanel !== null || !leftSidebarOpen ? "lg:hidden" : "lg:flex"} flex-1 lg:flex-none lg:w-[480px] min-h-[60vh] lg:min-h-0 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-border flex-col`}>
         <header className="p-4 border-b border-border flex items-center gap-3">
           <div className="h-6 w-6 rounded-full bg-primary/20 grid place-items-center">
             <span className="h-2 w-2 rounded-full bg-primary" />
