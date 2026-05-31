@@ -454,9 +454,13 @@ export type Database = {
           build_id: string | null
           created_at: string
           error_text: string | null
+          finished_at: string | null
+          github_workflow_run_id: string | null
           id: string
           logs: string
+          maestro_upload_id: string | null
           project_id: string
+          queued_at: string | null
           screenshots: string[]
           status: string
           updated_at: string
@@ -467,9 +471,13 @@ export type Database = {
           build_id?: string | null
           created_at?: string
           error_text?: string | null
+          finished_at?: string | null
+          github_workflow_run_id?: string | null
           id?: string
           logs?: string
+          maestro_upload_id?: string | null
           project_id: string
+          queued_at?: string | null
           screenshots?: string[]
           status?: string
           updated_at?: string
@@ -480,9 +488,13 @@ export type Database = {
           build_id?: string | null
           created_at?: string
           error_text?: string | null
+          finished_at?: string | null
+          github_workflow_run_id?: string | null
           id?: string
           logs?: string
+          maestro_upload_id?: string | null
           project_id?: string
+          queued_at?: string | null
           screenshots?: string[]
           status?: string
           updated_at?: string
