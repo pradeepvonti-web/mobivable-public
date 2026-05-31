@@ -1492,7 +1492,7 @@ function ProjectPage() {
 
       <div className="flex-1 min-h-0 w-full lg:overflow-hidden flex flex-col lg:flex-row pb-16 lg:pb-0">
       {/* Left rail */}
-      <aside className="hidden lg:flex w-52 shrink-0 border-r border-border flex-col">
+      <aside className={`${leftSidebarOpen ? "hidden lg:flex" : "hidden"} w-52 shrink-0 border-r border-border flex-col`}>
         <div className="p-4 border-b border-border flex items-center gap-2">
           <Link
             to="/dashboard"
