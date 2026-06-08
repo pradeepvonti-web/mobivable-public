@@ -55,7 +55,7 @@ async function hashKey(input: string): Promise<string> {
 }
 
 async function generateOne(prompt: string, paletteHint: string): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = typeof process !== "undefined" ? process.env?.LOVABLE_API_KEY : undefined;
   if (!key) return { ok: false, error: "LOVABLE_API_KEY missing" };
   const finalPrompt = `${prompt}\n\nColor palette to harmonize with: ${paletteHint}. Photographic / illustrative quality, high detail, no text, no watermarks.`;
   try {
