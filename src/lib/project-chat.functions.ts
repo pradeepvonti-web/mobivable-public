@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
-import { callAI, callAIStreaming, type AIMessage } from "./ai-provider";
+import { callAI, type AIMessage } from "./ai-provider";
 import { loadKnowledgeForUser } from "./knowledge-context";
 import { routeMessageToAgents, advancePhase, initProjectPhases, SDLC_PHASES, type SDLCPhase } from './sdlc.functions';
 
@@ -128,37 +128,24 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       content: m.content,
     }));
 
-    // Collect each agent's reply so the next agent sees teammates' thoughts.
+    // Collect each agent's reply so the schema rewrite sees all of them.
     const teamReplies: { role: AgentRole; name: string; content: string }[] = [];
 
-    const runAgent = async function* (role: AgentRole | null) {
-      const agent = role ? AGENTS[role] : null;
-      const phaseLabel = SDLC_PHASES[currentPhase]?.label ?? currentPhase;
+    // Load knowledge once for all agents
+    const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);
+    const phaseLabel = SDLC_PHASES[currentPhase]?.label ?? currentPhase;
 
-      const teamContext = teamReplies.length
-        ? `\n\nYour teammates already responded in this turn:\n${teamReplies
-            .map((t) => `### ${t.name}\n${t.content}`)
-            .join("\n\n")}\n\nBuild on their points without repeating them. Stay strictly in your own role.`
-        : "";
-
-      // For CHAT mode, use a tight role summary — NOT the full agent system
-      // prompt which asks for 400-word structured reports. The full system
-      // prompt is only for agent runs (startAgentRun/runAgentTask).
-      const systemPrompt = agent
-        ? `You are "${agent.name}" (${agent.short}). Phase: ${phaseLabel}.
+    // ── Build a non-streaming agent caller ──
+    const callAgent = async (role: AgentRole) => {
+      const agent = AGENTS[role];
+      const systemPrompt = `You are "${agent.name}" (${agent.short}). Phase: ${phaseLabel}.
 
 RULES — these override everything:
 - Reply in 2-3 sentences MAX. Under 60 words total.
 - State what you decided or recommend. No analysis, no lists, no headers.
 - Sound like a quick Slack message, not a report.
 - If another teammate should act, end with one @mention.
-- The user can say "expand" or "tell me more" if they want detail.${teamContext}`
-        : DEFAULT_SYSTEM;
-
-      // Saved knowledge items (PRDs, design notes, ingested URLs from the
-      // Knowledge panel) are injected once per turn. Loaded inside the loop
-      // so an item added mid-conversation lands on the very next agent reply.
-      const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);
+- The user can say "expand" or "tell me more" if they want detail.`;
 
       const messages: AIMessage[] = [
         { role: "system", content: systemPrompt },
@@ -171,63 +158,48 @@ RULES — these override everything:
         { role: "user", content: data.content },
       ];
 
-      yield {
-        type: 'agent_start' as const,
-        role: role ?? 'summary_agent',
-        name: agent?.name ?? 'Assistant',
-        phase: currentPhase,
-      };
-
-      let buffer = "";
-      try {
-        const streamResult = await callAIStreaming(messages, project.model);
-        if (!streamResult.ok) {
-          yield { type: 'agent_error' as const, role: role ?? 'summary_agent', error: streamResult.error };
-          return;
-        }
-        const upstream = streamResult.response;
-        if (!upstream.body) {
-          yield { type: 'agent_error' as const, role: role ?? 'summary_agent', error: 'No response body' };
-          return;
-        }
-        const reader = upstream.body.pipeThrough(new TextDecoderStream()).getReader();
-        const leftover = { buf: "" };
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          for (const delta of parseSSE(value, leftover)) {
-            buffer += delta;
-            yield { type: 'delta' as const, role: role ?? 'summary_agent', delta };
-          }
-        }
-      } catch (e) {
-        yield {
-          type: 'agent_error' as const,
-          role: role ?? 'summary_agent',
-          error: e instanceof Error ? e.message : 'Stream failed',
-        };
-      } finally {
-        const trimmed = buffer.trim();
-        if (trimmed.length > 0) {
-          if (role) teamReplies.push({ role, name: agent?.name ?? role, content: trimmed });
-          const marker = role ? `<!--agent:${role}-->\n` : "";
-          await supabase.from("project_messages").insert({
-            project_id: project.id,
-            user_id: userId,
-            role: "assistant",
-            content: marker + trimmed,
-          });
-        }
-        yield { type: 'agent_done' as const, role: role ?? 'summary_agent' };
-      }
+      const result = await callAI(messages[0].content, messages.slice(1).map(m => m.content).join("\n\n"), project.model);
+      return { role, name: agent.name, result };
     };
 
-    // Fan out: each agent responds in sequence, seeing prior teammates.
     if (team.length === 0) {
-      yield* runAgent(null);
+      // No agents — use default assistant
+      yield { type: 'agent_start' as const, role: 'summary_agent' as AgentRole, name: 'Assistant', phase: currentPhase };
+      const r = await callAI(DEFAULT_SYSTEM, `App idea: ${project.prompt}\n\n${data.content}`, project.model);
+      const content = r.ok ? r.text.trim() : `⚠️ ${r.error}`;
+      if (content) {
+        await supabase.from("project_messages").insert({
+          project_id: project.id, user_id: userId, role: "assistant", content,
+        });
+      }
+      yield { type: 'agent_complete' as const, role: 'summary_agent' as AgentRole, name: 'Assistant', content };
     } else {
+      // ── #4: PARALLEL EXECUTION — all agents start at once ──
+      // Signal all agents starting simultaneously
       for (const role of team) {
-        yield* runAgent(role);
+        yield { type: 'agent_start' as const, role, name: AGENTS[role].name, phase: currentPhase };
+      }
+
+      // Run all agents in parallel
+      const results = await Promise.allSettled(team.map(callAgent));
+
+      // Yield results as they complete
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          const { role, name, result: r } = result.value;
+          const content = r.ok ? r.text.trim() : `⚠️ ${r.error}`;
+          if (content) {
+            teamReplies.push({ role, name, content });
+            const marker = `<!--agent:${role}-->\n`;
+            await supabase.from("project_messages").insert({
+              project_id: project.id, user_id: userId, role: "assistant", content: marker + content,
+            });
+          }
+          yield { type: 'agent_complete' as const, role, name, content: content || "Done." };
+        } else {
+          const role = team[results.indexOf(result)];
+          yield { type: 'agent_error' as const, role, error: result.reason?.message ?? "Agent failed" };
+        }
       }
     }
 

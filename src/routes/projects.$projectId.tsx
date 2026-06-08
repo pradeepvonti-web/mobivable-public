@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { flushSync } from "react-dom";
+// flushSync removed — no longer streaming token-by-token
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { PlanSummary } from "@/components/PlanSummary";
@@ -139,7 +139,7 @@ import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
 import TemplateGallery from "@/components/TemplateGallery";
 
 // ── Conversation branching types (inspired by Dyad) ───────────────────
-type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string };
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string; collapsed?: boolean };
 type ConversationBranch = {
   id: string;
   label: string;
@@ -1247,7 +1247,6 @@ function ProjectPage() {
     try {
       const stream = await chatFn({ data: { projectId, content, ...(selectedAgent ? { agentRole: selectedAgent } : {}) } });
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
-      let activeAgentMsgId: string | null = null;
       let errored = false;
       for await (const event of stream) {
         if (cancelRef.current) break;
@@ -1267,8 +1266,8 @@ function ProjectPage() {
           ]);
           scrollToBottom();
         } else if (event.type === "agent_start") {
-          activeAgentMsgId = `${tempId}-${event.role}-${Date.now()}`;
-          const id = activeAgentMsgId;
+          // All agents start simultaneously — create spinner for each
+          const id = `${tempId}-${event.role}-${Date.now()}`;
           setMessages((prev) => [
             ...prev,
             {
@@ -1279,41 +1278,34 @@ function ProjectPage() {
               agentRole: event.role as AgentRole,
               agentName: event.name,
               phase: event.phase,
+              collapsed: true, // #3: collapsed by default
             },
           ]);
-        } else if (event.type === "delta") {
-          const id = activeAgentMsgId;
-          if (!id) continue;
-          flushSync(() => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === id ? { ...m, content: m.content + event.delta } : m,
-              ),
+          scrollToBottom();
+        } else if ((event as { type: string }).type === "agent_complete") {
+          // Agent finished — fill content, clear pending, keep collapsed
+          const ev = event as { role: string; name: string; content: string };
+          setMessages((prev) => {
+            // Find the pending message for this agent
+            const idx = prev.findIndex(
+              (m) => m.agentRole === ev.role && m.pending,
             );
+            if (idx === -1) return prev;
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], content: ev.content, pending: false };
+            return updated;
           });
-          if (!scrollTickRef.current) {
-            scrollTickRef.current = requestAnimationFrame(() => {
-              scrollToBottom();
-              scrollTickRef.current = null;
-            });
-          }
-        } else if (event.type === "agent_done") {
-          // Clear pending — reveals the final text
-          if (activeAgentMsgId) {
-            const doneId = activeAgentMsgId;
-            setMessages((prev) =>
-              prev.map((m) => m.id === doneId ? { ...m, pending: false } : m),
-            );
-          }
-          activeAgentMsgId = null;
+          scrollToBottom();
         } else if (event.type === "agent_error") {
           errored = true;
-          const id = activeAgentMsgId;
-          if (id) {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === id ? { ...m, content: `⚠️ ${event.error}`, pending: false } : m)),
-            );
-          }
+          const errRole = event.role;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.agentRole === errRole && m.pending
+                ? { ...m, content: `⚠️ ${event.error}`, pending: false }
+                : m,
+            ),
+          );
         } else if (event.type === "error") {
           errored = true;
           setMessages((prev) => [
@@ -2449,31 +2441,39 @@ function ProjectPage() {
                           </span>
                         )}
                       </div>
-                      {m.pending && !m.content ? (
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground py-2">
-                          <div className="relative h-4 w-4">
+                      {m.pending ? (
+                        /* #8: Step-by-step action card — working state */
+                        <div className="flex items-center gap-3 py-1.5">
+                          <div className="relative h-4 w-4 shrink-0">
                             <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
                             <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
                           </div>
-                          <span className="text-xs font-mono uppercase tracking-wider text-primary/70">{name} working…</span>
-                        </div>
-                      ) : m.pending && m.content ? (
-                        /* Agent is still streaming — show progress bar + collapsed preview */
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2.5">
-                            <div className="relative h-3.5 w-3.5 shrink-0">
-                              <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-                              <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
-                            </div>
-                            <span className="text-[11px] font-mono uppercase tracking-wider text-primary/70">Applying changes…</span>
-                          </div>
-                          <div className="h-1 w-full bg-border/30 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-primary/60 to-primary rounded-full" style={{ animation: 'progressPulse 2s ease-in-out infinite', width: '60%' }} />
-                          </div>
+                          <span className="text-xs font-mono uppercase tracking-wider text-primary/70">Working…</span>
                         </div>
                       ) : (
-                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground">
-                          <ReactMarkdown components={markdownComponents}>{m.content || "…"}</ReactMarkdown>
+                        /* #3: Collapsible card — collapsed by default */
+                        <div>
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 w-full text-left group/expand"
+                            onClick={() => {
+                              setMessages((prev) =>
+                                prev.map((msg) =>
+                                  msg.id === m.id ? { ...msg, collapsed: !msg.collapsed } : msg,
+                                ),
+                              );
+                            }}
+                          >
+                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/50 transition-transform duration-200 ${m.collapsed ? '-rotate-90' : ''}`} />
+                            <span className="text-xs text-muted-foreground truncate flex-1">
+                              {m.content.slice(0, 80)}{m.content.length > 80 ? "…" : ""}
+                            </span>
+                          </button>
+                          {!m.collapsed && (
+                            <div className="mt-2 pt-2 border-t border-border/20 prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground" style={{ animation: 'fadeInUp 0.2s ease-out' }}>
+                              <ReactMarkdown components={markdownComponents}>{m.content || "…"}</ReactMarkdown>
+                            </div>
+                          )}
                         </div>
                       )}
                       {/* Message actions (inspired by Bolt.diy) */}
