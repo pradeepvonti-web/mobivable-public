@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Schema types for the AI-generated mobile app structure.
  * The AI produces JSON conforming to these types; the MobileAppRenderer consumes them.
  */
@@ -98,7 +98,9 @@ export type MAction =
   | { type: "navigate"; screen: string }
   | { type: "url"; href: string }
   | { type: "dialog"; title?: string; message: string }
-  | { type: "sheet"; content?: string };
+  | { type: "sheet"; content?: string }
+  | { type: "camera"; mode?: string }
+  | { type: "native"; capability?: string };
 
 type BaseElement = {
   id?: string;

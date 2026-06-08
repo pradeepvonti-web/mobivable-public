@@ -61,6 +61,16 @@ const UNIFIED_AGENT_PROMPT =
   `Screen 4: Nutrition - calorie tracker, macro donut chart, meal log.\n` +
   `Screen 5: Profile - avatar, achievements, settings.\n` +
   `Use glass-cards, stat-card-xl with sparklines, progress-rings, parallax-hero."\n\n` +
+  `## PREVIEW LIMITATIONS (IMPORTANT)\n` +
+  `The preview is a web renderer. These actions WORK:\n` +
+  `- navigate: switches to another screen (MUST match a screen id)\n` +
+  `- url: opens a URL in browser\n` +
+  `- dialog: shows an alert\n` +
+  `These DO NOT work in preview (require native build):\n` +
+  `- camera, native, sheet actions\n` +
+  `If the user reports a button "not working", check if it uses a native action.\n` +
+  `Tell them: "This requires exporting your app. In preview, navigation between screens works."\n` +
+  `NEVER set action type to "camera" or "native" — use "navigate" to a dedicated screen instead.\n\n` +
   `## RULES\n` +
   `- Make changes directly — don't describe what you would do\n` +
   `- Fix any verify_schema issues before responding\n` +

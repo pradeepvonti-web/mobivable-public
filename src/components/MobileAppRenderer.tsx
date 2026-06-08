@@ -28,10 +28,15 @@ const PAD_MAP: Record<string, number> = { none: 0, xs: 4, sm: 8, md: 12, lg: 16,
 /** React context to pass the full schema down for component-ref resolution */
 const SchemaCtx = createContext<MobileAppSchema | null>(null);
 
+/** React context to pass the navigation callback down to ActionWrapper */
+const NavigateCtx = createContext<((screenId: string) => void) | null>(null);
+
 /** Wrap element content with action support (navigate, url, dialog, sheet) */
 function ActionWrapper({ action, children }: { action?: MAction; children: React.ReactNode }) {
   if (!action) return <>{children}</>;
   const baseStyle: React.CSSProperties = { cursor: "pointer", transition: "filter 0.15s ease" };
+
+  const navigate = useContext(NavigateCtx);
 
   switch (action.type) {
     case "url":
@@ -50,7 +55,12 @@ function ActionWrapper({ action, children }: { action?: MAction; children: React
       return (
         <div
           style={baseStyle}
-          className="m-action-wrap"
+          className="m-action-wrap m-action-navigate"
+          onClick={() => {
+            if (action.screen && navigate) {
+              navigate(action.screen);
+            }
+          }}
           title={`Navigate → ${action.screen}`}
         >
           {children}
@@ -72,6 +82,18 @@ function ActionWrapper({ action, children }: { action?: MAction; children: React
           style={{ ...baseStyle, borderBottom: "2px solid var(--m-primary)" }}
           className="m-action-wrap"
           title="Opens bottom sheet"
+        >
+          {children}
+        </div>
+      );
+    case "camera":
+    case "native":
+      return (
+        <div
+          style={{ ...baseStyle, opacity: 0.7 }}
+          className="m-action-wrap"
+          title="Requires native build to work"
+          onClick={() => alert("This feature requires a native build. Export your project to test it on a real device.")}
         >
           {children}
         </div>
@@ -1354,9 +1376,11 @@ export function MobileAppRenderer({
           </>
         )}
         {screen && (
-          <SchemaCtx.Provider value={fixedSchema}>
-            <RenderScreen key={current} screen={screen} />
-          </SchemaCtx.Provider>
+          <NavigateCtx.Provider value={setActiveScreen}>
+            <SchemaCtx.Provider value={fixedSchema}>
+              <RenderScreen key={current} screen={screen} />
+            </SchemaCtx.Provider>
+          </NavigateCtx.Provider>
         )}
         {/* Bottom tabs (standard) */}
         {nav?.type === "bottom-tabs" && nav.navStyle !== "floating" && nav.navStyle !== "pill" && nav.navStyle !== "notched" && (
