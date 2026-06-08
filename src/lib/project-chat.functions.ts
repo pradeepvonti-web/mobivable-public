@@ -220,7 +220,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     const combined = teamReplies.map((t) => `### ${t.name}\n${t.content}`).join("\n\n");
     if (combined.length > 0) {
       try {
-        const codeGenPrompt = await import("@/lib/code-gen").then((m) => m.CODE_GEN_SYSTEM_PROMPT);
+        const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("@/lib/code-gen");
         // Re-load knowledge so the schema rewrite also sees user-provided
         // PRDs/notes. Same cap as the chat turn — won't blow past budget.
         const knowledgeForRewrite = await loadKnowledgeForUser(supabase, userId);
@@ -230,20 +230,43 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           (knowledgeForRewrite ? `${knowledgeForRewrite}\n\n` : "") +
           `Latest user request:\n${data.content}\n\n` +
           `Team responses:\n${combined}\n\n` +
+          `IMPORTANT: Apply the changes the team described. Keep ALL existing screens and elements intact unless the team explicitly said to remove them.\n` +
           `Now generate the COMPLETE updated mobile app as a JSON object reflecting the team's decisions.`;
-        const rewriteResult = await callAI(codeGenPrompt, rewritePrompt, project.model);
-        if (rewriteResult.ok) {
-          const nextResult = rewriteResult.text.length >= 50 ? rewriteResult.text : project.result;
-          if (nextResult && nextResult !== project.result) {
+        const rewriteResult = await callAI(CODE_GEN_SYSTEM_PROMPT, rewritePrompt, project.model);
+        if (rewriteResult.ok && rewriteResult.text.length >= 50) {
+          // Parse and validate the new schema
+          const parsed = parseAppSchema(rewriteResult.text);
+          if (parsed) {
+            const { validateAndFixSchema } = await import("./schema-validator");
+            const { schema: fixed } = validateAndFixSchema(parsed);
+            const finalJson = JSON.stringify(fixed ?? parsed);
             const { error: updateErr } = await supabase
               .from("projects")
-              .update({ result: nextResult, status: "ready", error_text: null })
+              .update({ result: finalJson, status: "ready", error_text: null })
               .eq("id", project.id);
             if (!updateErr) yield { type: "project_updated" as const };
+          } else {
+            // AI returned text but it's not valid JSON schema — try raw save
+            const nextResult = rewriteResult.text;
+            if (nextResult !== project.result) {
+              const { error: updateErr } = await supabase
+                .from("projects")
+                .update({ result: nextResult, status: "ready", error_text: null })
+                .eq("id", project.id);
+              if (!updateErr) yield { type: "project_updated" as const };
+            }
           }
+        } else {
+          console.error("[project-chat] rewrite produced insufficient output", {
+            ok: rewriteResult.ok,
+            textLength: rewriteResult.ok ? rewriteResult.text.length : 0,
+            error: !rewriteResult.ok ? rewriteResult.error : undefined,
+          });
+          yield { type: "rewrite_failed" as const, error: !rewriteResult.ok ? rewriteResult.error : "AI returned insufficient output" };
         }
       } catch (error) {
         console.error("[project-chat] rewrite error", error);
+        yield { type: "rewrite_failed" as const, error: error instanceof Error ? error.message : "Schema rewrite failed" };
       }
     }
 
