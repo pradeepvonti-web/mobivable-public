@@ -619,11 +619,13 @@ export const MCP_TOOLS: McpTool[] = [
       const schema = parseAppSchema(result.text);
       if (!schema) throw new Error("Failed to parse generated schema. The AI output was not valid JSON.");
 
-      // Save to project
+      // Save to project and mark as ready
       const { error: saveErr } = await supabaseAdmin
         .from("projects")
         .update({
           result: JSON.stringify(schema),
+          status: "ready",
+          error_text: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", project_id)

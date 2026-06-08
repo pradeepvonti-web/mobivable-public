@@ -1401,7 +1401,13 @@ function ProjectPage() {
       const p = await reloadProject();
       if (p && p.status === "building" && !p.result && !triggeredRef.current) {
         triggeredRef.current = true;
-        runGeneration();
+        // ── PLAN-FIRST: Route through chat instead of direct generation ──
+        // This sends the project prompt as a chat message, which goes through
+        // sendProjectMessage → plan-first enforcement → research_and_plan.
+        // The design brief card will appear in chat for user approval.
+        // Only AFTER approval will generate_app be called.
+        const promptText = p.prompt || "Build the app as described";
+        handleSend(undefined, `Build this app: ${promptText}`);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
