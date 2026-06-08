@@ -797,6 +797,279 @@ export const MCP_TOOLS: McpTool[] = [
       };
     },
   },
+
+  // ─── Phase 5: Code generation tools ─────────────────────────────────
+
+  {
+    name: "generate_code",
+    description: "Generate production-ready React Native/Expo code for a single screen from the project schema. Uses AI to produce real, runnable code (not template rendering). Returns the TypeScript source.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        project_id: { type: "string", description: "Project UUID" },
+        screen_id: { type: "string", description: "The screen ID to generate code for" },
+        style: { type: "string", description: "Code style: 'expo-router' (default) | 'plain-rn'" },
+      },
+      required: ["project_id", "screen_id"],
+    },
+    run: async (args: Record<string, unknown>, ctx: McpToolContext) => {
+      const projectId = args.project_id as string;
+      const screenId = args.screen_id as string;
+      const style = (args.style as string) ?? "expo-router";
+      const schema = await loadSchema(projectId);
+      const screen = schema.screens?.find((s: { id?: string }) => s.id === screenId);
+      if (!screen) throw new Error(`Screen '${screenId}' not found`);
+
+      const { callAIStrong } = await import("./ai-provider");
+      const codeGenPrompt =
+        `Generate a production-ready React Native (Expo) screen component.\n\n` +
+        `SCREEN DATA:\n${JSON.stringify(screen, null, 2)}\n\n` +
+        `THEME:\n${JSON.stringify(schema.theme ?? {}, null, 2)}\n\n` +
+        `NAVIGATION: ${JSON.stringify(schema.navigation ?? {}, null, 2)}\n\n` +
+        `REQUIREMENTS:\n` +
+        `- ${style === "expo-router" ? "Use expo-router for navigation (import { useRouter } from 'expo-router')" : "Use plain React Navigation props"}\n` +
+        `- TypeScript (.tsx file)\n` +
+        `- Use StyleSheet.create for styles\n` +
+        `- Export default the screen component\n` +
+        `- Use theme colors from a '../theme' import\n` +
+        `- Implement ALL elements from the screen data\n` +
+        `- Use real RN primitives: View, Text, Pressable, ScrollView, Image, FlatList\n` +
+        `- Add proper TypeScript types\n` +
+        `- Include proper imports\n` +
+        `- Make it production-ready with proper spacing, padding, and layout\n\n` +
+        `Output ONLY the TypeScript source code. No markdown, no explanation.`;
+
+      const result = await callAIStrong(
+        "You are a React Native code generator. Output ONLY valid TypeScript/TSX code. No markdown fences, no explanations.",
+        codeGenPrompt,
+      );
+      if (!result.ok) throw new Error(result.error);
+
+      // Strip markdown fences if AI accidentally added them
+      let code = result.text.trim();
+      if (code.startsWith("```")) {
+        code = code.replace(/^```(?:tsx?|typescript|javascript)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      return {
+        screen_id: screenId,
+        screen_title: screen.title ?? screenId,
+        code,
+        bytes: code.length,
+        model: result.model,
+      };
+    },
+  },
+
+  {
+    name: "export_project_code",
+    description: "Generate a full multi-screen Expo project from the schema. Returns file manifest with paths + source code for every file. Includes: theme.ts, navigation, per-screen components, App.tsx, package.json.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        project_id: { type: "string", description: "Project UUID" },
+      },
+      required: ["project_id"],
+    },
+    run: async (args: Record<string, unknown>, ctx: McpToolContext) => {
+      const projectId = args.project_id as string;
+      const schema = await loadSchema(projectId);
+
+      // Read project name
+      const adm = supabaseAdmin;
+      const { data: proj } = await adm
+        .from("projects")
+        .select("name, prompt")
+        .eq("id", projectId)
+        .single();
+      const appName = proj?.name ?? "My App";
+
+      const screens = schema.screens ?? [];
+      const theme = schema.theme ?? {};
+      const nav = schema.navigation ?? {};
+      const navItems = nav.items ?? [];
+
+      // ── Generate theme.ts ──
+      const colors = theme.colors ?? {};
+      const themeTs = `export const theme = {
+  colors: {
+    primary: ${JSON.stringify(colors.primary ?? "#6366f1")},
+    secondary: ${JSON.stringify(colors.secondary ?? "#8b5cf6")},
+    accent: ${JSON.stringify(colors.accent ?? "#06b6d4")},
+    background: ${JSON.stringify(colors.background ?? "#0a0a0f")},
+    card: ${JSON.stringify(colors.card ?? "#161623")},
+    text: ${JSON.stringify(colors.text ?? "#ffffff")},
+    muted: ${JSON.stringify(colors.muted ?? "#9ca3af")},
+    border: ${JSON.stringify(colors.border ?? "rgba(255,255,255,0.08)")},
+  },
+  fonts: {
+    heading: ${JSON.stringify(theme.fonts?.heading ?? "System")},
+    body: ${JSON.stringify(theme.fonts?.body ?? "System")},
+  },
+  radius: { sm: 8, md: 12, lg: 16, xl: 24 },
+  spacing: (n: number) => n * 4,
+} as const;
+`;
+
+      // ── Generate per-screen files using template renderer ──
+      const { renderSchemaToRn } = await import("./rn-renderer");
+      const screenFiles: { path: string; code: string }[] = [];
+      const screenIds: string[] = [];
+
+      for (const screen of screens) {
+        const id = screen.id ?? `screen-${screenIds.length}`;
+        screenIds.push(id);
+        const fileName = id.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+
+        const rendered = renderSchemaToRn({
+          appName,
+          theme: {
+            primary: colors.primary ?? "#6366f1",
+            background: colors.background ?? "#0a0a0f",
+            card: colors.card ?? "#161623",
+            text: colors.text ?? "#ffffff",
+            muted: colors.muted ?? "#9ca3af",
+          },
+          screen: screen as { id?: string; title?: string; elements?: unknown[] },
+        });
+
+        screenFiles.push({
+          path: `app/${fileName}.tsx`,
+          code: rendered.appTsx,
+        });
+      }
+
+      // ── Generate _layout.tsx with tab navigation ──
+      const tabImports = screenFiles.map((f, i) => {
+        const name = f.path.replace("app/", "").replace(".tsx", "");
+        const title = screens[i]?.title ?? name;
+        return { name, title, icon: navItems[i]?.icon ?? "📱" };
+      });
+
+      const hasBottomNav = nav.type === "bottom-tabs" || nav.type === "floating-bottom" || navItems.length > 0;
+
+      let layoutCode: string;
+      if (hasBottomNav && tabImports.length > 1) {
+        layoutCode = `import { Tabs } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { theme } from "../theme";
+
+export default function RootLayout() {
+  return (
+    <>
+      <StatusBar style="light" />
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.text,
+          tabBarStyle: {
+            backgroundColor: theme.colors.background,
+            borderTopColor: theme.colors.border,
+          },
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.muted,
+        }}
+      >
+${tabImports.map(t => `        <Tabs.Screen
+          name="${t.name}"
+          options={{
+            title: ${JSON.stringify(t.title)},
+            tabBarLabel: ${JSON.stringify(t.title)},
+          }}
+        />`).join("\n")}
+      </Tabs>
+    </>
+  );
+}
+`;
+      } else {
+        layoutCode = `import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { theme } from "../theme";
+
+export default function RootLayout() {
+  return (
+    <>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.text,
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      />
+    </>
+  );
+}
+`;
+      }
+
+      // ── Build file manifest ──
+      const files = [
+        { path: "theme.ts", code: themeTs },
+        { path: "app/_layout.tsx", code: layoutCode },
+        ...screenFiles,
+        {
+          path: "package.json",
+          code: JSON.stringify({
+            name: appName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "my-app",
+            version: "1.0.0",
+            main: "expo-router/entry",
+            scripts: {
+              start: "expo start",
+              android: "expo start --android",
+              ios: "expo start --ios",
+              web: "expo start --web",
+            },
+            dependencies: {
+              expo: "~51.0.0",
+              "expo-router": "~3.5.0",
+              "expo-status-bar": "~1.12.0",
+              react: "18.2.0",
+              "react-native": "0.74.5",
+              "react-native-safe-area-context": "4.10.5",
+              "react-native-screens": "3.31.1",
+              "react-native-gesture-handler": "~2.16.1",
+              "@react-navigation/native": "^6.0.2",
+            },
+          }, null, 2),
+        },
+        {
+          path: "app.json",
+          code: JSON.stringify({
+            expo: {
+              name: appName,
+              slug: appName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "my-app",
+              version: "1.0.0",
+              orientation: "portrait",
+              userInterfaceStyle: "automatic",
+              plugins: ["expo-router"],
+            },
+          }, null, 2),
+        },
+        {
+          path: "tsconfig.json",
+          code: JSON.stringify({ extends: "expo/tsconfig.base", compilerOptions: { strict: true } }, null, 2),
+        },
+      ];
+
+      // ── Store generated code as project metadata ──
+      const codeManifest = { generated_at: new Date().toISOString(), files: files.map(f => ({ path: f.path, bytes: f.code.length })) };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (adm as any).from("projects").update({
+        generated_code: JSON.stringify({ manifest: codeManifest, files }),
+        updated_at: new Date().toISOString(),
+      }).eq("id", projectId);
+
+      return {
+        ok: true,
+        file_count: files.length,
+        screen_count: screens.length,
+        total_bytes: files.reduce((sum, f) => sum + f.code.length, 0),
+        files: files.map(f => ({ path: f.path, bytes: f.code.length })),
+      };
+    },
+  },
 ];
 
 // ─── Native capabilities helpers ────────────────────────────────────

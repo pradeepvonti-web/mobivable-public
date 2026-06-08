@@ -91,6 +91,11 @@ export const MCP_AGENT_SYSTEM_PROMPT =
   `- Fix empty screens (add elements)\n` +
   `- Fix incomplete themes (add missing colors/fonts)\n` +
   `Do NOT ask the user to fix issues — fix them yourself with surgical tools.\n\n` +
+  `## CODE GENERATION TOOLS\n` +
+  `When the user asks to "export code", "generate code", or "get the code":\n` +
+  `- generate_code: AI-powered code generation for a single screen (uses strong model)\n` +
+  `- export_project_code: generate full multi-screen Expo project with tab navigation\n` +
+  `Use generate_code for individual screens, export_project_code for the full project.\n\n` +
   `## General Guidelines\n` +
   `- Call tools when you need real data. Do not guess project ids, ` +
   `screen ids, or knowledge contents.\n` +
