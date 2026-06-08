@@ -44,10 +44,12 @@ const UNIFIED_AGENT_PROMPT =
   `## WORKFLOW (MANDATORY — NEVER SKIP STEPS)\n` +
   `### For NEW apps (no schema yet):\n` +
   `1. Call research_and_plan with a detailed prompt → returns plan + mockup\n` +
-  `2. STOP and tell user: "Here's your design plan. Review it and say 'approve' to build, or tell me what to change."\n` +
-  `3. WAIT for user approval — do NOT call generate_app yet\n` +
-  `4. When user approves → call generate_app with the full prompt\n` +
-  `5. If user wants changes → call research_and_plan again with feedback\n\n` +
+  `2. STOP IMMEDIATELY after research_and_plan completes. Do NOT call any more tools.\n` +
+  `3. Do NOT call generate_app in the same turn as research_and_plan.\n` +
+  `4. The design brief card will be shown to the user automatically.\n` +
+  `5. WAIT for the user's next message — they will say "approve" or give feedback.\n` +
+  `6. When user approves → THEN call generate_app with a detailed prompt.\n` +
+  `7. If user wants changes → call research_and_plan again with their feedback.\n\n` +
   `### For EXISTING apps (has schema):\n` +
   `1. Use SURGICAL tools (fast, precise)\n` +
   `2. verify_schema runs AUTOMATICALLY\n` +
@@ -159,18 +161,29 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     // ── PLAN-FIRST ENFORCEMENT ──────────────────────────────────────
     // Check if user has an approved plan in recent history.
     // A plan is "approved" if:
-    //   1. A research_and_plan tool was called in prior messages, AND
-    //   2. User responded with approval ("approve", "yes", "go", "build", "looks good", etc.)
-    const historyTexts = (history ?? []).map(h => h.content?.toLowerCase() ?? "");
-    const hadPlanInHistory = historyTexts.some(t =>
-      t.includes("design plan") || t.includes("research_and_plan") ||
-      t.includes("awaiting_approval") || t.includes("plan_steps")
+    //   1. A research_and_plan tool was called in prior messages (saved as
+    //      a breadcrumb message containing "[DESIGN_PLAN_GENERATED]"), AND
+    //   2. User responded with approval ("approve", "yes", "go", "build", etc.)
+    const historyTexts = (history ?? []).map(h => (h.content ?? ""));
+    const historyLower = historyTexts.map(t => t.toLowerCase());
+
+    // Look for our saved breadcrumb from research_and_plan
+    const hadPlanInHistory = historyLower.some(t =>
+      t.includes("[design_plan_generated]") ||
+      t.includes("design plan") ||
+      t.includes("awaiting_approval") ||
+      t.includes("plan_steps")
     );
-    const userApproved = historyTexts.some(t =>
-      /\b(approve|approved|looks good|go ahead|build it|yes|let'?s go|proceed|start building|lgtm)\b/i.test(t)
-    );
-    const currentMsgApproves = /\b(approve|approved|looks good|go ahead|build it|yes|let'?s go|proceed|start building|lgtm)\b/i.test(data.content.toLowerCase());
-    let planApprovedInSession = hadPlanInHistory && (userApproved || currentMsgApproves);
+
+    // Check if any user message contains approval keywords
+    const APPROVAL_REGEX = /\b(approv|looks good|go ahead|build it|let'?s go|proceed|start building|lgtm|build the app|exactly as planned)\b/i;
+    const userMsgsApproved = historyTexts
+      .filter((_, i) => (history ?? [])[i]?.role === "user")
+      .some(t => APPROVAL_REGEX.test(t));
+    const currentMsgApproves = APPROVAL_REGEX.test(data.content);
+
+    let planApprovedInSession = hadPlanInHistory && (userMsgsApproved || currentMsgApproves);
+    let planGeneratedThisTurn = false; // Track if we generated a plan THIS turn
 
     const msgs: AgentMsg[] = [
       { role: "system", content: UNIFIED_AGENT_PROMPT },
@@ -182,7 +195,9 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           `- App name/idea: ${project.prompt}`,
           hasSchema
             ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
-            : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
+            : planApprovedInSession
+              ? `- The app has NO schema yet BUT the user has APPROVED the design plan. Call generate_app NOW with a detailed prompt based on the approved plan. Do NOT call research_and_plan again.`
+              : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
           !hasSchema && !planApprovedInSession
             ? `\n⚠️ IMPORTANT: generate_app is LOCKED until you call research_and_plan and the user approves the plan. Do NOT try to call generate_app directly.`
             : "",
@@ -358,8 +373,6 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             if (tc.name === "research_and_plan" && !isError) {
               const r = result as Record<string, unknown>;
               if (r.ok && r.awaiting_approval) {
-                // After plan is generated, unlock generate_app for next iteration
-                // (but still require user approval — the model should STOP here)
                 yield {
                   type: 'design_brief' as const,
                   planSteps: (r.plan_steps as string[]) ?? [],
@@ -367,10 +380,14 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
                   mockupUrl: ((r.mockup_url as string) ?? ""),
                   appName: ((r.brief as Record<string, string>)?.appName ?? "App"),
                 };
-                // Note: planApprovedInSession stays false here — the model
-                // should STOP and wait for user to approve in a follow-up message.
-                // generate_app will be available in the NEXT conversation turn
-                // after user sends "approve".
+
+                // ── CRITICAL: Save a breadcrumb so next turn's history check works ──
+                await supabase.from("project_messages").insert({
+                  project_id: project.id, user_id: userId, role: "assistant",
+                  content: `[DESIGN_PLAN_GENERATED] Here's your design plan for review. Click "Approve & Build" when you're ready, or tell me what to change.`,
+                });
+
+                planGeneratedThisTurn = true;
               }
             }
 
@@ -399,6 +416,15 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       }
 
       if (modifiedProject) yield { type: "project_updated" as const };
+
+      // ── FORCE STOP after plan generation ──
+      // If research_and_plan ran this turn, STOP the loop immediately.
+      // The model must NOT continue to call generate_app in the same turn.
+      // User must explicitly approve in a NEW message.
+      if (planGeneratedThisTurn) {
+        yield { type: 'agent_complete' as const, role: 'developer' as AgentRole, name: 'Studio Agent', content: 'Design plan created. Waiting for your approval.' };
+        break;
+      }
     }
 
     yield { type: "done" as const };
