@@ -674,6 +674,13 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
       }
 
       // ── run each tool, persist + append result ──
+      // Track which project was modified so we can auto-verify.
+      const WRITE_TOOLS = new Set([
+        "update_screen", "add_element", "update_element", "remove_element",
+        "update_theme", "update_navigation", "create_project", "send_chat_message",
+      ]);
+      let modifiedProjectId: string | null = null;
+
       for (const tc of completedTools) {
         yield {
           type: "tool_start" as const,
@@ -695,6 +702,11 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
             resultContent = e instanceof Error ? e.message : String(e);
             isError = true;
           }
+        }
+        // Track if a write tool touched a project
+        if (WRITE_TOOLS.has(tc.name) && !isError) {
+          const pid = tc.input.project_id as string | undefined;
+          if (pid) modifiedProjectId = pid;
         }
         await adm.from("mcp_agent_messages").insert({
           thread_id: thread.id,
@@ -718,7 +730,63 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
           isError,
         };
       }
-      // Loop — next iteration the model sees the tool results.
+
+      // ── Phase 2: Auto-verify after write tools ──
+      // If any surgical tool modified a project, auto-run verify_schema
+      // and inject the result so the agent can self-correct on next iteration.
+      if (modifiedProjectId && !completedTools.some(tc => tc.name === "verify_schema")) {
+        const verifyTool = getMcpTool("verify_schema");
+        if (verifyTool) {
+          const verifyId = `auto-verify-${Date.now()}`;
+          yield {
+            type: "tool_start" as const,
+            id: verifyId,
+            name: "verify_schema",
+            argumentsJson: JSON.stringify({ project_id: modifiedProjectId }),
+          };
+          let verifyContent: string;
+          let verifyError = false;
+          try {
+            const result = await verifyTool.run(
+              { project_id: modifiedProjectId },
+              { userId, patHash: "in-studio" },
+            );
+            verifyContent = clipToolResult(JSON.stringify(result, null, 2)).text;
+          } catch (e) {
+            verifyContent = e instanceof Error ? e.message : String(e);
+            verifyError = true;
+          }
+          // Persist the auto-verify result
+          await adm.from("mcp_agent_messages").insert({
+            thread_id: thread.id,
+            user_id: userId,
+            role: "tool",
+            content: verifyContent,
+            tool_call_id: verifyId,
+            is_error: verifyError,
+          });
+          // Inject as an assistant-triggered tool result so the model sees it
+          msgs.push({
+            role: "assistant",
+            content: "",
+            tool_calls: [{ id: verifyId, name: "verify_schema", arguments: { project_id: modifiedProjectId } }],
+          });
+          msgs.push({
+            role: "tool",
+            tool_call_id: verifyId,
+            name: "verify_schema",
+            content: verifyContent,
+            is_error: verifyError,
+          });
+          yield {
+            type: "tool_result",
+            id: verifyId,
+            content: verifyContent,
+            isError: verifyError,
+          };
+        }
+      }
+      // Loop — next iteration the model sees the tool results + verify.
     }
 
     yield {

@@ -73,15 +73,24 @@ export const MCP_AGENT_SYSTEM_PROMPT =
   `- update_element: change one element's props (e.g., button label, card title)\n` +
   `- remove_element: remove an element by index\n` +
   `- update_theme: change colors, fonts, spacing — merge-style, only provided fields change\n` +
-  `- update_navigation: change nav type, add/remove tabs\n` +
-  `- verify_schema: validate the schema for issues — ALWAYS call this after writes\n\n` +
+  `- update_navigation: change nav type, add/remove tabs\n\n` +
   `Workflow for editing:\n` +
   `1. Call list_screens to see the current state\n` +
   `2. Call get_screen to read elements on the target screen\n` +
   `3. Use surgical tools (update_element, add_element, etc.) to make precise changes\n` +
-  `4. Call verify_schema to confirm the result is valid\n` +
-  `5. Summarize what changed\n\n` +
+  `4. verify_schema runs AUTOMATICALLY after your writes — you'll see the result\n` +
+  `5. If verify finds issues, FIX THEM immediately with more surgical tools\n` +
+  `6. Only respond to the user once all issues are resolved\n\n` +
   `Only use send_chat_message for FULL app generation from scratch.\n\n` +
+  `## AUTO-VERIFY BEHAVIOR\n` +
+  `After any write tool (update_screen, add_element, etc.), the system ` +
+  `automatically runs verify_schema. You'll see the result as a tool_result. ` +
+  `If issues are found:\n` +
+  `- Fix broken nav links (nav tab points to missing screen)\n` +
+  `- Fix disconnected screens (add navigate actions to buttons)\n` +
+  `- Fix empty screens (add elements)\n` +
+  `- Fix incomplete themes (add missing colors/fonts)\n` +
+  `Do NOT ask the user to fix issues — fix them yourself with surgical tools.\n\n` +
   `## General Guidelines\n` +
   `- Call tools when you need real data. Do not guess project ids, ` +
   `screen ids, or knowledge contents.\n` +
