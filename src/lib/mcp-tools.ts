@@ -459,44 +459,51 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
   {
-    name: "send_chat_message",
+    name: "generate_app",
     description:
-      "Append a user message to a project's chat and kick off an agent-crew turn. Non-streaming — returns once the rewrite settles or the AI errors. Consumes 1 AI credit.",
+      "Generate a complete mobile app schema from a prompt. Creates screens, navigation, theme — saves directly to the project. Use this when the project has no schema or the user wants to regenerate from scratch.",
     inputSchema: {
       type: "object",
       properties: {
         project_id: { type: "string" },
-        content: { type: "string", description: "The user-side message." },
+        prompt: { type: "string", description: "Detailed description of the app to build. Include features, target audience, style preferences." },
       },
-      required: ["project_id", "content"],
+      required: ["project_id", "prompt"],
       additionalProperties: false,
     },
     async run(args, ctx) {
       const project_id = uuid(args, "project_id");
-      const content = str(args, "content").trim().slice(0, 4000);
-      if (!content) throw new Error("`content` is required.");
+      const prompt = str(args, "prompt").trim().slice(0, 4000);
+      if (!prompt) throw new Error("`prompt` is required.");
       await assertOwnsProject(ctx.userId, project_id);
 
-      // Persist the user message exactly as the studio chat does. We DON'T
-      // call sendProjectMessage directly because it's an SSE generator —
-      // collecting that into a single JSON response would require a
-      // separate runner. For v1 we record the message and return; the
-      // studio's chat will pick it up on next render.
-      const { data, error } = await supabaseAdmin
-        .from("project_messages")
-        .insert({
-          project_id,
-          user_id: ctx.userId,
-          role: "user",
-          content,
+      const { callAIStrong } = await import("./ai-provider");
+      const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
+
+      // Generate the full app schema using the strong model
+      const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, prompt);
+      if (!result.ok) throw new Error(`AI generation failed: ${result.error}`);
+
+      const schema = parseAppSchema(result.text);
+      if (!schema) throw new Error("Failed to parse generated schema. The AI output was not valid JSON.");
+
+      // Save to project
+      const { error: saveErr } = await supabaseAdmin
+        .from("projects")
+        .update({
+          result: JSON.stringify(schema),
+          updated_at: new Date().toISOString(),
         })
-        .select("id, created_at")
-        .single();
-      if (error) throw new Error(error.message);
+        .eq("id", project_id)
+        .eq("user_id", ctx.userId);
+      if (saveErr) throw new Error(saveErr.message);
+
       return {
-        message: data,
-        note:
-          "Message queued. The agent crew turn runs when the user (or you) opens the project — direct cloud trigger is on the roadmap.",
+        ok: true,
+        screen_count: schema.screens?.length ?? 0,
+        nav_type: schema.navigation?.type ?? "none",
+        theme_mode: (typeof schema.theme === "object" && schema.theme !== null ? (schema.theme as Record<string, unknown>).mode : undefined) ?? "dark",
+        model: result.model,
       };
     },
   },

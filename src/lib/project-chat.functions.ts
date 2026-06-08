@@ -35,14 +35,14 @@ const UNIFIED_AGENT_PROMPT =
   `- update_theme: change colors, fonts, spacing\n` +
   `- update_navigation: change nav type, add/remove tabs\n\n` +
   `### For creating new apps:\n` +
-  `- send_chat_message: generate a full app from a prompt\n` +
+  `- generate_app: generate a full app schema from a prompt (for new apps)\n` +
   `- create_project: create a new project\n\n` +
   `### For code generation:\n` +
   `- generate_code: AI-powered code for a single screen\n` +
   `- export_project_code: full multi-screen Expo project\n\n` +
   `## WORKFLOW\n` +
   `1. If the app already has screens → use SURGICAL tools (fast, precise)\n` +
-  `2. If creating from scratch → use send_chat_message for full generation\n` +
+  `2. If creating from scratch → use generate_app to create the full schema\n` +
   `3. verify_schema runs AUTOMATICALLY after writes — fix any issues\n` +
   `4. Respond with a SHORT summary (under 40 words)\n\n` +
   `## RULES\n` +
@@ -56,7 +56,7 @@ const AGENT_TOOLS = [
   "list_screens", "get_screen", "get_project",
   "update_screen", "add_element", "update_element", "remove_element",
   "update_theme", "update_navigation", "verify_schema",
-  "send_chat_message", "create_project",
+  "generate_app", "create_project",
   "generate_code", "export_project_code",
   "list_projects",
 ];
@@ -151,7 +151,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     const MAX_ITERS = 8;
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
-      "update_theme", "update_navigation", "send_chat_message", "create_project",
+      "update_theme", "update_navigation", "generate_app", "create_project",
     ]);
 
     for (let iter = 0; iter < MAX_ITERS; iter++) {

@@ -1312,7 +1312,7 @@ function ProjectPage() {
             update_theme: "🎨 Updating theme…",
             update_navigation: "🧭 Updating navigation…",
             verify_schema: "✅ Verifying…",
-            send_chat_message: "🤖 Generating app…",
+            generate_app: "🤖 Generating app…",
             create_project: "🆕 Creating project…",
             generate_code: "💻 Generating code…",
             export_project_code: "📦 Exporting project…",
