@@ -3,8 +3,9 @@ import { getRequest } from "@tanstack/react-start/server";
 import type { Database } from "@/integrations/supabase/types";
 
 function createUserScopedCreditClient(accessToken: string) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const p = typeof process !== "undefined" ? process.env : ({} as Record<string, string | undefined>);
+  const supabaseUrl = p.SUPABASE_URL;
+  const publishableKey = p.SUPABASE_PUBLISHABLE_KEY;
 
   if (!supabaseUrl || !publishableKey) {
     const missing = [
