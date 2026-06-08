@@ -5,9 +5,9 @@ name: e2e (PR)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
 
 # Cancel queued runs for the same PR / branch when a new push lands.
 concurrency:
@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install deps
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       # Playwright caches the browser binaries in ~/.cache/ms-playwright.
       # Cache it ourselves so cold runs aren't 60 s slower than warm ones.
