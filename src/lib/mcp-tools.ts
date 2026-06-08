@@ -565,7 +565,7 @@ export const MCP_TOOLS: McpTool[] = [
         layout: { type: "string", description: "stack|bento-grid|magazine|split-hero|full-bleed" },
         icon: { type: "string", description: "New icon name" },
         transition: { type: "string", description: "slide|fade|zoom|none" },
-        background: { type: "object", description: "Background object: { type, color?, colors?, direction?, image?, prompt?, opacity? }" },
+        background: { type: "string", description: "JSON-encoded background object: { type, color?, colors?, direction?, image?, prompt?, opacity? }" },
       },
       required: ["project_id", "screen_id"],
       additionalProperties: false,
@@ -580,7 +580,8 @@ export const MCP_TOOLS: McpTool[] = [
       if (args.layout !== undefined) screen.layout = str(args, "layout");
       if (args.icon !== undefined) screen.icon = str(args, "icon");
       if (args.transition !== undefined) screen.transition = str(args, "transition");
-      if (args.background !== undefined) screen.background = args.background;
+      const bg = obj(args, "background");
+      if (bg !== undefined) screen.background = bg;
       await saveSchema(projectId, ctx.userId, schema);
       return { ok: true, screen_id: screen.id, updated: Object.keys(args).filter(k => k !== "project_id" && k !== "screen_id") };
     },
