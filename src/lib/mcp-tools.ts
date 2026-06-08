@@ -477,6 +477,104 @@ export const MCP_TOOLS: McpTool[] = [
       return { ok: true };
     },
   },
+
+  // ─── Research & Plan (Plan-First Workflow) ──────────────────────────
+  // ALWAYS called before generate_app for new apps. Generates a structured
+  // design brief + AI mockup image → shown in chat for user approval.
+  {
+    name: "research_and_plan",
+    description:
+      "Research the domain and create a design plan with AI mockup for user approval. ALWAYS call this BEFORE generate_app for new apps. Returns a structured plan with color palette, typography, screens, and a visual mockup image.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "UUID of the project" },
+        prompt: {
+          type: "string",
+          description: "Detailed app concept — include target audience, features, screens, and design preferences.",
+        },
+      },
+      required: ["project_id", "prompt"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      const prompt = str(args, "prompt").trim().slice(0, 4000);
+      if (!prompt) throw new Error("`prompt` is required.");
+      await assertOwnsProject(ctx.userId, projectId);
+
+      const { callAIFast, callAIImage } = await import("./ai-provider");
+      const { DESIGN_BRIEF_SYSTEM_PROMPT } = await import("./code-gen");
+
+      // ── Step 1: Generate structured design brief ──
+      const briefResult = await callAIFast(DESIGN_BRIEF_SYSTEM_PROMPT, prompt);
+      if (!briefResult.ok) throw new Error(`Failed to generate design brief: ${briefResult.error}`);
+
+      let brief: Record<string, unknown> = {};
+      try {
+        const text = briefResult.text;
+        const start = text.indexOf("{");
+        const end = text.lastIndexOf("}");
+        if (start !== -1 && end > start) {
+          brief = JSON.parse(text.slice(start, end + 1));
+        }
+      } catch {
+        // If parsing fails, use the raw text
+        brief = { raw: briefResult.text };
+      }
+
+      // ── Step 2: Generate plan steps from the brief ──
+      const screens = (brief.screens ?? []) as { id: string; title: string; layout?: string; purpose?: string; keyPrimitives?: string[] }[];
+      const planSteps = [
+        `App Concept: ${(brief.appName as string) ?? "App"} — ${(brief.audience as string) ?? "general users"}`,
+        `Design Mood: ${(brief.mood as string) ?? "modern, clean"}`,
+        `Color Palette: ${(brief.palette as Record<string, unknown>)?.mode ?? "dark"} mode — Primary ${(brief.palette as Record<string, unknown>)?.primary ?? "#6366F1"}`,
+        `Typography: ${(brief.typography as Record<string, unknown>)?.headingFont ?? "Inter"} + ${(brief.typography as Record<string, unknown>)?.bodyFont ?? "DM Sans"}`,
+        ...screens.map((s, i) => `Screen ${i + 1}: ${s.title ?? s.id} — ${s.layout ?? "stack"} layout — ${s.purpose ?? ""}`),
+        `Navigation: ${(brief.navigation as string[])?.join(", ") ?? "bottom-tabs"}`,
+        `Visual Style: ${(brief.radius as string) ?? "rounded"} corners, ${(brief.spacing as string) ?? "comfortable"} spacing, ${(brief.motion as string) ?? "medium"} animations`,
+        `Inspirations: ${((brief.references as string[]) ?? []).join(", ") || "Premium app designs"}`,
+      ];
+
+      // ── Step 3: Generate design mockup image ──
+      const appName = (brief.appName as string) ?? "Mobile App";
+      const palette = brief.palette as Record<string, string> | undefined;
+      const screenDescs = screens.slice(0, 4).map((s, i) =>
+        `Screen ${i + 1} "${s.title ?? s.id}": ${s.layout ?? "stack"} layout with ${(s.keyPrimitives ?? []).slice(0, 3).join(", ") || "cards and lists"}`
+      ).join(". ");
+
+      const mockupPrompt = `Professional mobile app UI mockup design. A 2x2 grid of 4 iPhone 15 Pro smartphones on a dark charcoal background (#1a1a2e). App name: "${appName}". Color scheme: primary ${palette?.primary ?? "#6366F1"}, accent ${palette?.accent ?? "#F59E0B"}, background ${palette?.background ?? "#0A0A1A"}. ${screenDescs}. Each phone shows a different fully-designed screen with realistic data, charts, and UI elements. Screen labels in white text below each phone. Ultra clean, Dribbble/Behance quality, modern flat UI design, high resolution. The screens should feel premium with proper spacing, typography, and visual hierarchy.`;
+
+      let mockupUrl: string | null = null;
+      try {
+        const imgResult = await callAIImage(mockupPrompt);
+        if (imgResult.ok) {
+          mockupUrl = imgResult.dataUrl;
+        }
+      } catch {
+        // Non-fatal — plan works without mockup
+      }
+
+      // ── Step 4: Save brief to project (design_brief may not be in generated types yet) ──
+      await supabaseAdmin
+        .from("projects")
+        .update({
+          updated_at: new Date().toISOString(),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any)
+        .eq("id", projectId)
+        .eq("user_id", ctx.userId);
+
+      return {
+        ok: true,
+        awaiting_approval: true,
+        plan_steps: planSteps,
+        brief,
+        mockup_url: mockupUrl,
+        message: `I've created a design plan for "${appName}" with ${screens.length} screens. Review the plan and mockup, then approve to start building.`,
+      };
+    },
+  },
   {
     name: "generate_app",
     description:

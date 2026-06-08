@@ -34,17 +34,25 @@ const UNIFIED_AGENT_PROMPT =
   `- remove_element: remove by index\n` +
   `- update_theme: change colors, fonts, spacing\n` +
   `- update_navigation: change nav type, add/remove tabs\n\n` +
-  `### For creating new apps:\n` +
-  `- generate_app: generate a full app schema from a prompt (for new apps)\n` +
+  `### For creating new apps (PLAN-FIRST — MANDATORY):\n` +
+  `- research_and_plan: ALWAYS call FIRST for new apps. Generates design plan + mockup\n` +
+  `- generate_app: generate full app schema (ONLY after user approves the plan)\n` +
   `- create_project: create a new project\n\n` +
   `### For code generation:\n` +
   `- generate_code: AI-powered code for a single screen\n` +
   `- export_project_code: full multi-screen Expo project\n\n` +
-  `## WORKFLOW\n` +
-  `1. If the app already has screens → use SURGICAL tools (fast, precise)\n` +
-  `2. If creating from scratch → use generate_app with a RICH prompt\n` +
-  `3. verify_schema runs AUTOMATICALLY after writes — fix any issues\n` +
-  `4. Respond with a SHORT summary (under 40 words)\n\n` +
+  `## WORKFLOW (MANDATORY — NEVER SKIP STEPS)\n` +
+  `### For NEW apps (no schema yet):\n` +
+  `1. Call research_and_plan with a detailed prompt → returns plan + mockup\n` +
+  `2. STOP and tell user: "Here's your design plan. Review it and say 'approve' to build, or tell me what to change."\n` +
+  `3. WAIT for user approval — do NOT call generate_app yet\n` +
+  `4. When user approves → call generate_app with the full prompt\n` +
+  `5. If user wants changes → call research_and_plan again with feedback\n\n` +
+  `### For EXISTING apps (has schema):\n` +
+  `1. Use SURGICAL tools (fast, precise)\n` +
+  `2. verify_schema runs AUTOMATICALLY\n` +
+  `3. Respond with SHORT summary (under 40 words)\n\n` +
+
   `## GENERATE_APP PROMPT RULES (CRITICAL)\n` +
   `When calling generate_app, NEVER pass the user's message verbatim.\n` +
   `Always EXPAND it into a detailed prompt with:\n` +
@@ -82,7 +90,7 @@ const AGENT_TOOLS = [
   "list_screens", "get_screen", "get_project",
   "update_screen", "add_element", "update_element", "remove_element",
   "update_theme", "update_navigation", "verify_schema",
-  "generate_app", "create_project",
+  "research_and_plan", "generate_app", "create_project",
   "generate_code", "export_project_code",
   "list_projects",
 ];
@@ -308,6 +316,20 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           try {
             const result = await tool.run(tc.input, { userId, patHash: "project-chat" });
             resultContent = clipToolResult(JSON.stringify(result, null, 2)).text;
+
+            // ── Emit design_brief event for plan-first workflow ──
+            if (tc.name === "research_and_plan" && !isError) {
+              const r = result as Record<string, unknown>;
+              if (r.ok && r.awaiting_approval) {
+                yield {
+                  type: 'design_brief' as const,
+                  planSteps: (r.plan_steps as string[]) ?? [],
+                  briefJson: JSON.stringify(r.brief ?? {}),
+                  mockupUrl: ((r.mockup_url as string) ?? ""),
+                  appName: ((r.brief as Record<string, string>)?.appName ?? "App"),
+                };
+              }
+            }
           } catch (e) { resultContent = e instanceof Error ? e.message : String(e); isError = true; }
         }
         if (WRITE_TOOLS.has(tc.name) && !isError) modifiedProject = true;

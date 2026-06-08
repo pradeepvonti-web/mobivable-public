@@ -137,9 +137,10 @@ import { AssetsPanel } from "@/components/studio/AssetsPanel";
 import { KnowledgeDialog } from "@/components/studio/KnowledgeDialog";
 import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
 import TemplateGallery from "@/components/TemplateGallery";
+import { DesignBriefCard } from "@/components/DesignBriefCard";
 
 // ── Conversation branching types (inspired by Dyad) ───────────────────
-type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string; collapsed?: boolean };
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string; collapsed?: boolean; designBrief?: Record<string, unknown>; mockupUrl?: string | null; planSteps?: string[]; briefAppName?: string };
 type ConversationBranch = {
   id: string;
   label: string;
@@ -1294,6 +1295,27 @@ function ProjectPage() {
             ...prev,
             { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
           ]);
+        } else if ((event as { type: string }).type === "design_brief") {
+          // ── Plan-First: Show design brief card ──
+          const ev = event as { planSteps: string[]; briefJson: string; mockupUrl: string; appName: string };
+          let parsedBrief: Record<string, unknown> = {};
+          try { parsedBrief = JSON.parse(ev.briefJson); } catch { /* */ }
+          const briefId = `${tempId}-brief-${Date.now()}`;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: briefId,
+              role: "assistant",
+              content: "",
+              designBrief: parsedBrief,
+              mockupUrl: ev.mockupUrl || null,
+              planSteps: ev.planSteps ?? [],
+              briefAppName: ev.appName ?? "App",
+              agentName: "Plan Creator",
+              agentRole: "developer" as AgentRole,
+            },
+          ]);
+          scrollToBottom();
         } else if (event.type === "project_updated") {
           await reloadProject();
           scrollToBottom();
@@ -1312,6 +1334,7 @@ function ProjectPage() {
             update_theme: "🎨 Updating theme…",
             update_navigation: "🧭 Updating navigation…",
             verify_schema: "✅ Verifying…",
+            research_and_plan: "🔬 Researching & planning…",
             generate_app: "🤖 Generating app…",
             create_project: "🆕 Creating project…",
             generate_code: "💻 Generating code…",
@@ -2457,6 +2480,23 @@ function ProjectPage() {
                           </div>
                           <span className="text-xs font-mono uppercase tracking-wider text-primary/70">Working…</span>
                         </div>
+                      ) : m.designBrief ? (
+                        /* Plan-First: Design Brief Card */
+                        <DesignBriefCard
+                          appName={m.briefAppName ?? "App"}
+                          planSteps={m.planSteps ?? []}
+                          brief={m.designBrief}
+                          mockupUrl={m.mockupUrl ?? null}
+                          onApprove={() => {
+                            handleSend(undefined, "Approved! Build the app exactly as planned.");
+                          }}
+                          onEdit={(feedback) => {
+                            handleSend(undefined, `Update the plan: ${feedback}`);
+                          }}
+                          onRegenerate={() => {
+                            handleSend(undefined, "Create a completely new design plan with different style and approach.");
+                          }}
+                        />
                       ) : (
                         /* #3: Collapsible card — collapsed by default */
                         <div>
