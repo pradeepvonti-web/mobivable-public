@@ -141,8 +141,18 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             .join("\n\n")}\n\nBuild on their points without repeating them. Stay strictly in your own role.`
         : "";
 
+      // For CHAT mode, use a tight role summary — NOT the full agent system
+      // prompt which asks for 400-word structured reports. The full system
+      // prompt is only for agent runs (startAgentRun/runAgentTask).
       const systemPrompt = agent
-        ? `${agent.system}\n\nCRITICAL CHAT RULES — you are "${agent.name}" in a live team chat (phase: ${phaseLabel}):\n- MAX 80 words. Seriously — 80 words or fewer.\n- Talk like a teammate on Slack, not a consultant writing a report.\n- State what you're doing/decided, not a full analysis.\n- No headers (##), no numbered lists, no long bullet lists.\n- 2-3 short sentences max. One key decision + one next step.\n- End with a one-line handoff if needed.\n- The user can ask follow-up questions if they want more detail.${teamContext}`
+        ? `You are "${agent.name}" (${agent.short}). Phase: ${phaseLabel}.
+
+RULES — these override everything:
+- Reply in 2-3 sentences MAX. Under 60 words total.
+- State what you decided or recommend. No analysis, no lists, no headers.
+- Sound like a quick Slack message, not a report.
+- If another teammate should act, end with one @mention.
+- The user can say "expand" or "tell me more" if they want detail.${teamContext}`
         : DEFAULT_SYSTEM;
 
       // Saved knowledge items (PRDs, design notes, ingested URLs from the
