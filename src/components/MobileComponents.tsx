@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { type MIconName } from "@/lib/mobile-app-schema";
 import {
   Home, Search, User, Settings, Bell, Heart, Star, Plus, Minus, Check, X,
@@ -177,7 +178,7 @@ export function StatRow({ stats }: {
   );
 }
 
-/* ─── Action Button ──────────────────────────────────── */
+/* ─── Action Button (interactive with press feedback) ── */
 export function MobileButton({
   label, icon, variant = "primary", fullWidth = true,
 }: {
@@ -185,6 +186,7 @@ export function MobileButton({
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
   size?: "sm" | "md" | "lg"; fullWidth?: boolean;
 }) {
+  const [pressed, setPressed] = useState(false);
   const styles: Record<string, React.CSSProperties> = {
     primary: { background: "var(--m-primary)", color: "#fff", border: "none" },
     secondary: { background: "var(--m-card)", color: "var(--m-text)", border: "1px solid var(--m-border)" },
@@ -199,8 +201,14 @@ export function MobileButton({
       display: "flex", alignItems: "center", justifyContent: "center",
       gap: 8, padding: "14px 20px", borderRadius: 14, fontSize: 14,
       fontWeight: 600, cursor: "pointer", width: fullWidth ? "100%" : "auto",
-      transition: "opacity 0.2s",
-    }}>
+      transition: "all 0.15s ease",
+      transform: pressed ? "scale(0.97)" : "scale(1)",
+      opacity: pressed ? 0.85 : 1,
+    }}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+    >
       {icon && <MIcon name={icon as MIconName} size={16} />}
       {label}
     </button>
@@ -255,32 +263,71 @@ export function ActivityFeed({
   );
 }
 
-/* ─── Search Bar ─────────────────────────────────────── */
+/* ─── Search Bar (interactive with real input) ────────── */
 export function MSearchBar({ placeholder }: { placeholder?: string }) {
+  const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 8,
       padding: "10px 14px", borderRadius: 12,
-      background: "var(--m-card)", border: "1px solid var(--m-border)",
+      background: "var(--m-card)",
+      border: focused ? "1px solid var(--m-primary)" : "1px solid var(--m-border)",
+      transition: "border-color 0.2s",
     }}>
       <MIcon name="search" size={14} />
-      <span style={{ fontSize: 13, color: "var(--m-muted)" }}>{placeholder ?? "Search..."}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder ?? "Search..."}
+        style={{
+          flex: 1, border: "none", outline: "none", background: "transparent",
+          fontSize: 13, color: "var(--m-text)", fontFamily: "inherit",
+        }}
+      />
+      {value && (
+        <button type="button" onClick={() => setValue("")} style={{
+          border: "none", background: "none", cursor: "pointer", padding: 0,
+          color: "var(--m-muted)", display: "grid", placeItems: "center",
+        }}>
+          <MIcon name="x" size={12} />
+        </button>
+      )}
     </div>
   );
 }
 
-/* ─── Mobile Input ───────────────────────────────────── */
+/* ─── Mobile Input (interactive with real typing) ────── */
 export function MobileInput({ placeholder, label, icon }: { placeholder: string; label?: string; icon?: MIconName | string }) {
+  const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
   return (
     <div>
-      {label && <label style={{ fontSize: 11, fontWeight: 500, color: "var(--m-muted)", marginBottom: 4, display: "block" }}>{label}</label>}
+      {label && <label style={{ fontSize: 11, fontWeight: 500, color: focused ? "var(--m-primary)" : "var(--m-muted)", marginBottom: 4, display: "block", transition: "color 0.2s" }}>{label}</label>}
       <div style={{
         display: "flex", alignItems: "center", gap: 8,
         padding: "12px 14px", borderRadius: 12,
-        background: "var(--m-card)", border: "1px solid var(--m-border)",
+        background: "var(--m-card)",
+        border: focused ? "1.5px solid var(--m-primary)" : "1px solid var(--m-border)",
+        transition: "border-color 0.2s, box-shadow 0.2s",
+        boxShadow: focused ? "0 0 0 3px color-mix(in srgb, var(--m-primary) 15%, transparent)" : "none",
       }}>
         {icon && <MIcon name={icon as MIconName} size={14} />}
-        <span style={{ fontSize: 13, color: "var(--m-muted)" }}>{placeholder}</span>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          style={{
+            flex: 1, border: "none", outline: "none", background: "transparent",
+            fontSize: 13, color: "var(--m-text)", fontFamily: "inherit",
+          }}
+        />
       </div>
     </div>
   );
@@ -395,23 +442,30 @@ export function SectionHeader({ title, action }: { title: string; subtitle?: str
   );
 }
 
-/* ─── Toggle ─────────────────────────────────────────── */
-export function MobileToggle({ label, checked, subtitle }: { label: string; checked?: boolean; subtitle?: string }) {
+/* ─── Toggle (interactive with click-to-toggle) ──────── */
+export function MobileToggle({ label, checked: initialChecked, subtitle }: { label: string; checked?: boolean; subtitle?: string }) {
+  const [on, setOn] = useState(initialChecked ?? false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{label}</div>
         {subtitle && <div style={{ fontSize: 10, color: "var(--m-muted)", marginTop: 2 }}>{subtitle}</div>}
       </div>
-      <div style={{
-        width: 44, height: 24, borderRadius: 12, padding: 2,
-        background: checked ? "var(--m-primary)" : "var(--m-border)",
-        transition: "background 0.2s", cursor: "pointer",
-      }}>
+      <div
+        role="switch"
+        aria-checked={on}
+        onClick={() => setOn(!on)}
+        style={{
+          width: 44, height: 24, borderRadius: 12, padding: 2,
+          background: on ? "var(--m-primary)" : "var(--m-border)",
+          transition: "background 0.25s ease", cursor: "pointer",
+        }}
+      >
         <div style={{
           width: 20, height: 20, borderRadius: "50%", background: "#fff",
-          transform: checked ? "translateX(20px)" : "translateX(0)",
-          transition: "transform 0.2s",
+          transform: on ? "translateX(20px)" : "translateX(0)",
+          transition: "transform 0.25s ease",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
         }} />
       </div>
     </div>

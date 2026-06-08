@@ -14,6 +14,107 @@ import {
   FeatureShowcase, Testimonial, PricingCard, OnboardingSlide,
 } from "./MobileComponents";
 
+/* ─── Interactive Form Helpers (local state for preview) ─────── */
+
+function InteractiveCheckbox({ items }: { items: { label: string; checked?: boolean; description?: string }[] }) {
+  const [checked, setChecked] = useState<boolean[]>(() => items.map(i => i.checked ?? false));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          onClick={() => setChecked(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
+          style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
+            background: checked[i] ? "var(--m-primary)" : "transparent",
+            border: checked[i] ? "none" : "2px solid var(--m-border)",
+            display: "grid", placeItems: "center",
+            transition: "all 0.2s ease",
+          }}>
+            {checked[i] && <MIcon name="check" size={13} />}
+          </div>
+          <div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{item.label}</span>
+            {item.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{item.description}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InteractiveRadioGroup({ label, options, selectedValue }: {
+  label?: string; options: { value: string; label: string; description?: string }[]; selectedValue?: string;
+}) {
+  const [selected, setSelected] = useState<string>(selectedValue ?? "");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {label && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", marginBottom: 2 }}>{label}</label>}
+      {options.map((opt, i) => {
+        const isSelected = opt.value === selected;
+        return (
+          <div key={i} onClick={() => setSelected(opt.value)} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+              border: isSelected ? "none" : "2px solid var(--m-border)",
+              background: isSelected ? "var(--m-primary)" : "transparent",
+              display: "grid", placeItems: "center",
+              transition: "all 0.2s ease",
+            }}>
+              {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+            </div>
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{opt.label}</span>
+              {opt.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{opt.description}</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function InteractiveTextarea({ label, placeholder, value: initialValue, rows = 4, helper, maxLength }: {
+  label?: string; placeholder?: string; value?: string; rows?: number; helper?: string; maxLength?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [k: string]: any;
+}) {
+  const [value, setValue] = useState(initialValue ?? "");
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      {label && <label style={{ fontSize: 12, fontWeight: 500, color: focused ? "var(--m-primary)" : "var(--m-text)", display: "block", marginBottom: 4, transition: "color 0.2s" }}>{label}</label>}
+      <textarea
+        value={value}
+        onChange={(e) => setValue(maxLength ? e.target.value.slice(0, maxLength) : e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder ?? ""}
+        rows={rows}
+        style={{
+          width: "100%", padding: "10px 14px", borderRadius: 10,
+          border: focused ? "1.5px solid var(--m-primary)" : "1px solid var(--m-border)",
+          background: "var(--m-card)", fontSize: 13, color: "var(--m-text)",
+          fontFamily: "inherit", resize: "vertical", outline: "none",
+          lineHeight: 1.5, minHeight: rows * 20,
+          boxShadow: focused ? "0 0 0 3px color-mix(in srgb, var(--m-primary) 15%, transparent)" : "none",
+          transition: "border-color 0.2s, box-shadow 0.2s",
+        }}
+      />
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        {helper && <span style={{ fontSize: 10, color: "var(--m-muted)" }}>{helper}</span>}
+        {maxLength != null && (
+          <span style={{ fontSize: 10, color: value.length >= maxLength ? "var(--m-danger)" : "var(--m-muted)", marginLeft: "auto" }}>
+            {value.length}/{maxLength}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 /** Map shadow size to CSS box-shadow value */
 const SHADOW_MAP: Record<string, string> = {
@@ -748,78 +849,13 @@ function renderElementInner(el: MElement): React.ReactNode {
       );
     }
     case "checkbox": {
-      const { items = [] } = el.props;
-      return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {items.map((item: { label: string; checked?: boolean; description?: string }, i: number) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-              <div style={{
-                width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
-                background: item.checked ? "var(--m-primary)" : "transparent",
-                border: item.checked ? "none" : "2px solid var(--m-border)",
-                display: "grid", placeItems: "center",
-              }}>
-                {item.checked && <MIcon name="check" size={13} />}
-              </div>
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{item.label}</span>
-                {item.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{item.description}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      );
+      return <InteractiveCheckbox items={el.props.items ?? []} />;
     }
     case "radio-group": {
-      const { label: rgLabel, options = [], selectedValue: rgSelected } = el.props;
-      return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {rgLabel && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", marginBottom: 2 }}>{rgLabel}</label>}
-          {options.map((opt: { value: string; label: string; description?: string }, i: number) => {
-            const isSelected = opt.value === rgSelected;
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-                <div style={{
-                  width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
-                  border: isSelected ? "none" : "2px solid var(--m-border)",
-                  background: isSelected ? "var(--m-primary)" : "transparent",
-                  display: "grid", placeItems: "center",
-                }}>
-                  {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
-                </div>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--m-text)" }}>{opt.label}</span>
-                  {opt.description && <p style={{ fontSize: 11, color: "var(--m-muted)", margin: "2px 0 0" }}>{opt.description}</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
+      return <InteractiveRadioGroup label={el.props.label} options={el.props.options ?? []} selectedValue={el.props.selectedValue} />;
     }
     case "textarea": {
-      const { label: taLabel, placeholder: taPlaceholder, value: taValue, rows = 4, helper, maxLength } = el.props;
-      const charCount = (taValue ?? "").length;
-      return (
-        <div>
-          {taLabel && <label style={{ fontSize: 12, fontWeight: 500, color: "var(--m-text)", display: "block", marginBottom: 4 }}>{taLabel}</label>}
-          <div style={{
-            padding: "10px 14px", borderRadius: 10,
-            border: "1px solid var(--m-border)", background: "var(--m-card)",
-            minHeight: rows * 20,
-          }}>
-            <span style={{ fontSize: 13, color: taValue ? "var(--m-text)" : "var(--m-muted)", lineHeight: 1.5 }}>
-              {taValue ?? taPlaceholder ?? ""}
-            </span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            {helper && <span style={{ fontSize: 10, color: "var(--m-muted)" }}>{helper}</span>}
-            {maxLength != null && (
-              <span style={{ fontSize: 10, color: "var(--m-muted)", marginLeft: "auto" }}>{charCount}/{maxLength}</span>
-            )}
-          </div>
-        </div>
-      );
+      return <InteractiveTextarea {...el.props} />;
     }
     case "swipe-card": {
       const { cards = [], showActions = true } = el.props;
