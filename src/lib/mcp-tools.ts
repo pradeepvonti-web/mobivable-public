@@ -752,8 +752,8 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         project_id: { type: "string" },
         type: { type: "string", description: "bottom-tabs|drawer|floating-bottom|top-tabs|none" },
-        items: { type: "array", description: "Array of { screen, label, icon }" },
-        navStyle: { type: "object", description: "{ background?, activeColor?, inactiveColor?, blur? }" },
+        items: { type: "string", description: "JSON-encoded array of { screen, label, icon }" },
+        navStyle: { type: "string", description: "JSON-encoded { background?, activeColor?, inactiveColor?, blur? }" },
         showLabels: { type: "boolean" },
       },
       required: ["project_id"],
@@ -766,8 +766,10 @@ export const MCP_TOOLS: McpTool[] = [
       if (!schema.navigation) schema.navigation = { type: "bottom-tabs", items: [] };
       const updated: string[] = [];
       if (args.type !== undefined) { schema.navigation.type = str(args, "type"); updated.push("type"); }
-      if (args.items !== undefined) { schema.navigation.items = args.items; updated.push("items"); }
-      if (args.navStyle !== undefined) { schema.navigation.navStyle = args.navStyle; updated.push("navStyle"); }
+      const items = arr(args, "items");
+      if (items) { schema.navigation.items = items; updated.push("items"); }
+      const ns = obj(args, "navStyle");
+      if (ns) { schema.navigation.navStyle = ns; updated.push("navStyle"); }
       if (args.showLabels !== undefined) { schema.navigation.showLabels = bool(args, "showLabels"); updated.push("showLabels"); }
       await saveSchema(projectId, ctx.userId, schema);
       return { ok: true, updated_fields: updated, nav_type: schema.navigation.type, tab_count: schema.navigation.items?.length ?? 0 };
