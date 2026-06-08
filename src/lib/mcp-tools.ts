@@ -707,9 +707,9 @@ export const MCP_TOOLS: McpTool[] = [
         muted: { type: "string", description: "#hex color" },
         border: { type: "string", description: "#hex color" },
         mode: { type: "string", description: "dark|light" },
-        gradient: { type: "array", description: "[#hex, #hex]" },
-        typography: { type: "object", description: "{ headingFont?, bodyFont?, displayFont?, scale? }" },
-        motion: { type: "object", description: "{ duration?, easing?, intensity? }" },
+        gradient: { type: "string", description: "JSON-encoded array like [\"#hex\", \"#hex\"]" },
+        typography: { type: "string", description: "JSON-encoded { headingFont?, bodyFont?, displayFont?, scale? }" },
+        motion: { type: "string", description: "JSON-encoded { duration?, easing?, intensity? }" },
       },
       required: ["project_id"],
       additionalProperties: false,
@@ -719,20 +719,24 @@ export const MCP_TOOLS: McpTool[] = [
       await assertOwnsProject(ctx.userId, projectId);
       const schema = await loadSchema(projectId);
       if (!schema.theme) schema.theme = {};
-      const themeFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode", "gradient"];
+      const scalarFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode"];
       const updated: string[] = [];
-      for (const f of themeFields) {
+      for (const f of scalarFields) {
         if (args[f] !== undefined) {
           schema.theme[f] = args[f];
           updated.push(f);
         }
       }
-      if (args.typography) {
-        schema.theme.typography = { ...(schema.theme.typography ?? {}), ...(args.typography as Record<string, unknown>) };
+      const g = arr(args, "gradient");
+      if (g) { schema.theme.gradient = g; updated.push("gradient"); }
+      const typo = obj(args, "typography");
+      if (typo) {
+        schema.theme.typography = { ...(schema.theme.typography ?? {}), ...typo };
         updated.push("typography");
       }
-      if (args.motion) {
-        schema.theme.motion = { ...(schema.theme.motion ?? {}), ...(args.motion as Record<string, unknown>) };
+      const mo = obj(args, "motion");
+      if (mo) {
+        schema.theme.motion = { ...(schema.theme.motion ?? {}), ...mo };
         updated.push("motion");
       }
       await saveSchema(projectId, ctx.userId, schema);
