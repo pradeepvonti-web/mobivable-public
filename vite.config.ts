@@ -36,5 +36,10 @@ export default defineConfig({
   },
   vite: {
     plugins: [restartOnDepsChange()],
+    define: {
+      // Prevent "process is not defined" crashes when server function files
+      // are partially evaluated by the Vite client bundler.
+      "process.env": "globalThis.process?.env ?? {}",
+    },
   },
 });
