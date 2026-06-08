@@ -630,9 +630,9 @@ export const MCP_TOOLS: McpTool[] = [
         project_id: { type: "string" },
         screen_id: { type: "string" },
         element_index: { type: "integer", description: "0-based index of the element on the screen." },
-        props: { type: "object", description: "Props to merge into the element's existing props." },
-        style: { type: "object", description: "Style overrides to merge." },
-        action: { type: "object", description: "Action to set (navigate, sheet, dialog, url, dismiss)." },
+        props: { type: "string", description: "JSON-encoded props object to merge." },
+        style: { type: "string", description: "JSON-encoded style overrides to merge." },
+        action: { type: "string", description: "JSON-encoded action object (navigate, sheet, dialog, url, dismiss)." },
         entrance: { type: "string", description: "Entrance animation: fade-up|fade-in|scale-in|slide-left|pop|blur-in|none" },
         gesture: { type: "string", description: "Gesture: tap-scale|press-glow|swipe-hint" },
       },
@@ -650,9 +650,12 @@ export const MCP_TOOLS: McpTool[] = [
         throw new Error(`Element index ${idx} out of range (screen has ${screen.elements?.length ?? 0} elements).`);
       }
       const el = screen.elements[idx];
-      if (args.props) el.props = { ...(el.props ?? {}), ...(args.props as Record<string, unknown>) };
-      if (args.style) el.style = { ...(el.style ?? {}), ...(args.style as Record<string, unknown>) };
-      if (args.action !== undefined) el.action = args.action;
+      const p = obj(args, "props");
+      const s = obj(args, "style");
+      const a = obj(args, "action");
+      if (p) el.props = { ...(el.props ?? {}), ...p };
+      if (s) el.style = { ...(el.style ?? {}), ...s };
+      if (a !== undefined) el.action = a;
       if (args.entrance !== undefined) el.entrance = str(args, "entrance");
       if (args.gesture !== undefined) el.gesture = str(args, "gesture");
       await saveSchema(projectId, ctx.userId, schema);
