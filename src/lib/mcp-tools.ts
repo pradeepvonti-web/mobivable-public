@@ -578,7 +578,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "generate_app",
     description:
-      "Generate a complete mobile app schema from a prompt. Creates screens, navigation, theme — saves directly to the project. Use this when the project has no schema or the user wants to regenerate from scratch.",
+      "Generate a complete mobile app schema from a prompt. ⚠️ REQUIRES research_and_plan to be called first and user approval — this tool is LOCKED until then. Creates screens, navigation, theme — saves directly to the project.",
     inputSchema: {
       type: "object",
       properties: {

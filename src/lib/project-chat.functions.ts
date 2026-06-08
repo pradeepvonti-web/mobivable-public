@@ -155,6 +155,23 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     // Build conversation
     const hasSchema = !!(project.result && project.result.length > 50);
+
+    // ── PLAN-FIRST ENFORCEMENT ──────────────────────────────────────
+    // Check if user has an approved plan in recent history.
+    // A plan is "approved" if:
+    //   1. A research_and_plan tool was called in prior messages, AND
+    //   2. User responded with approval ("approve", "yes", "go", "build", "looks good", etc.)
+    const historyTexts = (history ?? []).map(h => h.content?.toLowerCase() ?? "");
+    const hadPlanInHistory = historyTexts.some(t =>
+      t.includes("design plan") || t.includes("research_and_plan") ||
+      t.includes("awaiting_approval") || t.includes("plan_steps")
+    );
+    const userApproved = historyTexts.some(t =>
+      /\b(approve|approved|looks good|go ahead|build it|yes|let'?s go|proceed|start building|lgtm)\b/i.test(t)
+    );
+    const currentMsgApproves = /\b(approve|approved|looks good|go ahead|build it|yes|let'?s go|proceed|start building|lgtm)\b/i.test(data.content.toLowerCase());
+    let planApprovedInSession = hadPlanInHistory && (userApproved || currentMsgApproves);
+
     const msgs: AgentMsg[] = [
       { role: "system", content: UNIFIED_AGENT_PROMPT },
       {
@@ -163,7 +180,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           `PROJECT CONTEXT:`,
           `- project_id: ${project.id}`,
           `- App name/idea: ${project.prompt}`,
-          hasSchema ? `- The app HAS a schema with screens. Prefer surgical tools for edits.` : `- The app has NO schema yet. Use send_chat_message to generate.`,
+          hasSchema
+            ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
+            : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
+          !hasSchema && !planApprovedInSession
+            ? `\n⚠️ IMPORTANT: generate_app is LOCKED until you call research_and_plan and the user approves the plan. Do NOT try to call generate_app directly.`
+            : "",
           knowledgeBlock ? `\n${knowledgeBlock}` : "",
         ].filter(Boolean).join("\n"),
       },
@@ -177,9 +199,15 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     msgs.push({ role: "user", content: data.content });
 
     // Filter tools to agent-relevant ones
+    // PLAN-FIRST GATE: When no schema and no approved plan, REMOVE generate_app from tools
+    // so the model is FORCED to call research_and_plan first.
+    const allowedTools = !hasSchema && !planApprovedInSession
+      ? AGENT_TOOLS.filter(t => t !== "generate_app")
+      : AGENT_TOOLS;
+
     const agentTools = {
-      anthropic: mcpToolsAsAnthropic().filter(t => AGENT_TOOLS.includes(t.name)),
-      openai: mcpToolsAsOpenAI().filter(t => AGENT_TOOLS.includes(t.function.name)),
+      anthropic: mcpToolsAsAnthropic().filter(t => allowedTools.includes(t.name)),
+      openai: mcpToolsAsOpenAI().filter(t => allowedTools.includes(t.function.name)),
     };
 
     const MAX_ITERS = 8;
@@ -307,6 +335,15 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       // Run tools
       let modifiedProject = false;
       for (const tc of completedTools) {
+        // ── HARD GATE: Block generate_app if plan wasn't approved ──
+        if (tc.name === "generate_app" && !hasSchema && !planApprovedInSession) {
+          const blockMsg = "BLOCKED: You must call research_and_plan first and wait for user approval before calling generate_app. Call research_and_plan now with a detailed prompt.";
+          msgs.push({ role: "tool", tool_call_id: tc.id, name: tc.name, content: blockMsg, is_error: true });
+          yield { type: 'tool_call' as const, name: tc.name, argsJson: JSON.stringify(tc.input) };
+          yield { type: 'tool_done' as const, toolName: tc.name, success: false };
+          continue;
+        }
+
         yield { type: 'tool_call' as const, name: tc.name, argsJson: JSON.stringify(tc.input) };
         const tool = getMcpTool(tc.name);
         let resultContent: string;
@@ -321,6 +358,8 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             if (tc.name === "research_and_plan" && !isError) {
               const r = result as Record<string, unknown>;
               if (r.ok && r.awaiting_approval) {
+                // After plan is generated, unlock generate_app for next iteration
+                // (but still require user approval — the model should STOP here)
                 yield {
                   type: 'design_brief' as const,
                   planSteps: (r.plan_steps as string[]) ?? [],
@@ -328,7 +367,16 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
                   mockupUrl: ((r.mockup_url as string) ?? ""),
                   appName: ((r.brief as Record<string, string>)?.appName ?? "App"),
                 };
+                // Note: planApprovedInSession stays false here — the model
+                // should STOP and wait for user to approve in a follow-up message.
+                // generate_app will be available in the NEXT conversation turn
+                // after user sends "approve".
               }
+            }
+
+            // If user approved and generate_app just ran, mark plan as used
+            if (tc.name === "generate_app" && !isError) {
+              planApprovedInSession = true;
             }
           } catch (e) { resultContent = e instanceof Error ? e.message : String(e); isError = true; }
         }
