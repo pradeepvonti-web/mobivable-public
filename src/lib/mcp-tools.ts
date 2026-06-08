@@ -54,6 +54,25 @@ function num(args: Record<string, unknown>, key: string, def = 0): number {
   const v = args[key];
   return typeof v === "number" && Number.isFinite(v) ? v : def;
 }
+/** Coerce a tool arg that may arrive as either an object or a JSON string. */
+function obj(args: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  const v = args[key];
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
+  if (typeof v === "string") {
+    try { const p = JSON.parse(v); return p && typeof p === "object" && !Array.isArray(p) ? p : undefined; } catch { return undefined; }
+  }
+  return undefined;
+}
+function arr(args: Record<string, unknown>, key: string): unknown[] | undefined {
+  const v = args[key];
+  if (v === undefined || v === null) return undefined;
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    try { const p = JSON.parse(v); return Array.isArray(p) ? p : undefined; } catch { return undefined; }
+  }
+  return undefined;
+}
 function uuid(args: Record<string, unknown>, key: string): string {
   const v = str(args, key);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) {
