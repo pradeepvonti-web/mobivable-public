@@ -595,7 +595,7 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         project_id: { type: "string" },
         screen_id: { type: "string" },
-        element: { type: "object", description: "Full element object: { type, props, style?, action?, entrance?, gesture?, span?, margin? }" },
+        element: { type: "string", description: "JSON-encoded element object: { type, props, style?, action?, entrance?, gesture?, span?, margin? }" },
         position: { type: "integer", description: "Insert index (0-based). Omit or -1 to append at end." },
       },
       required: ["project_id", "screen_id", "element"],
@@ -608,7 +608,7 @@ export const MCP_TOOLS: McpTool[] = [
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       if (!Array.isArray(screen.elements)) screen.elements = [];
-      const el = args.element as Record<string, unknown>;
+      const el = obj(args, "element");
       if (!el?.type) throw new Error("`element.type` is required.");
       const pos = num(args, "position", -1);
       if (pos >= 0 && pos < screen.elements.length) {
