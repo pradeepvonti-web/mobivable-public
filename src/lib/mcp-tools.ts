@@ -54,6 +54,25 @@ function num(args: Record<string, unknown>, key: string, def = 0): number {
   const v = args[key];
   return typeof v === "number" && Number.isFinite(v) ? v : def;
 }
+/** Coerce a tool arg that may arrive as either an object or a JSON string. */
+function obj(args: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  const v = args[key];
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
+  if (typeof v === "string") {
+    try { const p = JSON.parse(v); return p && typeof p === "object" && !Array.isArray(p) ? p : undefined; } catch { return undefined; }
+  }
+  return undefined;
+}
+function arr(args: Record<string, unknown>, key: string): unknown[] | undefined {
+  const v = args[key];
+  if (v === undefined || v === null) return undefined;
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    try { const p = JSON.parse(v); return Array.isArray(p) ? p : undefined; } catch { return undefined; }
+  }
+  return undefined;
+}
 function uuid(args: Record<string, unknown>, key: string): string {
   const v = str(args, key);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) {
@@ -546,7 +565,7 @@ export const MCP_TOOLS: McpTool[] = [
         layout: { type: "string", description: "stack|bento-grid|magazine|split-hero|full-bleed" },
         icon: { type: "string", description: "New icon name" },
         transition: { type: "string", description: "slide|fade|zoom|none" },
-        background: { type: "object", description: "Background object: { type, color?, colors?, direction?, image?, prompt?, opacity? }" },
+        background: { type: "string", description: "JSON-encoded background object: { type, color?, colors?, direction?, image?, prompt?, opacity? }" },
       },
       required: ["project_id", "screen_id"],
       additionalProperties: false,
@@ -561,7 +580,8 @@ export const MCP_TOOLS: McpTool[] = [
       if (args.layout !== undefined) screen.layout = str(args, "layout");
       if (args.icon !== undefined) screen.icon = str(args, "icon");
       if (args.transition !== undefined) screen.transition = str(args, "transition");
-      if (args.background !== undefined) screen.background = args.background;
+      const bg = obj(args, "background");
+      if (bg !== undefined) screen.background = bg;
       await saveSchema(projectId, ctx.userId, schema);
       return { ok: true, screen_id: screen.id, updated: Object.keys(args).filter(k => k !== "project_id" && k !== "screen_id") };
     },
@@ -575,7 +595,7 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         project_id: { type: "string" },
         screen_id: { type: "string" },
-        element: { type: "object", description: "Full element object: { type, props, style?, action?, entrance?, gesture?, span?, margin? }" },
+        element: { type: "string", description: "JSON-encoded element object: { type, props, style?, action?, entrance?, gesture?, span?, margin? }" },
         position: { type: "integer", description: "Insert index (0-based). Omit or -1 to append at end." },
       },
       required: ["project_id", "screen_id", "element"],
@@ -588,7 +608,7 @@ export const MCP_TOOLS: McpTool[] = [
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       if (!Array.isArray(screen.elements)) screen.elements = [];
-      const el = args.element as Record<string, unknown>;
+      const el = obj(args, "element");
       if (!el?.type) throw new Error("`element.type` is required.");
       const pos = num(args, "position", -1);
       if (pos >= 0 && pos < screen.elements.length) {
@@ -610,9 +630,9 @@ export const MCP_TOOLS: McpTool[] = [
         project_id: { type: "string" },
         screen_id: { type: "string" },
         element_index: { type: "integer", description: "0-based index of the element on the screen." },
-        props: { type: "object", description: "Props to merge into the element's existing props." },
-        style: { type: "object", description: "Style overrides to merge." },
-        action: { type: "object", description: "Action to set (navigate, sheet, dialog, url, dismiss)." },
+        props: { type: "string", description: "JSON-encoded props object to merge." },
+        style: { type: "string", description: "JSON-encoded style overrides to merge." },
+        action: { type: "string", description: "JSON-encoded action object (navigate, sheet, dialog, url, dismiss)." },
         entrance: { type: "string", description: "Entrance animation: fade-up|fade-in|scale-in|slide-left|pop|blur-in|none" },
         gesture: { type: "string", description: "Gesture: tap-scale|press-glow|swipe-hint" },
       },
@@ -630,9 +650,12 @@ export const MCP_TOOLS: McpTool[] = [
         throw new Error(`Element index ${idx} out of range (screen has ${screen.elements?.length ?? 0} elements).`);
       }
       const el = screen.elements[idx];
-      if (args.props) el.props = { ...(el.props ?? {}), ...(args.props as Record<string, unknown>) };
-      if (args.style) el.style = { ...(el.style ?? {}), ...(args.style as Record<string, unknown>) };
-      if (args.action !== undefined) el.action = args.action;
+      const p = obj(args, "props");
+      const s = obj(args, "style");
+      const a = obj(args, "action");
+      if (p) el.props = { ...(el.props ?? {}), ...p };
+      if (s) el.style = { ...(el.style ?? {}), ...s };
+      if (a !== undefined) el.action = a;
       if (args.entrance !== undefined) el.entrance = str(args, "entrance");
       if (args.gesture !== undefined) el.gesture = str(args, "gesture");
       await saveSchema(projectId, ctx.userId, schema);
@@ -684,9 +707,9 @@ export const MCP_TOOLS: McpTool[] = [
         muted: { type: "string", description: "#hex color" },
         border: { type: "string", description: "#hex color" },
         mode: { type: "string", description: "dark|light" },
-        gradient: { type: "array", description: "[#hex, #hex]" },
-        typography: { type: "object", description: "{ headingFont?, bodyFont?, displayFont?, scale? }" },
-        motion: { type: "object", description: "{ duration?, easing?, intensity? }" },
+        gradient: { type: "string", description: "JSON-encoded array like [\"#hex\", \"#hex\"]" },
+        typography: { type: "string", description: "JSON-encoded { headingFont?, bodyFont?, displayFont?, scale? }" },
+        motion: { type: "string", description: "JSON-encoded { duration?, easing?, intensity? }" },
       },
       required: ["project_id"],
       additionalProperties: false,
@@ -696,20 +719,24 @@ export const MCP_TOOLS: McpTool[] = [
       await assertOwnsProject(ctx.userId, projectId);
       const schema = await loadSchema(projectId);
       if (!schema.theme) schema.theme = {};
-      const themeFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode", "gradient"];
+      const scalarFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode"];
       const updated: string[] = [];
-      for (const f of themeFields) {
+      for (const f of scalarFields) {
         if (args[f] !== undefined) {
           schema.theme[f] = args[f];
           updated.push(f);
         }
       }
-      if (args.typography) {
-        schema.theme.typography = { ...(schema.theme.typography ?? {}), ...(args.typography as Record<string, unknown>) };
+      const g = arr(args, "gradient");
+      if (g) { schema.theme.gradient = g; updated.push("gradient"); }
+      const typo = obj(args, "typography");
+      if (typo) {
+        schema.theme.typography = { ...(schema.theme.typography ?? {}), ...typo };
         updated.push("typography");
       }
-      if (args.motion) {
-        schema.theme.motion = { ...(schema.theme.motion ?? {}), ...(args.motion as Record<string, unknown>) };
+      const mo = obj(args, "motion");
+      if (mo) {
+        schema.theme.motion = { ...(schema.theme.motion ?? {}), ...mo };
         updated.push("motion");
       }
       await saveSchema(projectId, ctx.userId, schema);
@@ -725,8 +752,8 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         project_id: { type: "string" },
         type: { type: "string", description: "bottom-tabs|drawer|floating-bottom|top-tabs|none" },
-        items: { type: "array", description: "Array of { screen, label, icon }" },
-        navStyle: { type: "object", description: "{ background?, activeColor?, inactiveColor?, blur? }" },
+        items: { type: "string", description: "JSON-encoded array of { screen, label, icon }" },
+        navStyle: { type: "string", description: "JSON-encoded { background?, activeColor?, inactiveColor?, blur? }" },
         showLabels: { type: "boolean" },
       },
       required: ["project_id"],
@@ -739,8 +766,10 @@ export const MCP_TOOLS: McpTool[] = [
       if (!schema.navigation) schema.navigation = { type: "bottom-tabs", items: [] };
       const updated: string[] = [];
       if (args.type !== undefined) { schema.navigation.type = str(args, "type"); updated.push("type"); }
-      if (args.items !== undefined) { schema.navigation.items = args.items; updated.push("items"); }
-      if (args.navStyle !== undefined) { schema.navigation.navStyle = args.navStyle; updated.push("navStyle"); }
+      const items = arr(args, "items");
+      if (items) { schema.navigation.items = items; updated.push("items"); }
+      const ns = obj(args, "navStyle");
+      if (ns) { schema.navigation.navStyle = ns; updated.push("navStyle"); }
       if (args.showLabels !== undefined) { schema.navigation.showLabels = bool(args, "showLabels"); updated.push("showLabels"); }
       await saveSchema(projectId, ctx.userId, schema);
       return { ok: true, updated_fields: updated, nav_type: schema.navigation.type, tab_count: schema.navigation.items?.length ?? 0 };
