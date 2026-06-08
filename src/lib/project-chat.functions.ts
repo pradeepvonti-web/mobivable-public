@@ -218,8 +218,20 @@ RULES — these override everything:
           (knowledgeForRewrite ? `${knowledgeForRewrite}\n\n` : "") +
           `Latest user request:\n${data.content}\n\n` +
           `Team responses:\n${combined}\n\n` +
-          `IMPORTANT: Apply the changes the team described. Keep ALL existing screens and elements intact unless the team explicitly said to remove them.\n` +
-          `Now generate the COMPLETE updated mobile app as a JSON object reflecting the team's decisions.`;
+          `## CRITICAL: PREMIUM OUTPUT REQUIRED\n` +
+          `Apply the team's decisions. The output MUST be professional-grade:\n` +
+          `1. Use the DESIGN RECIPES from your system prompt — match the app domain to a recipe\n` +
+          `2. MINIMUM: 5 screens, 8+ elements per screen, 5 nav tabs\n` +
+          `3. MUST include: ≥1 parallax-hero with image prompt, ≥2 glass-card, ≥1 stat-card-xl with sparkline, ≥1 chart (line-chart/donut/bar), ≥1 bento-grid screen\n` +
+          `4. Use DOMAIN-SPECIFIC elements: bank-card for fintech, swipe-card for dating, calendar-strip for scheduling, gauge-chart for dashboards\n` +
+          `5. Add entrance animations on EVERY element (pop, fade-up, scale-in, blur-in)\n` +
+          `6. Add navigate actions on buttons to connect screens\n` +
+          `7. Use gradient-mesh-bg wrapper on at least 1 hero section\n` +
+          `8. Include empty-state and skeleton loading elements\n` +
+          `9. Custom theme with domain-appropriate fonts, colors, shadows — NOT generic blue/Inter\n` +
+          `10. Believable realistic data — real names, real amounts, real dates — NOT "Item 1", "User", "$0.00"\n\n` +
+          `If current JSON exists, enhance it with the team's changes. If it's basic, UPGRADE it to premium.\n` +
+          `Generate the COMPLETE app JSON now.`;
         const rewriteResult = await callAI(CODE_GEN_SYSTEM_PROMPT, rewritePrompt, project.model);
         if (rewriteResult.ok && rewriteResult.text.length >= 50) {
           // Parse and validate the new schema
