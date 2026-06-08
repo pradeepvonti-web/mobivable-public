@@ -1243,7 +1243,8 @@ function ProjectPage() {
     ]);
     setTeamBanner(null);
     try {
-      const stream = await chatFn({ data: { projectId, content, ...(selectedAgent ? { agentRole: selectedAgent } : {}) } });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stream = await chatFn({ data: { projectId, content, ...(selectedAgent ? { agentRole: selectedAgent } : {}) } }) as AsyncIterable<any>;
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
       let errored = false;
       for await (const event of stream) {
@@ -1311,17 +1312,69 @@ function ProjectPage() {
             { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
           ]);
         } else if (event.type === "project_updated") {
-          // Replace the "applying" progress with "changes applied"
+          // Replace the "applying" progress with "changes applied" (gen mode)
           const applyingId = `${tempId}-applying`;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === applyingId
-                ? { ...m, content: "✅ **Changes applied** — preview updated.", pending: false }
-                : m,
-            ),
-          );
+          setMessages((prev) => {
+            const hasApplying = prev.some(m => m.id === applyingId);
+            if (hasApplying) {
+              return prev.map((m) =>
+                m.id === applyingId
+                  ? { ...m, content: "✅ **Changes applied** — preview updated.", pending: false }
+                  : m,
+              );
+            }
+            return prev; // surgical mode — no applying card, project_updated is silent
+          });
           await reloadProject();
           scrollToBottom();
+        } else if ((event as { type: string }).type === "tool_call") {
+          // Surgical mode: show compact tool progress
+          const ev = event as { name: string; argsJson: string };
+          const toolId = `${tempId}-tool-${ev.name}-${Date.now()}`;
+          const toolLabels: Record<string, string> = {
+            list_screens: "📋 Reading screens…",
+            get_screen: "🔍 Inspecting screen…",
+            get_project: "📂 Loading project…",
+            update_screen: "✏️ Updating screen…",
+            add_element: "➕ Adding element…",
+            update_element: "🔧 Updating element…",
+            remove_element: "🗑️ Removing element…",
+            update_theme: "🎨 Updating theme…",
+            update_navigation: "🧭 Updating navigation…",
+            verify_schema: "✅ Verifying…",
+          };
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: toolId,
+              role: "assistant",
+              content: toolLabels[ev.name] ?? `🔧 ${ev.name}…`,
+              pending: true,
+              agentName: "Editor",
+              agentRole: "developer" as AgentRole,
+              collapsed: true,
+            },
+          ]);
+          scrollToBottom();
+        } else if ((event as { type: string }).type === "tool_done") {
+          // Surgical mode: resolve tool progress
+          const ev = event as { toolName: string; success: boolean };
+          setMessages((prev) => {
+            // Find the most recent pending tool message
+            const idx = [...prev].reverse().findIndex(
+              m => m.pending && m.agentName === "Editor",
+            );
+            if (idx === -1) return prev;
+            const realIdx = prev.length - 1 - idx;
+            const updated = [...prev];
+            const old = updated[realIdx];
+            updated[realIdx] = {
+              ...old,
+              content: ev.success ? old.content.replace("…", " ✓") : old.content.replace("…", " ✗"),
+              pending: false,
+            };
+            return updated;
+          });
         } else if ((event as { type: string }).type === "rewrite_failed") {
           const applyingId = `${tempId}-applying`;
           const errMsg = `⚠️ Could not apply changes: ${(event as { error?: string }).error ?? "unknown error"}`;
