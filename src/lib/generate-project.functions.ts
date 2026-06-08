@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { callAI } from "./ai-provider";
+import { callAI, callAIStrong } from "./ai-provider";
 import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
-import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT } from "@/lib/code-gen";
+import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } from "@/lib/code-gen";
+import { validateAndFixSchema } from "./schema-validator";
 
 const SYSTEM_PROMPT = CODE_GEN_SYSTEM_PROMPT;
 
@@ -13,9 +14,6 @@ export const generateProject = createServerFn({ method: "POST" })
     z
       .object({
         projectId: z.string().uuid(),
-        // When present (e.g. from the "clone from store listing" confirm gate),
-        // pass 1 is skipped and this brief drives pass 2 directly. It's a
-        // serialized CloneSpec — a superset of the DESIGN_BRIEF schema.
         designBrief: z.string().max(40_000).optional(),
       })
       .parse(input),
@@ -44,9 +42,6 @@ export const generateProject = createServerFn({ method: "POST" })
       catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
       // ── PASS 1: design brief (palette, typography, mood, references, layouts) ──
-      // Skipped when the caller supplies a brief (clone-from-store flow): the
-      // CloneSpec already went through the vision pass + user-confirm gate, so
-      // re-deriving it here would discard the user's corrections.
       let brief: string;
       if (data.designBrief?.trim()) {
         brief = data.designBrief.trim();
@@ -55,12 +50,15 @@ export const generateProject = createServerFn({ method: "POST" })
         brief = briefRes.ok ? briefRes.text.trim() : "";
       }
 
-      // ── PASS 2: compose full schema, following the brief strictly ──
+      // ── PASS 2: compose full schema with STRONG model for max quality ──
+      // Always use the strongest available model (Pro/Sonnet/GPT-4o) for
+      // schema generation, regardless of the user's selected model.
+      // This ensures every app looks professional.
       const userPrompt = brief
         ? `USER REQUEST:\n${project.prompt}\n\nDESIGN BRIEF (follow strictly — derive theme.palette/typography/radius/spacing/motion from it; use each screen's "layout" and include its "keyPrimitives"; carry the mood into entrance + gesture choices):\n${brief}`
-        : project.prompt;
+        : `${project.prompt}\n\nMake it PREMIUM quality — use glass-cards, parallax-heroes, gradient-mesh backgrounds, stat-card-xl with sparklines, and domain-appropriate typography. At least 4-5 screens with varied layouts (bento-grid, magazine, split-hero). Real data, not placeholders.`;
 
-      const r = await callAI(SYSTEM_PROMPT, userPrompt, project.model);
+      const r = await callAIStrong(SYSTEM_PROMPT, userPrompt);
 
       if (!r.ok) {
         await supabase
@@ -70,12 +68,16 @@ export const generateProject = createServerFn({ method: "POST" })
         return { ok: false as const, error: r.error };
       }
 
+      // Parse and validate the schema to auto-fix common issues
+      const parsed = parseAppSchema(r.text);
+      const finalResult = parsed ? JSON.stringify(parsed) : r.text;
+
       await supabase
         .from("projects")
-        .update({ status: "ready", result: r.text, error_text: null })
+        .update({ status: "ready", result: finalResult, error_text: null })
         .eq("id", project.id);
 
-      return { ok: true as const, result: r.text, cached: false };
+      return { ok: true as const, result: finalResult, cached: false };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown generation error";
       await supabase

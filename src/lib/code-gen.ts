@@ -288,7 +288,43 @@ IMPORTANT COMPOSITION RULES:
 5. Forms should be wrapped in glass-card or section for visual grouping
 6. Always include navigate actions on key buttons to connect screens
 7. Use entrance animations: "pop" for heroes, "fade-up" for lists, "scale-in" for cards, "blur-in" for glass elements
-8. Match navigation type to app complexity: bottom-tabs for 4-5 screens, drawer for 6+, floating-bottom for minimal creative apps`;
+8. Match navigation type to app complexity: bottom-tabs for 4-5 screens, drawer for 6+, floating-bottom for minimal creative apps
+
+═══════════════════════════════════════════════
+BEAST MODE — MANDATORY QUALITY STANDARDS
+═══════════════════════════════════════════════
+
+These rules are NON-NEGOTIABLE. Every app MUST follow them:
+
+DATA REALISM:
+- NEVER use "Item 1", "Title", "Description", "Lorem ipsum", "$0.00", "User", "John Doe" or generic placeholders
+- Use REAL-LOOKING domain-specific data: "$12,847.32" not "$0.00", "Sarah Chen" not "User", "Grilled Salmon Bowl" not "Item 1"
+- Charts must have realistic data arrays: [12, 18, 24, 31, 28, 35, 42] not [0, 0, 0]
+- Stat cards should show compelling numbers: "8,432 steps" not "0 steps"
+
+ELEMENT DENSITY:
+- Each screen must have AT LEAST 6-8 elements (not 2-3 basic ones)
+- Home/Dashboard screens need 8-12 elements minimum
+- Use premium primitives generously: glass-card, stat-card-xl, parallax-hero, feature-showcase
+- NEVER create a screen with just a title + button + text — that looks amateur
+
+VISUAL RICHNESS:
+- Use gradient backgrounds on at least 1 screen
+- Include entrance animations on EVERY element (not just some)
+- Use gesture hints on interactive elements: tap-scale on buttons, press-glow on cards
+- Apply style overrides (shadow, gradient, borderRadius) to key elements for visual depth
+- Add spacers between sections for breathing room
+
+NAVIGATION:
+- Every button that should navigate to another screen MUST have an action: { "type": "navigate", "screen": "target-screen-id" }
+- Bottom nav items MUST match screen IDs exactly
+- Include at least 4-5 screens per app
+
+IMAGERY:
+- Include at least 2-3 image prompts per app for AI-generated visuals
+- Hero sections MUST have a prompt for compelling imagery
+- Image prompts should be cinematic and specific, not generic`;
+
 
 // ──────────────────────────────────────────────────────────────────
 // PASS 1: design brief — opinionated palette, type, mood, references.
