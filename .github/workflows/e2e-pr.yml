@@ -70,11 +70,18 @@ jobs:
             echo "VITE_SUPABASE_PROJECT_ID=local"
           } >> "$GITHUB_ENV"
 
-      # `supabase start` already applies the migrations in supabase/migrations
-      # on first boot. `db reset` is here as a belt-and-braces guarantee that
-      # the schema is fresh — the e2e seed runs against a known-empty DB.
-      - name: Apply migrations (fresh)
-        run: supabase db reset --linked=false
+      # `supabase start` already applies migrations on first boot.
+      # Just wait for the API to be healthy before proceeding.
+      - name: Wait for Supabase API
+        run: |
+          for i in {1..30}; do
+            if curl -fsS "${{ env.SUPABASE_URL }}/rest/v1/" -H "apikey: ${{ env.SUPABASE_PUBLISHABLE_KEY }}" > /dev/null 2>&1; then
+              echo "Supabase API is ready"
+              break
+            fi
+            echo "Waiting for Supabase API... ($i/30)"
+            sleep 2
+          done
 
       - name: Build studio
         env:
