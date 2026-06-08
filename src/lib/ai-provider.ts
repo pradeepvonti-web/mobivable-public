@@ -1,6 +1,6 @@
 /**
  * Centralized AI provider system for Mobivable.
- * Supports: OpenAI, Google Gemini, Anthropic Claude, Groq, OpenRouter, and custom endpoints.
+ * Supports: OpenAI, Google Gemini, Anthropic Claude, Groq, OpenRouter, Ollama (local), and custom endpoints.
  *
  * Environment Variables (set any one or more):
  *   OPENAI_API_KEY       — OpenAI (GPT-4o, GPT-4o-mini, o3, o4-mini)
@@ -8,13 +8,15 @@
  *   ANTHROPIC_API_KEY    — Anthropic (Claude 4 Sonnet, Opus, Haiku)
  *   GROQ_API_KEY         — Groq (Llama, Mixtral — fast inference)
  *   OPENROUTER_API_KEY   — OpenRouter (any model via unified API)
- *   AI_PROVIDER          — Override: "openai" | "gemini" | "anthropic" | "groq" | "openrouter"
+ *   OLLAMA_HOST          — Ollama base URL (default: http://localhost:11434)
+ *   OLLAMA_ENABLED       — Set to "true" to enable Ollama (auto-detected if OLLAMA_HOST is set)
+ *   AI_PROVIDER          — Override: "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama"
  *   AI_MODEL             — Override the default model for the selected provider
  *   AI_BASE_URL          — Custom OpenAI-compatible endpoint URL
  */
 
 // ─── Types ──────────────────────────────────────────────────────
-export type AIProvider = "lovable" | "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "custom";
+export type AIProvider = "lovable" | "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama" | "custom";
 
 export type AIMessage = {
   role: "system" | "user" | "assistant";
@@ -132,6 +134,35 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     getKey: () => process.env.OPENROUTER_API_KEY,
   },
+  ollama: {
+    id: "ollama",
+    name: "Ollama (Local)",
+    baseUrl: `${process.env.OLLAMA_HOST || "http://localhost:11434"}/v1/chat/completions`,
+    defaultModel: "llama3.1",
+    models: [
+      { id: "llama3.1", label: "Llama 3.1 8B" },
+      { id: "llama3.1:70b", label: "Llama 3.1 70B" },
+      { id: "llama3.2", label: "Llama 3.2 3B" },
+      { id: "codellama", label: "Code Llama" },
+      { id: "mistral", label: "Mistral 7B" },
+      { id: "mixtral", label: "Mixtral 8×7B" },
+      { id: "gemma2", label: "Gemma 2" },
+      { id: "qwen2.5-coder", label: "Qwen 2.5 Coder" },
+      { id: "deepseek-coder-v2", label: "DeepSeek Coder V2" },
+      { id: "phi3", label: "Phi-3" },
+    ],
+    // Ollama's OpenAI-compatible endpoint does not require auth but
+    // accepts a dummy Bearer token for compatibility.
+    authHeader: () => ({ Authorization: "Bearer ollama" }),
+    getKey: () => {
+      // Ollama is "configured" when explicitly enabled or when OLLAMA_HOST is set.
+      // No API key is required — it runs locally.
+      if (process.env.OLLAMA_ENABLED === "true") return "ollama";
+      if (process.env.OLLAMA_HOST) return "ollama";
+      if (process.env.AI_PROVIDER === "ollama") return "ollama";
+      return undefined;
+    },
+  },
   custom: {
     id: "custom",
     name: "Custom Endpoint",
@@ -153,7 +184,7 @@ export function detectProvider(): ProviderConfig | null {
   }
 
   // Auto-detect by checking which keys are available
-  const priority: AIProvider[] = ["lovable", "openai", "gemini", "anthropic", "groq", "openrouter"];
+  const priority: AIProvider[] = ["lovable", "openai", "gemini", "anthropic", "groq", "openrouter", "ollama"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;
@@ -216,6 +247,16 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "Gemini 2.5 Flash": "llama-3.3-70b-versatile",
     "Gemini 2.5 Pro": "llama-3.3-70b-versatile",
     "Gemini 3 Flash": "llama-3.1-8b-instant",
+  },
+  ollama: {
+    "Gemini 2.5 Flash": "llama3.1",
+    "Gemini 2.5 Pro": "llama3.1:70b",
+    "Gemini 3 Flash": "llama3.1",
+    "GPT-4o": "llama3.1:70b",
+    "GPT-4o Mini": "llama3.1",
+    "Claude Sonnet 4": "llama3.1:70b",
+    "Code Llama": "codellama",
+    "Mistral": "mistral",
   },
   openrouter: {
     "Gemini 2.5 Flash": "google/gemini-2.5-flash",
@@ -764,7 +805,7 @@ export type ProviderStatus = {
 export function getProviderStatuses(): ProviderStatus[] {
   const active = detectProvider();
   return (Object.values(PROVIDERS) as ProviderConfig[])
-    .filter(p => p.id !== "custom")
+    .filter(p => p.id !== "custom" && p.id !== "lovable")
     .map(p => ({
       id: p.id,
       name: p.name,

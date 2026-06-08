@@ -45,6 +45,12 @@ const PROVIDER_META: Record<string, { color: string; icon: string; envKey: strin
     envKey: "OPENROUTER_API_KEY",
     docsUrl: "https://openrouter.ai/keys",
   },
+  ollama: {
+    color: "#0ea5e9",
+    icon: "🦙",
+    envKey: "OLLAMA_ENABLED=true",
+    docsUrl: "https://ollama.com/download",
+  },
 };
 
 export function AIProviderSettings() {
@@ -200,11 +206,15 @@ ANTHROPIC_API_KEY=sk-ant-...
 GROQ_API_KEY=gsk_...
 OPENROUTER_API_KEY=sk-or-...
 
+# Local model (no API key needed!):
+OLLAMA_ENABLED=true
+# OLLAMA_HOST=http://localhost:11434
+
 # Optional: force a specific provider
-# AI_PROVIDER=openai
+# AI_PROVIDER=ollama
 
 # Optional: override the default model
-# AI_MODEL=gpt-4o`}
+# AI_MODEL=llama3.1`}
           </pre>
           <p>
             After adding a key, <strong>restart the dev server</strong> for changes to take effect.
@@ -223,8 +233,52 @@ OPENROUTER_API_KEY=sk-or-...
           on your configured provider. For example, selecting "Gemini 2.5 Pro"
           will use <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">gpt-4o</code> on
           OpenAI, <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">claude-sonnet-4</code> on
-          Anthropic, or <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">llama-3.3-70b</code> on Groq.
+          Anthropic, <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">llama-3.3-70b</code> on Groq,
+          or <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">llama3.1:70b</code> on Ollama.
         </p>
+      </div>
+
+      {/* Ollama local model section */}
+      <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 space-y-3">
+        <h3 className="text-xs font-semibold text-sky-400 flex items-center gap-2">
+          <span className="text-sm">🦙</span>
+          Ollama — Local AI for Privacy
+        </h3>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Run AI models entirely on your machine — no data leaves your computer.
+          Perfect for sensitive projects, air-gapped environments, or offline use.
+        </p>
+        <div className="space-y-1.5">
+          <div className="flex items-start gap-2 text-[10px]">
+            <span className="text-sky-400 font-bold">1.</span>
+            <span className="text-foreground/70">
+              Install Ollama: <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">ollama.com/download</a>
+            </span>
+          </div>
+          <div className="flex items-start gap-2 text-[10px]">
+            <span className="text-sky-400 font-bold">2.</span>
+            <span className="text-foreground/70">
+              Pull a model: <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">ollama pull llama3.1</code>
+            </span>
+          </div>
+          <div className="flex items-start gap-2 text-[10px]">
+            <span className="text-sky-400 font-bold">3.</span>
+            <span className="text-foreground/70">
+              Add to <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">.env</code>: <code className="text-[9px] bg-card px-1 py-0.5 rounded font-mono">OLLAMA_ENABLED=true</code>
+            </span>
+          </div>
+          <div className="flex items-start gap-2 text-[10px]">
+            <span className="text-sky-400 font-bold">4.</span>
+            <span className="text-foreground/70">Restart the dev server</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-2">
+          {["llama3.1", "codellama", "mistral", "qwen2.5-coder", "deepseek-coder-v2", "phi3"].map((m) => (
+            <span key={m} className="text-[8px] font-mono bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-full text-sky-300">
+              {m}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

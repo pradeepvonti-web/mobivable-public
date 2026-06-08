@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Code2, Copy, Check, Download, ChevronDown, FileCode2, Smartphone } from "lucide-react";
 
 // Lazy-load Monaco to avoid SSR issues
@@ -155,14 +155,14 @@ export function CodeEditorPanel({ projectResult, projectPrompt, projectModel, on
   const currentContent = files[activeFile] ?? "";
 
   // Lazy load Monaco on first render (client-side only)
-  useState(() => {
+  useEffect(() => {
     if (typeof window !== "undefined") {
       import("@monaco-editor/react").then((mod) => {
         setEditorComponent(() => mod.default);
         setEditorLoaded(true);
       });
     }
-  });
+  }, []);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(currentContent);
@@ -265,15 +265,25 @@ export function CodeEditorPanel({ projectResult, projectPrompt, projectModel, on
               theme="vs-dark"
               options={{
                 readOnly: true,
-                minimap: { enabled: false },
-                fontSize: 12,
+                minimap: { enabled: true, maxColumn: 60, renderCharacters: false },
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace",
+                fontLigatures: true,
                 lineNumbers: "on",
                 scrollBeyondLastLine: false,
                 wordWrap: "on",
-                padding: { top: 12 },
-                renderLineHighlight: "none",
+                padding: { top: 12, bottom: 12 },
+                renderLineHighlight: "line",
                 folding: true,
                 bracketPairColorization: { enabled: true },
+                guides: { bracketPairs: true, indentation: true },
+                smoothScrolling: true,
+                cursorBlinking: "smooth",
+                automaticLayout: true,
+                scrollbar: {
+                  verticalScrollbarSize: 6,
+                  horizontalScrollbarSize: 6,
+                },
               }}
             />
           ) : (

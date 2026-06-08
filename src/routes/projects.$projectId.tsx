@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { PlanSummary } from "@/components/PlanSummary";
@@ -60,6 +61,7 @@ import {
   LayoutGrid,
   FolderCode,
   Shield,
+  Palette,
   Globe,
   FileText,
   Cloud,
@@ -67,11 +69,21 @@ import {
   MoreHorizontal,
   ArrowUpRight,
   PanelLeft,
+  Copy,
+  ClipboardCheck,
+  ChevronUp,
+  Zap,
+  RotateCcw,
+  GitBranch,
+  GitFork,
+  LayoutGrid as LayoutGridIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
+import { useCollaboration } from "@/hooks/use-collaboration";
+import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
 import { generateAppImages } from "@/lib/app-images.functions";
 
@@ -109,6 +121,8 @@ import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 import { CodeViewerPanel } from "@/components/CodeViewerPanel";
 import { SecretsPanel } from "@/components/SecretsPanel";
 import { TestingPanel } from "@/components/TestingPanel";
+import { SandboxPanel } from "@/components/SandboxPanel";
+import { PluginStorePanel } from "@/components/PluginStorePanel";
 import { inferBackendSpec, applyBackendSchema, getBackendSpec } from "@/lib/backend-provision.functions";
 import { exportExpoProject } from "@/lib/export-expo.functions";
 import { useTypewriter, APP_TYPED_PHRASES } from "@/hooks/useTypewriter";
@@ -122,6 +136,74 @@ import { OtaUpdatesPanel } from "@/components/studio/OtaUpdatesPanel";
 import { AssetsPanel } from "@/components/studio/AssetsPanel";
 import { KnowledgeDialog } from "@/components/studio/KnowledgeDialog";
 import { ConnectorsDialog } from "@/components/studio/ConnectorsDialog";
+import TemplateGallery from "@/components/TemplateGallery";
+
+// ── Conversation branching types (inspired by Dyad) ───────────────────
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string };
+type ConversationBranch = {
+  id: string;
+  label: string;
+  forkIndex: number; // index in messages where fork happened
+  messages: ChatMessage[];
+  createdAt: number;
+};
+
+// ── Enhanced Code Block for chat (inspired by Bolt.diy) ──────────────────
+function ChatCodeBlock({ language, children }: { language?: string; children: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(children).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="relative group my-3 rounded-xl overflow-hidden border border-border/50 bg-background/80">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-b border-border/40">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          {language || "code"}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+        >
+          {copied ? <ClipboardCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="p-3 overflow-x-auto text-xs leading-relaxed font-mono">
+        <code>{children}</code>
+      </pre>
+    </div>
+  );
+}
+
+// ── Custom ReactMarkdown components for enhanced rendering ──────────────
+const markdownComponents = {
+  code({ className, children, ...props }: { className?: string; children?: React.ReactNode; [k: string]: unknown }) {
+    const match = /language-(\w+)/.exec(className || "");
+    const codeStr = String(children).replace(/\n$/, "");
+    // Inline code (no language class, short)
+    if (!match && codeStr.length < 80 && !codeStr.includes("\n")) {
+      return <code className="px-1.5 py-0.5 rounded-md bg-muted/60 font-mono text-xs text-primary/90 border border-border/30" {...props}>{children}</code>;
+    }
+    return <ChatCodeBlock language={match?.[1]}>{codeStr}</ChatCodeBlock>;
+  },
+  pre({ children }: { children?: React.ReactNode }) {
+    return <>{children}</>;
+  },
+};
+
+// ── Starter prompts for empty chat state (inspired by VibeSDK) ──────────
+const STARTER_PROMPTS = [
+  { emoji: "🎨", label: "Design the screens", prompt: "Design all the screens for this app with premium UI elements, color palette, and typography" },
+  { emoji: "🗄️", label: "Set up the database", prompt: "Design the database schema with tables, relationships, indexes, and RLS policies" },
+  { emoji: "⚙️", label: "Build the backend", prompt: "Design the backend architecture with auth, storage, and edge functions" },
+  { emoji: "🧪", label: "Write test cases", prompt: "Write a comprehensive test plan with test cases for all critical flows" },
+  { emoji: "🚀", label: "Plan the launch", prompt: "Create a launch plan with app store listing, CI/CD pipeline, and release checklist" },
+  { emoji: "🧠", label: "Add AI features", prompt: "Recommend AI features that make sense for this app with model choices and prompt designs" },
+];
 
 
 type Attachment = { path: string; url: string; name: string };
@@ -269,55 +351,122 @@ export const Route = createFileRoute("/projects/$projectId")({
   }),
 });
 
-const SIDE_ITEMS = [
-  { icon: MessageSquare, label: "Chat", active: true },
-  { icon: LayoutGrid, label: "Components" },
-  { icon: Brain, label: "AI Studio" },
-  { icon: Code2, label: "Code" },
-  { icon: Terminal, label: "Console" },
-  { icon: Database, label: "Backend" },
-  { icon: DollarSign, label: "Monetization" },
-  { icon: Bell, label: "Native" },
-  { icon: Store, label: "Store Listing" },
-  { icon: CloudUpload, label: "OTA Updates" },
-  { icon: Sparkles, label: "AI & Env Keys" },
-  { icon: ImageIcon, label: "Assets" },
-  { icon: BookOpenIcon, label: "Knowledge" },
-  { icon: Rocket, label: "Deployments" },
-  { icon: Layers, label: "Figma Import" },
-  { icon: Smartphone, label: "Code Export" },
-  { icon: FolderCode, label: "Code Viewer" },
-  { icon: Shield, label: "Secrets" },
-  { icon: Smartphone, label: "Testing & QA" },
-  { icon: History, label: "Ver. History" },
-  { icon: LifeBuoy, label: "Get Support" },
-  { icon: Settings, label: "Settings" },
+type SidebarChild = {
+  icon: typeof MessageSquare;
+  label: string;
+  panelKey: string | null;
+  proOnly?: boolean;
+};
+type SidebarSection = {
+  icon: typeof MessageSquare;
+  label: string;
+  children: SidebarChild[];
+};
+
+const SIDEBAR_SECTIONS: SidebarSection[] = [
+  {
+    icon: MessageSquare,
+    label: "Chat",
+    children: [{ icon: MessageSquare, label: "Chat", panelKey: null }],
+  },
+  {
+    icon: Palette,
+    label: "Design",
+    children: [
+      { icon: LayoutGrid, label: "Components", panelKey: "components" },
+      { icon: Layers, label: "Figma Import", panelKey: "figma" },
+      { icon: ImageIcon, label: "Assets", panelKey: "assets" },
+    ],
+  },
+  {
+    icon: Brain,
+    label: "AI Studio",
+    children: [
+      { icon: Brain, label: "AI Studio", panelKey: "aistudio" },
+      { icon: BookOpenIcon, label: "Knowledge", panelKey: "knowledge" },
+    ],
+  },
+  {
+    icon: Code2,
+    label: "Code",
+    children: [
+      { icon: Code2, label: "Editor", panelKey: "code" },
+      { icon: FolderCode, label: "Viewer", panelKey: "code_viewer" },
+      { icon: Terminal, label: "Console", panelKey: "console" },
+      { icon: Smartphone, label: "Export", panelKey: "code_export" },
+    ],
+  },
+  {
+    icon: Database,
+    label: "Backend & Data",
+    children: [
+      { icon: Database, label: "Backend", panelKey: "backend", proOnly: true },
+      { icon: Sparkles, label: "AI & Env Keys", panelKey: "env" },
+      { icon: Shield, label: "Secrets", panelKey: "secrets" },
+    ],
+  },
+  {
+    icon: Rocket,
+    label: "Publish",
+    children: [
+      { icon: Store, label: "Store Listing", panelKey: "store" },
+      { icon: Rocket, label: "Deployments", panelKey: "deployments" },
+      { icon: CloudUpload, label: "OTA Updates", panelKey: "ota" },
+      { icon: Bell, label: "Native", panelKey: "native" },
+      { icon: DollarSign, label: "Monetization", panelKey: "monetization" },
+    ],
+  },
+  {
+    icon: Shield,
+    label: "Testing",
+    children: [
+      { icon: Shield, label: "Testing & QA", panelKey: "testing" },
+      { icon: Shield, label: "E2B Sandbox", panelKey: "sandbox" },
+      { icon: Shield, label: "Plugin Store", panelKey: "plugins" },
+    ],
+  },
+  {
+    icon: History,
+    label: "History",
+    children: [{ icon: History, label: "Version Control", panelKey: "history" }],
+  },
+  {
+    icon: Settings,
+    label: "Settings & Help",
+    children: [
+      { icon: Settings, label: "Settings", panelKey: "settings" },
+      { icon: LifeBuoy, label: "Get Support", panelKey: "support" },
+    ],
+  },
 ];
 
 function ProjectPage() {
-  const { status } = useRequiredSession();
+  const { status, session } = useRequiredSession();
   const { projectId } = Route.useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const agentStorageKey = `mobivable:selectedAgent:${projectId}`;
-  const [selectedAgent, setSelectedAgent] = useState<AgentRole>(() => {
-    if (typeof window === "undefined") return "product_manager";
+  const [selectedAgent, setSelectedAgent] = useState<AgentRole | null>(() => {
+    if (typeof window === "undefined") return null;
     const saved = window.localStorage.getItem(`mobivable:selectedAgent:${projectId}`);
+    if (saved === "__team__" || !saved) return null;
     return saved && (ALL_ROLES as string[]).includes(saved)
       ? (saved as AgentRole)
-      : "product_manager";
+      : null;
   });
   const agentHydratedRef = useRef(false);
   // Hydrate from localStorage immediately, then reconcile with the cloud-synced value.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(agentStorageKey);
-    const local: AgentRole =
-      saved && (ALL_ROLES as string[]).includes(saved)
-        ? (saved as AgentRole)
-        : "product_manager";
+    const local: AgentRole | null =
+      saved === "__team__" || !saved
+        ? null
+        : saved && (ALL_ROLES as string[]).includes(saved)
+          ? (saved as AgentRole)
+          : null;
     setSelectedAgent(local);
     agentHydratedRef.current = true;
 
@@ -343,7 +492,10 @@ function ProjectPage() {
         .eq("project_id", projectId)
         .maybeSingle();
       const remote = data?.selected_agent;
-      if (remote && (ALL_ROLES as string[]).includes(remote) && remote !== local) {
+      if (remote === "__team__") {
+        setSelectedAgent(null);
+        window.localStorage.setItem(agentStorageKey, "__team__");
+      } else if (remote && (ALL_ROLES as string[]).includes(remote) && remote !== (local ?? "__team__")) {
         setSelectedAgent(remote as AgentRole);
         window.localStorage.setItem(agentStorageKey, remote);
       }
@@ -355,7 +507,7 @@ function ProjectPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!agentHydratedRef.current) return;
-    window.localStorage.setItem(agentStorageKey, selectedAgent);
+    window.localStorage.setItem(agentStorageKey, selectedAgent ?? "__team__");
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
@@ -370,7 +522,7 @@ function ProjectPage() {
       })
         .from("user_project_prefs")
         .upsert(
-          { user_id: uid, project_id: projectId, selected_agent: selectedAgent },
+          { user_id: uid, project_id: projectId, selected_agent: selectedAgent ?? "__team__" },
           { onConflict: "user_id,project_id" },
         );
     })();
@@ -418,7 +570,8 @@ function ProjectPage() {
   // higher tiers than pro and should also have access. Previously this only
   // matched "pro" exactly, locking scale/business users out of Backend etc.
   const isPro = userPlan === "pro" || userPlan === "scale" || userPlan === "business" || isAdmin;
-  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "native" | "store" | "ota" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing">(null);
+  const [sidePanel, setSidePanel] = useState<null | "backend" | "env" | "assets" | "code" | "console" | "monetization" | "native" | "store" | "ota" | "history" | "support" | "settings" | "aistudio" | "knowledge" | "deployments" | "code_export" | "figma" | "components" | "code_viewer" | "secrets" | "testing" | "sandbox" | "plugins">(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const { entries: consoleEntries, addEntry: addConsoleEntry, clear: clearConsole } = useConsoleCapture();
   const [appAssets, setAppAssets] = useState<{ icon: string | null; splash: string | null }>({ icon: null, splash: null });
   const [assetsTick, setAssetsTick] = useState(0);
@@ -486,12 +639,79 @@ function ProjectPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [connectorsOpen, setConnectorsOpen] = useState(false);
+  const [studioGalleryOpen, setStudioGalleryOpen] = useState(false);
+
+  // ── Conversation branching state (inspired by Dyad) ─────────────────
+  const branchStorageKey = `mobivable:branches:${projectId}`;
+  const [branches, setBranches] = useState<ConversationBranch[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(window.localStorage.getItem(`mobivable:branches:${projectId}`) ?? "[]");
+    } catch { return []; }
+  });
+  const [activeBranch, setActiveBranch] = useState<string | null>(null);
+  const [branchBarOpen, setBranchBarOpen] = useState(false);
+
+  // Persist branches to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(branchStorageKey, JSON.stringify(branches));
+    } catch { /* ignore */ }
+  }, [branches, branchStorageKey]);
+
+  // Fork conversation at a specific message index
+  const forkConversation = useCallback((atIndex: number) => {
+    const branchMessages = messages.slice(0, atIndex);
+    const branchId = `branch-${Date.now()}`;
+    const newBranch: ConversationBranch = {
+      id: branchId,
+      label: `Branch ${branches.length + 1}`,
+      forkIndex: atIndex,
+      messages: branchMessages,
+      createdAt: Date.now(),
+    };
+    setBranches((prev) => [...prev, newBranch]);
+    // Trim current messages to the fork point
+    setMessages(branchMessages);
+    setActiveBranch(branchId);
+    setBranchBarOpen(true);
+    toast(`Forked at message ${atIndex + 1} — now on Branch ${branches.length + 1}`);
+    // Focus composer for the new branch
+    setTimeout(() => composerRef.current?.focus(), 100);
+  }, [messages, branches]);
+
+  // Switch to a branch
+  const switchToBranch = useCallback((branchId: string | null) => {
+    if (branchId === null) {
+      // Switch back to main — reload messages from server
+      setActiveBranch(null);
+      loadMessages();
+      toast("Switched to main conversation");
+      return;
+    }
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch) return;
+    setMessages(branch.messages);
+    setActiveBranch(branchId);
+    toast(`Switched to ${branch.label}`);
+  }, [branches]);
+
+  // Delete a branch
+  const deleteBranch = useCallback((branchId: string) => {
+    setBranches((prev) => prev.filter((b) => b.id !== branchId));
+    if (activeBranch === branchId) {
+      setActiveBranch(null);
+      loadMessages();
+    }
+    toast("Branch deleted");
+  }, [activeBranch]);
   const draftStorageKey = (role: AgentRole) => `mobivable:chatDraft:${projectId}:${role}`;
   const draftHydratedRef = useRef(false);
   // When the selected agent changes (or on mount), restore that role's draft.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem(draftStorageKey(selectedAgent));
+    const saved = selectedAgent ? window.localStorage.getItem(draftStorageKey(selectedAgent)) : null;
     setInput(saved ?? "");
     // Mark hydrated on next tick so the persist effect doesn't immediately overwrite.
     draftHydratedRef.current = true;
@@ -501,6 +721,7 @@ function ProjectPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!draftHydratedRef.current) return;
+    if (!selectedAgent) return;
     const key = draftStorageKey(selectedAgent);
     if (input) window.localStorage.setItem(key, input);
     else window.localStorage.removeItem(key);
@@ -520,6 +741,17 @@ function ProjectPage() {
   const selectedElRef = useRef<HTMLElement | null>(null);
   const selectedOrigRef = useRef<{ text: string; classes: string; styles: VisualStyles } | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
+  const studioBodyRef = useRef<HTMLDivElement | null>(null);
+
+  // ─── Collaboration ──────────────────────────────────────────
+  const {
+    collaborators,
+    broadcastCursor,
+    broadcastSelection,
+    isConnected: collabConnected,
+    connectionStatus: collabStatus,
+    onlineCount: collabOnlineCount,
+  } = useCollaboration(projectId, session ?? null);
   const visualEditsRef = useRef<VisualEdit[]>([]);
   const reordersRef = useRef<Record<string, number[]>>({});
   const dragSrcRef = useRef<HTMLElement | null>(null);
@@ -582,6 +814,18 @@ function ProjectPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef(false);
   const streamRef = useRef<AsyncIterator<unknown> | null>(null);
+  const scrollTickRef = useRef<number | null>(null);
+
+  // Smooth auto-scroll during streaming — uses rAF to avoid jank
+  const scrollToBottom = useCallback((instant?: boolean) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Only auto-scroll if the user is near the bottom (within 150px)
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNearBottom || instant) {
+      el.scrollTo({ top: el.scrollHeight, behavior: instant ? "instant" : "smooth" });
+    }
+  }, []);
   // Apply theme extracted from the UI/UX Designer's spec (matches the generated mockup).
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1001,7 +1245,7 @@ function ProjectPage() {
     ]);
     setTeamBanner(null);
     try {
-      const stream = await chatFn({ data: { projectId, content, agentRole: selectedAgent } });
+      const stream = await chatFn({ data: { projectId, content, ...(selectedAgent ? { agentRole: selectedAgent } : {}) } });
       streamRef.current = stream as unknown as AsyncIterator<unknown>;
       let activeAgentMsgId: string | null = null;
       let errored = false;
@@ -1027,11 +1271,21 @@ function ProjectPage() {
         } else if (event.type === "delta") {
           const id = activeAgentMsgId;
           if (!id) continue;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === id ? { ...m, content: m.content + event.delta, pending: false } : m,
-            ),
-          );
+          // Use flushSync so each token renders immediately (no React batching)
+          flushSync(() => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === id ? { ...m, content: m.content + event.delta, pending: false } : m,
+              ),
+            );
+          });
+          // Throttled scroll — one rAF per delta burst
+          if (!scrollTickRef.current) {
+            scrollTickRef.current = requestAnimationFrame(() => {
+              scrollToBottom();
+              scrollTickRef.current = null;
+            });
+          }
         } else if (event.type === "agent_done") {
           activeAgentMsgId = null;
         } else if (event.type === "agent_error") {
@@ -1086,8 +1340,8 @@ function ProjectPage() {
   }, [projectId, status]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length, project?.result]);
+    scrollToBottom(true);
+  }, [messages.length, project?.result, scrollToBottom]);
 
   // Realtime: pick up assistant messages inserted from outside this component
   // (e.g. agent orchestration completion notice).
@@ -1484,6 +1738,13 @@ function ProjectPage() {
             )}
           </div>
 
+          {/* Collaboration presence bar */}
+          <PresenceBar
+            collaborators={collaborators}
+            connectionStatus={collabStatus}
+            onlineCount={collabOnlineCount}
+          />
+
           <button
             type="button"
             onClick={() => setShareOpen(true)}
@@ -1504,7 +1765,26 @@ function ProjectPage() {
       </header>
 
 
-      <div className="flex-1 min-h-0 w-full lg:overflow-hidden flex flex-col lg:flex-row pb-16 lg:pb-0">
+      <div
+        ref={studioBodyRef}
+        className="flex-1 min-h-0 w-full lg:overflow-hidden flex flex-col lg:flex-row pb-16 lg:pb-0 relative"
+        onMouseMove={(e) => {
+          if (!studioBodyRef.current) return;
+          const rect = studioBodyRef.current.getBoundingClientRect();
+          broadcastCursor({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+            area: "preview",
+          });
+        }}
+      >
+      {/* Live collaboration cursors overlay */}
+      <CollaborationOverlay
+        collaborators={collaborators}
+        connectionStatus={collabStatus}
+        onlineCount={collabOnlineCount}
+        containerRef={studioBodyRef}
+      />
       {/* Left rail */}
       <aside className={`${leftSidebarOpen ? "hidden lg:flex" : "hidden"} w-52 shrink-0 border-r border-border flex-col`}>
         <div className="p-4 border-b border-border flex items-center gap-2">
@@ -1524,96 +1804,90 @@ function ProjectPage() {
           </Link>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-          {SIDE_ITEMS.map(({ icon: Icon, label }) => {
-            const isActive =
-              (label === "Chat" && sidePanel === null) ||
-              (label === "Components" && sidePanel === "components") ||
-              (label === "AI Studio" && sidePanel === "aistudio") ||
-              (label === "Code" && sidePanel === "code") ||
-              (label === "Console" && sidePanel === "console") ||
-              (label === "Backend" && sidePanel === "backend") ||
-              (label === "Monetization" && sidePanel === "monetization") ||
-              (label === "Native" && sidePanel === "native") ||
-              (label === "Store Listing" && sidePanel === "store") ||
-              (label === "OTA Updates" && sidePanel === "ota") ||
-              (label === "AI & Env Keys" && sidePanel === "env") ||
-              (label === "Assets" && sidePanel === "assets") ||
-              (label === "Knowledge" && sidePanel === "knowledge") ||
-              (label === "Deployments" && sidePanel === "deployments") ||
-              (label === "Figma Import" && sidePanel === "figma") ||
-              (label === "Code Export" && sidePanel === "code_export") ||
-              (label === "Code Viewer" && sidePanel === "code_viewer") ||
-              (label === "Secrets" && sidePanel === "secrets") ||
-              (label === "Testing & QA" && sidePanel === "testing") ||
-              (label === "Ver. History" && sidePanel === "history") ||
-              (label === "Get Support" && sidePanel === "support") ||
-              (label === "Settings" && sidePanel === "settings");
-            const locked = label === "Backend" && !isPro;
+          {SIDEBAR_SECTIONS.map((section) => {
+            const { icon: SectionIcon, label: sectionLabel, children } = section;
+            const isSingleItem = children.length === 1;
+            const isExpanded = expandedSection === sectionLabel;
+            // Section is active if any child panel matches the current sidePanel
+            const sectionActive = children.some(
+              (c) => (c.panelKey === null && sidePanel === null) || (c.panelKey !== null && sidePanel === c.panelKey),
+            );
+
             return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => {
-                  if (label === "Backend") {
-                    if (!isPro) setUpgradeOpen(true);
-                    else setSidePanel("backend");
-                  } else if (label === "Components") {
-                    setSidePanel("components");
-                  } else if (label === "AI Studio") {
-                    setSidePanel("aistudio");
-                  } else if (label === "AI & Env Keys") {
-                    setSidePanel("env");
-                  } else if (label === "Assets") {
-                    setSidePanel("assets");
-                  } else if (label === "Code") {
-                    setSidePanel("code");
-                  } else if (label === "Console") {
-                    setSidePanel("console");
-                  } else if (label === "Monetization") {
-                    setSidePanel("monetization");
-                  } else if (label === "Native") {
-                    setSidePanel("native");
-                  } else if (label === "Store Listing") {
-                    setSidePanel("store");
-                  } else if (label === "OTA Updates") {
-                    setSidePanel("ota");
-                  } else if (label === "Knowledge") {
-                    setSidePanel("knowledge");
-                  } else if (label === "Deployments") {
-                    setSidePanel("deployments");
-                  } else if (label === "Figma Import") {
-                    setSidePanel("figma");
-                  } else if (label === "Code Export") {
-                    setSidePanel("code_export");
-                  } else if (label === "Code Viewer") {
-                    setSidePanel("code_viewer");
-                  } else if (label === "Secrets") {
-                    setSidePanel("secrets");
-                  } else if (label === "Testing & QA") {
-                    setSidePanel("testing");
-                  } else if (label === "Ver. History") {
-                    setSidePanel("history");
-                  } else if (label === "Get Support") {
-                    setSidePanel("support");
-                  } else if (label === "Settings") {
-                    setSidePanel("settings");
-                  } else if (label === "Chat") setSidePanel(null);
-                }}
-                title={locked ? "Backend is a Pro feature" : undefined}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{label}</span>
-                {locked && (
-                  <span className="text-[9px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/15 text-primary">
-                    Pro
-                  </span>
+              <div key={sectionLabel}>
+                {/* Section header */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSingleItem) {
+                      // Direct navigation for single-child sections
+                      const child = children[0];
+                      if (child.proOnly && !isPro) {
+                        setUpgradeOpen(true);
+                      } else {
+                        setSidePanel(child.panelKey as any);
+                      }
+                    } else {
+                      setExpandedSection(isExpanded ? null : sectionLabel);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    sectionActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  }`}
+                >
+                  <SectionIcon className="h-4 w-4" />
+                  <span className="flex-1 text-left">{sectionLabel}</span>
+                  {!isSingleItem && (
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform duration-200 ${
+                        isExpanded ? "rotate-90" : ""
+                      }`}
+                    />
+                  )}
+                </button>
+
+                {/* Expandable children */}
+                {!isSingleItem && isExpanded && (
+                  <div className="ml-3 pl-3 border-l border-border/50 mt-0.5 space-y-0.5">
+                    {children.map((child) => {
+                      const ChildIcon = child.icon;
+                      const isChildActive =
+                        (child.panelKey === null && sidePanel === null) ||
+                        (child.panelKey !== null && sidePanel === child.panelKey);
+                      const locked = child.proOnly && !isPro;
+                      return (
+                        <button
+                          key={child.label}
+                          type="button"
+                          onClick={() => {
+                            if (locked) {
+                              setUpgradeOpen(true);
+                            } else {
+                              setSidePanel(child.panelKey as any);
+                            }
+                          }}
+                          title={locked ? "This is a Pro feature" : undefined}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
+                            isChildActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                          }`}
+                        >
+                          <ChildIcon className="h-3.5 w-3.5" />
+                          <span className="flex-1 text-left">{child.label}</span>
+                          {locked && (
+                            <span className="text-[8px] font-mono uppercase tracking-widest px-1 py-0.5 rounded bg-primary/15 text-primary">
+                              Pro
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -1636,7 +1910,7 @@ function ProjectPage() {
                   className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary truncate inline-flex items-center gap-1 transition-colors"
                   title="Switch agent"
                 >
-                  Talking to · <span className="text-primary">{AGENTS[selectedAgent].name}</span>
+                  Talking to · <span className="text-primary">{selectedAgent ? AGENTS[selectedAgent].name : "Entire Team"}</span>
                   <ChevronDown className="h-3 w-3" />
                 </button>
               </PopoverTrigger>
@@ -1645,6 +1919,37 @@ function ProjectPage() {
                   Select an agent
                 </p>
                 <div className="max-h-80 overflow-y-auto space-y-0.5">
+                  {/* Entire Team option */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAgent(null)}
+                    className={`w-full text-left px-2 py-2 rounded-md text-sm transition-colors border ${
+                      selectedAgent === null
+                        ? "bg-primary/15 text-primary border-primary/40"
+                        : "border-transparent hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        aria-hidden
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                          selectedAgent === null ? "bg-primary animate-pulse" : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      <span className={`truncate ${selectedAgent === null ? "font-semibold" : "font-medium"}`}>
+                        🏢 Entire Team
+                      </span>
+                      {selectedAgent === null && (
+                        <span className="ml-auto shrink-0 text-[9px] font-mono uppercase tracking-widest text-primary">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 pl-3.5 truncate">
+                      AI auto-routes your message to the best agents
+                    </p>
+                  </button>
+                  <div className="my-1 h-px bg-border/60" />
                   {ALL_ROLES.map((role) => {
                     const a = AGENTS[role];
                     const active = role === selectedAgent;
@@ -1694,6 +1999,22 @@ function ProjectPage() {
 
         {/* Agent brief: functionalities + templates */}
         {(() => {
+          if (!selectedAgent) {
+            // Team mode — show a compact team summary
+            return (
+              <div className="px-4 py-2.5 border-b border-border bg-card/40">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-md bg-primary/15 grid place-items-center shrink-0">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display text-sm leading-tight">Entire Team</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug truncate">AI auto-routes your message to the best agents for each task</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           const a = AGENTS[selectedAgent];
           const templates = AGENT_TEMPLATES[selectedAgent] ?? [];
           const recents = recentTemplates[selectedAgent] ?? [];
@@ -1813,7 +2134,81 @@ function ProjectPage() {
         })()}
 
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative scroll-smooth">
+        {/* Conversation branching bar (inspired by Dyad) */}
+        {branches.length > 0 && (
+          <div className="px-3 py-1.5 border-b border-border bg-card/30 flex items-center gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+            <button
+              type="button"
+              onClick={() => setBranchBarOpen((v) => !v)}
+              className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+            >
+              <GitBranch className="h-3 w-3" />
+              {activeBranch
+                ? branches.find((b) => b.id === activeBranch)?.label ?? "Branch"
+                : "Main"}
+              <span className="px-1 py-0.5 rounded bg-muted text-[9px]">{branches.length + 1}</span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${branchBarOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {branchBarOpen && (
+              <div className="flex items-center gap-1 ml-auto overflow-x-auto">
+                {/* Main branch */}
+                <button
+                  type="button"
+                  onClick={() => switchToBranch(null)}
+                  className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-widest transition-colors ${
+                    activeBranch === null
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  Main
+                </button>
+                {branches.map((b) => (
+                  <div key={b.id} className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => switchToBranch(b.id)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-widest transition-colors ${
+                        activeBranch === b.id
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteBranch(b.id)}
+                      className="h-4 w-4 grid place-items-center rounded text-muted-foreground/40 hover:text-destructive transition-colors"
+                      title="Delete branch"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-5 relative scroll-smooth" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border) transparent' }}>
+
+          {/* Streaming progress indicator (inspired by Bolt.diy) */}
+          {sending && (
+            <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-2 px-4 py-2 bg-gradient-to-b from-background via-background/95 to-transparent" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+              <div className="flex items-center gap-2">
+                <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary/60 rounded-full" style={{ animation: 'streamingProgress 2s ease-in-out infinite' }} />
+                </div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-primary shrink-0 flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Generating
+                </span>
+              </div>
+            </div>
+          )}
+
           {loading && (
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
               [···] Loading
@@ -1828,9 +2223,47 @@ function ProjectPage() {
 
           {project && (
             <>
+              {/* Empty state with starter prompts (inspired by VibeSDK) */}
+              {messages.length === 0 && !project.result && (
+                <div className="flex flex-col items-center justify-center py-8 px-2" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 grid place-items-center mb-4 shadow-lg shadow-primary/10">
+                    <Sparkles className="h-7 w-7 text-primary" />
+                  </div>
+                  <h2 className="font-display text-xl uppercase tracking-tight text-center mb-1">
+                    {project.name ?? "Your App"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground text-center mb-6 max-w-[280px]">
+                    What would you like to build? Pick a starting point or describe your vision.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 w-full max-w-[360px]">
+                    {STARTER_PROMPTS.map((sp) => (
+                      <button
+                        key={sp.label}
+                        type="button"
+                        onClick={() => handleSend(undefined, sp.prompt)}
+                        disabled={sending}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border/60 bg-card/60 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200 text-left group disabled:opacity-50"
+                      >
+                        <span className="text-lg shrink-0">{sp.emoji}</span>
+                        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{sp.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Browse Templates button */}
+                  <button
+                    type="button"
+                    onClick={() => setStudioGalleryOpen(true)}
+                    className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-border/60 bg-card/30 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    <LayoutGridIcon className="h-4 w-4" />
+                    Or browse template gallery
+                  </button>
+                </div>
+              )}
+
               {/* Initial user prompt */}
-              <div className="flex justify-end gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-                <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 px-4 py-3 shadow-sm">
+              <div className="flex justify-end gap-2" style={{ animation: 'fadeInUp 0.35s ease-out' }}>
+                <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 border border-primary/20 px-4 py-3 shadow-sm hover:shadow-md transition-shadow duration-300">
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">
                     {project.prompt}
                   </p>
@@ -1842,7 +2275,7 @@ function ProjectPage() {
                           href={a.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="h-16 w-16 rounded-md overflow-hidden border border-border"
+                          className="h-16 w-16 rounded-lg overflow-hidden border border-primary/20 hover:border-primary/50 transition-colors shadow-sm"
                         >
                           <img
                             src={a.url}
@@ -1853,7 +2286,7 @@ function ProjectPage() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                  <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
                     {(() => {
                       if (!project.created_at) return "Just now";
                       const d = new Date(project.created_at);
@@ -1916,9 +2349,35 @@ function ProjectPage() {
               {messages.map((m) => {
                 if (m.role === "user") {
                   return (
-                    <div key={m.id} className="flex justify-end gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-                      <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 px-4 py-3 shadow-sm">
+                    <div key={m.id} className="flex justify-end gap-2 group/msg" style={{ animation: 'fadeInUp 0.35s ease-out' }}>
+                      <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 border border-primary/20 px-4 py-3 shadow-sm hover:shadow-md transition-shadow duration-300">
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                        {/* Message actions on user messages */}
+                        <div className="flex items-center justify-end gap-1 mt-1.5 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(m.content);
+                              toast("Copied to clipboard");
+                            }}
+                            className="h-5 w-5 grid place-items-center rounded text-muted-foreground/50 hover:text-primary transition-colors"
+                            title="Copy message"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          {/* Fork conversation (inspired by Dyad) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const idx = messages.indexOf(m);
+                              if (idx >= 0) forkConversation(idx);
+                            }}
+                            className="h-5 w-5 grid place-items-center rounded text-muted-foreground/50 hover:text-primary transition-colors"
+                            title="Fork conversation from here"
+                          >
+                            <GitFork className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1927,38 +2386,72 @@ function ProjectPage() {
                 const badge = role ? AGENT_BADGE[role] : null;
                 const name = m.agentName ?? (role ? AGENTS[role].name : "Assistant");
                 return (
-                  <div key={m.id} className="flex justify-start gap-2" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+                  <div key={m.id} className="flex justify-start gap-2.5 group/msg" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
                     <div
-                      className={`h-9 w-9 shrink-0 rounded-full border-2 grid place-items-center text-lg shadow-sm ${
+                      className={`h-8 w-8 shrink-0 rounded-full border-2 grid place-items-center text-base shadow-sm mt-1 ${
                         badge?.tint ?? "bg-muted/40 text-muted-foreground border-border"
                       }`}
                       aria-hidden
                     >
                       {badge?.emoji ?? "🤖"}
                     </div>
-                    <div className="max-w-[85%] w-full rounded-2xl border-l-2 border-primary/40 bg-card/80 backdrop-blur-sm p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <div className="max-w-[85%] w-full rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-4 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ borderLeftWidth: '3px', borderLeftColor: badge ? undefined : 'var(--primary)' }}>
+                      <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                         <span className={`text-[11px] font-display uppercase tracking-widest px-2 py-0.5 rounded-md border ${badge?.tint ?? "border-border text-muted-foreground"}`}>
                           {name}
                         </span>
                         {m.phase && (
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70">
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">
                             · {m.phase}
                           </span>
                         )}
                       </div>
                       {m.pending && !m.content ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="flex gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground py-1">
+                          <div className="flex gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '0ms' }} />
+                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '200ms' }} />
+                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '400ms' }} />
                           </div>
-                          <span>{name} is thinking…</span>
+                          <span className="text-xs italic">{name} is thinking…</span>
                         </div>
                       ) : (
-                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary">
-                          <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground">
+                          <ReactMarkdown components={markdownComponents}>{m.content || "…"}</ReactMarkdown>
+                        </div>
+                      )}
+                      {/* Message actions (inspired by Bolt.diy) */}
+                      {!m.pending && m.content && (
+                        <div className="flex items-center gap-1 mt-3 pt-2 border-t border-border/20 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(m.content);
+                              toast("Copied to clipboard");
+                            }}
+                            className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                            title="Copy message"
+                          >
+                            <Copy className="h-3 w-3" /> Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Find the last user message before this assistant message
+                              const idx = messages.indexOf(m);
+                              for (let i = idx - 1; i >= 0; i--) {
+                                if (messages[i].role === "user") {
+                                  handleSend(undefined, messages[i].content);
+                                  break;
+                                }
+                              }
+                            }}
+                            disabled={sending}
+                            className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                            title="Retry this response"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Retry
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2145,7 +2638,7 @@ function ProjectPage() {
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
-          <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md px-4 py-3 shadow-lg transition-all duration-200 focus-within:border-primary/50 focus-within:shadow-primary/5 focus-within:shadow-xl">
+          <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md px-4 py-3 shadow-lg transition-all duration-300 focus-within:border-primary/50 focus-within:shadow-primary/10 focus-within:shadow-xl" style={{ boxShadow: input.trim() ? '0 0 0 1px var(--primary-10, rgba(155,230,70,0.1)), 0 8px 32px -8px rgba(0,0,0,0.2)' : undefined }}>
             <textarea
               ref={composerRef}
               value={input}
@@ -2157,9 +2650,9 @@ function ProjectPage() {
                 }
               }}
               rows={1}
-              placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Ask Mobivable…"}
+              placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Describe what you want to build…"}
               disabled={!project}
-              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-40 leading-relaxed"
+              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50 max-h-40 leading-relaxed"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -2743,6 +3236,24 @@ function ProjectPage() {
             onClose={() => setSidePanel(null)}
           />
         </section>
+      )}
+
+      {/* ─── E2B Sandbox Panel ─── */}
+      {sidePanel === "sandbox" && (
+        <SandboxPanel
+          projectId={projectId}
+          code={project?.result ?? ""}
+          language="typescript"
+          onClose={() => setSidePanel(null)}
+        />
+      )}
+
+      {/* ─── Plugin Store Panel ─── */}
+      {sidePanel === "plugins" && (
+        <PluginStorePanel
+          projectId={projectId}
+          onClose={() => setSidePanel(null)}
+        />
       )}
 
       <AgentsMdPanel
@@ -3889,6 +4400,15 @@ function ProjectPage() {
       )}
       {connectorsOpen && (
         <ConnectorsDialog onClose={() => setConnectorsOpen(false)} />
+      )}
+      {studioGalleryOpen && (
+        <TemplateGallery
+          onSelect={(newProjectId) => {
+            setStudioGalleryOpen(false);
+            window.location.href = `/projects/${newProjectId}`;
+          }}
+          onClose={() => setStudioGalleryOpen(false)}
+        />
       )}
     </div>
   );

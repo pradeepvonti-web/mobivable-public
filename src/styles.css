@@ -108,6 +108,27 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes streamingProgress {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+/* Chat-specific scrollbar styling */
+.scroll-smooth::-webkit-scrollbar {
+  width: 5px;
+}
+.scroll-smooth::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-smooth::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.scroll-smooth::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
