@@ -6,7 +6,7 @@
  */
 
 import http from "node:http";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,13 +42,16 @@ const MIME_TYPES = {
 
 // Try to serve static files from dist/client
 function tryServeStatic(pathname, res) {
+  // Skip paths without extensions (these are SSR routes like /, /login, etc.)
+  if (!extname(pathname)) return false;
+
   const clientDir = join(__dirname, "dist", "client");
   const filePath = join(clientDir, pathname);
 
   // Security: prevent directory traversal
   if (!filePath.startsWith(clientDir)) return false;
 
-  if (existsSync(filePath)) {
+  if (existsSync(filePath) && statSync(filePath).isFile()) {
     const ext = extname(filePath);
     const mime = MIME_TYPES[ext] || "application/octet-stream";
     const content = readFileSync(filePath);

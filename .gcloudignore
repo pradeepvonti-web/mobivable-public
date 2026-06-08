@@ -1,0 +1,18 @@
+# Ignore everything not needed for the Docker build
+.git
+.github
+node_modules
+dist
+ai-app-studio
+flutter-preview-deploy
+flutter_preview_engine
+.env
+.env.local
+.env*.local
+*.md
+.playwright
+test-results
+playwright-report
+.vscode
+.idea
+.gemini
