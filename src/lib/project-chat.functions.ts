@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, type AgentRole } from "@/lib/agents";
-import { callAI, callAIToolsStreaming, type AIMessage } from "./ai-provider";
+import { callAI, callAIStrong, callAIToolsStreamingTiered, type AIMessage } from "./ai-provider";
 import { loadKnowledgeForUser } from "./knowledge-context";
 import { routeMessageToAgents, advancePhase, initProjectPhases, SDLC_PHASES, type SDLCPhase } from './sdlc.functions';
 import { getMcpTool } from "./mcp-tools";
@@ -158,11 +158,11 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       for (let iter = 0; iter < MAX_ITERS; iter++) {
         const anth = toAnthropicMessages(msgs);
         const oai = toOpenAIMessages(msgs);
-        const streamRes = await callAIToolsStreaming({
+        const streamRes = await callAIToolsStreamingTiered({
           system: anth.system,
           messages: { anthropic: anth.messages, openai: oai },
           tools: projectTools,
-          modelHint: project.model ?? undefined,
+          tier: "fast",
         });
 
         if (!streamRes.ok) {
@@ -420,7 +420,7 @@ RULES — these override everything:
           `10. Believable realistic data — real names, real amounts, real dates — NOT "Item 1", "User", "$0.00"\n\n` +
           `If current JSON exists, enhance it with the team's changes. If it's basic, UPGRADE it to premium.\n` +
           `Generate the COMPLETE app JSON now.`;
-        const rewriteResult = await callAI(CODE_GEN_SYSTEM_PROMPT, rewritePrompt, project.model);
+        const rewriteResult = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, rewritePrompt);
         if (rewriteResult.ok && rewriteResult.text.length >= 50) {
           const parsed = parseAppSchema(rewriteResult.text);
           if (parsed) {

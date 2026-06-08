@@ -349,6 +349,109 @@ export async function callAI(
   }
 }
 
+// ─── Multi-Model Routing (Phase 4) ─────────────────────────────
+// Use the right model tier for each task instead of one model for everything.
+//   callAIFast   → Flash/Haiku/Mini — routing, classification, verify, quick edits
+//   callAIStrong → Pro/Sonnet/GPT-4o — schema gen, code gen, complex reasoning
+
+/** Fast-tier model per provider: cheapest + fastest, good for routing/classify. */
+const FAST_MODELS: Record<AIProvider, string> = {
+  lovable: "google/gemini-3-flash-preview",
+  openai: "gpt-4o-mini",
+  gemini: "gemini-2.5-flash",
+  anthropic: "claude-haiku-4-20250514",
+  groq: "llama-3.1-8b-instant",
+  openrouter: "google/gemini-2.5-flash",
+  ollama: "llama3.1",
+  custom: "default",
+};
+
+/** Strong-tier model per provider: best quality for generation + reasoning. */
+const STRONG_MODELS: Record<AIProvider, string> = {
+  lovable: "google/gemini-2.5-pro",
+  openai: "gpt-4o",
+  gemini: "gemini-2.5-pro",
+  anthropic: "claude-sonnet-4-20250514",
+  groq: "llama-3.3-70b-versatile",
+  openrouter: "google/gemini-2.5-pro",
+  ollama: "llama3.1:70b",
+  custom: "default",
+};
+
+export type ModelTier = "fast" | "strong" | "default";
+
+/**
+ * Call AI with the fast-tier model. Use for:
+ * - Routing/classification (which agent? which tool?)
+ * - Quick verification (verify_schema analysis)
+ * - Short responses (under 200 tokens)
+ * - Tool argument parsing
+ */
+export async function callAIFast(
+  system: string,
+  user: string,
+): Promise<AIResult> {
+  const provider = detectProvider();
+  if (!provider) return { ok: false, error: "No AI provider configured." };
+  const model = FAST_MODELS[provider.id] ?? provider.defaultModel;
+  return callAI(system, user, model);
+}
+
+/**
+ * Call AI with the strong-tier model. Use for:
+ * - Full app schema generation
+ * - Code generation (React Native / Flutter)
+ * - Complex multi-step reasoning
+ * - Architectural decisions
+ */
+export async function callAIStrong(
+  system: string,
+  user: string,
+): Promise<AIResult> {
+  const provider = detectProvider();
+  if (!provider) return { ok: false, error: "No AI provider configured." };
+  const model = STRONG_MODELS[provider.id] ?? provider.defaultModel;
+  return callAI(system, user, model);
+}
+
+/**
+ * Streaming tool-use call with model tier selection.
+ * Default tier for the agent loop is "fast" since surgical edits are
+ * cheap operations. Code generation uses "strong".
+ */
+export async function callAIToolsStreamingTiered(
+  args: {
+    system: string;
+    messages: ProviderNeutralMsg;
+    tools: { anthropic: AnthropicToolDef[]; openai: OpenAIToolDef[] };
+    modelHint?: string;
+    tier?: ModelTier;
+  },
+): Promise<
+  | { ok: true; response: Response; provider: AIProvider; model: string }
+  | { ok: false; error: string }
+> {
+  const provider = detectProvider();
+  if (!provider) return { ok: false, error: "No AI provider configured." };
+
+  // Resolve model: explicit hint > tier > default
+  let model: string;
+  if (args.modelHint) {
+    model = resolveModel(args.modelHint, provider);
+  } else if (args.tier === "fast") {
+    model = FAST_MODELS[provider.id] ?? provider.defaultModel;
+  } else if (args.tier === "strong") {
+    model = STRONG_MODELS[provider.id] ?? provider.defaultModel;
+  } else {
+    model = resolveModel("", provider);
+  }
+
+  return callAIToolsStreaming({
+    ...args,
+    modelHint: model,
+  });
+}
+
 // ─── Anthropic-specific format ──────────────────────────────────
 async function callAnthropic(
   url: string,
