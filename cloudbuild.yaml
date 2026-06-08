@@ -1,25 +1,31 @@
-# Google Cloud Build configuration for deploying to Cloud Run
+# Google Cloud Build — Deploy to Cloud Run via Artifact Registry
 # Usage: gcloud builds submit --config cloudbuild.yaml
 
-substitutions:
-  _TAG: latest
-
 steps:
-  # Build the Docker image
+  # Step 0: Create Artifact Registry repo (if it doesn't exist)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        gcloud artifacts repositories describe mobivable --location=us-central1 --format="value(name)" 2>/dev/null || \
+        gcloud artifacts repositories create mobivable --repository-format=docker --location=us-central1 --description="Mobivable app images"
+
+  # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobivable/app:latest'
       - '.'
 
-  # Push the image to Container Registry
+  # Step 2: Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobivable/app:latest'
 
-  # Deploy to Cloud Run
+  # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -27,7 +33,7 @@ steps:
       - 'deploy'
       - 'mobivable'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobivable/app:latest'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -45,9 +51,6 @@ steps:
       - '8080'
       - '--set-env-vars'
       - 'NODE_ENV=production'
-
-images:
-  - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
 
 options:
   logging: CLOUD_LOGGING_ONLY
