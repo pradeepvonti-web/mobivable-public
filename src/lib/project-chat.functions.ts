@@ -99,16 +99,21 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       } catch { /* */ }
     }
 
-    // Decide the team: explicit pick → routed → phase lead(s)
+    // Decide the team: always bring 2-3 agents for a collaborative feel.
+    // Combines: explicit pick > keyword-routed agents + current phase agents.
     let team: AgentRole[];
     if (data.agentRole) {
       team = [data.agentRole];
-    } else if (routing.agents.length > 0) {
-      team = routing.agents.slice(0, 3);
-    } else if (currentPhase in SDLC_PHASES) {
-      team = SDLC_PHASES[currentPhase].agents.slice(0, 2);
     } else {
-      team = [];
+      const phaseAgents = currentPhase in SDLC_PHASES
+        ? SDLC_PHASES[currentPhase].agents
+        : [];
+      // Merge keyword-routed agents with phase agents, deduped
+      const merged = new Set<AgentRole>([
+        ...routing.agents,
+        ...phaseAgents,
+      ]);
+      team = Array.from(merged).slice(0, 3);
     }
 
     yield {
