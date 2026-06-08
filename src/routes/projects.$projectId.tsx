@@ -2145,6 +2145,7 @@ function ProjectPage() {
           />
           <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md px-4 py-3 shadow-lg transition-all duration-200 focus-within:border-primary/50 focus-within:shadow-primary/5 focus-within:shadow-xl">
             <textarea
+              ref={composerRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -2155,8 +2156,8 @@ function ProjectPage() {
               }}
               rows={1}
               placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Ask Mobivable…"}
-              disabled={sending || !project}
-              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-32 leading-relaxed"
+              disabled={!project}
+              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-40 leading-relaxed"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
