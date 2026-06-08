@@ -1275,7 +1275,7 @@ function ProjectPage() {
           flushSync(() => {
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === id ? { ...m, content: m.content + event.delta, pending: false } : m,
+                m.id === id ? { ...m, content: m.content + event.delta } : m,
               ),
             );
           });
@@ -1287,6 +1287,13 @@ function ProjectPage() {
             });
           }
         } else if (event.type === "agent_done") {
+          // Clear pending — this reveals the final text instead of the progress bar
+          if (activeAgentMsgId) {
+            const doneId = activeAgentMsgId;
+            setMessages((prev) =>
+              prev.map((m) => m.id === doneId ? { ...m, pending: false } : m),
+            );
+          }
           activeAgentMsgId = null;
         } else if (event.type === "agent_error") {
           errored = true;
@@ -2407,13 +2414,26 @@ function ProjectPage() {
                         )}
                       </div>
                       {m.pending && !m.content ? (
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground py-1">
-                          <div className="flex gap-1.5">
-                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '0ms' }} />
-                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '200ms' }} />
-                            <span className="h-2 w-2 rounded-full bg-primary/50" style={{ animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '400ms' }} />
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground py-2">
+                          <div className="relative h-4 w-4">
+                            <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                            <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
                           </div>
-                          <span className="text-xs italic">{name} is thinking…</span>
+                          <span className="text-xs font-mono uppercase tracking-wider text-primary/70">{name} working…</span>
+                        </div>
+                      ) : m.pending && m.content ? (
+                        /* Agent is still streaming — show progress bar + collapsed preview */
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="relative h-3.5 w-3.5 shrink-0">
+                              <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                              <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+                            </div>
+                            <span className="text-[11px] font-mono uppercase tracking-wider text-primary/70">Applying changes…</span>
+                          </div>
+                          <div className="h-1 w-full bg-border/30 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-primary/60 to-primary rounded-full" style={{ animation: 'progressPulse 2s ease-in-out infinite', width: '60%' }} />
+                          </div>
                         </div>
                       ) : (
                         <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground">

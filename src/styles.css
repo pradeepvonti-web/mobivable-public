@@ -114,6 +114,16 @@
   100% { width: 0%; margin-left: 100%; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes progressPulse {
+  0%, 100% { width: 30%; opacity: 0.6; }
+  50% { width: 80%; opacity: 1; }
+}
+
 /* Chat-specific scrollbar styling */
 .scroll-smooth::-webkit-scrollbar {
   width: 5px;
