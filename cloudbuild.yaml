@@ -1,27 +1,23 @@
 # Google Cloud Build configuration for deploying to Cloud Run
 # Usage: gcloud builds submit --config cloudbuild.yaml
 
+substitutions:
+  _TAG: latest
+
 steps:
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/mobivable:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/mobivable:latest'
+      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
       - '.'
 
   # Push the image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/mobivable:$COMMIT_SHA'
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/mobivable:latest'
+      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -31,7 +27,7 @@ steps:
       - 'deploy'
       - 'mobivable'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/mobivable:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -51,8 +47,7 @@ steps:
       - 'NODE_ENV=production'
 
 images:
-  - 'gcr.io/$PROJECT_ID/mobivable:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/mobivable:latest'
+  - 'gcr.io/$PROJECT_ID/mobivable:${_TAG}'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -3,13 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 # Copy package files first for better layer caching
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --ignore-scripts
+# Install dependencies (use --legacy-peer-deps for compatibility)
+RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Copy all source code
 COPY . .
 
 # Build the production bundle
