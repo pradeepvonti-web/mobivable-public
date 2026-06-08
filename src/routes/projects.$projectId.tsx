@@ -470,6 +470,18 @@ function ProjectPage() {
   const [teamBanner, setTeamBanner] = useState<{ phaseLabel: string; agents: { role: AgentRole; name: string }[] } | null>(null);
   const [input, setInput] = useState("");
   const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Auto-grow textarea to fit content (capped by max-h class).
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
+  // Focus composer on mount.
+  useEffect(() => {
+    composerRef.current?.focus();
+  }, []);
   const [plusOpen, setPlusOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
