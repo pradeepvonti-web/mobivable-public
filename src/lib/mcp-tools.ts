@@ -496,11 +496,26 @@ export const MCP_TOOLS: McpTool[] = [
       if (!prompt) throw new Error("`prompt` is required.");
       await assertOwnsProject(ctx.userId, project_id);
 
-      const { callAIStrong } = await import("./ai-provider");
-      const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
+      const { callAIFast, callAIStrong } = await import("./ai-provider");
+      const { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
 
-      // Generate the full app schema using the strong model
-      const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, prompt);
+      // ── PASS 1: Generate a design brief (fast model) ──
+      // This ensures every app gets a domain-specific palette, typography,
+      // layout plan, and screen structure — not just "blue + Inter + rounded".
+      const briefResult = await callAIFast(DESIGN_BRIEF_SYSTEM_PROMPT, prompt);
+      let designBrief = "";
+      if (briefResult.ok && briefResult.text.includes("{")) {
+        designBrief = briefResult.text;
+      }
+
+      // ── PASS 2: Generate the full schema (strong model) ──
+      // Feed the design brief as context so the AI follows specific
+      // design direction instead of guessing from a vague prompt.
+      const enrichedPrompt = designBrief
+        ? `DESIGN BRIEF (follow this strictly):\n${designBrief}\n\nUSER REQUEST:\n${prompt}\n\nGenerate a PREMIUM, visually stunning mobile app following the design brief above. Use the specified palette, typography, layout per screen, and key primitives. Make it look like it belongs on Dribbble.`
+        : `${prompt}\n\nMake it PREMIUM quality — use glass-cards, parallax-heroes, gradient-mesh backgrounds, stat-card-xl with sparklines, and domain-appropriate typography. At least 4-5 screens with varied layouts (bento-grid, magazine, split-hero). Real data, not placeholders.`;
+
+      const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, enrichedPrompt);
       if (!result.ok) throw new Error(`AI generation failed: ${result.error}`);
 
       const schema = parseAppSchema(result.text);
@@ -523,6 +538,7 @@ export const MCP_TOOLS: McpTool[] = [
         nav_type: schema.navigation?.type ?? "none",
         theme_mode: (typeof schema.theme === "object" && schema.theme !== null ? (schema.theme as Record<string, unknown>).mode : undefined) ?? "dark",
         model: result.model,
+        used_design_brief: !!designBrief,
       };
     },
   },

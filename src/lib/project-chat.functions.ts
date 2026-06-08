@@ -42,9 +42,25 @@ const UNIFIED_AGENT_PROMPT =
   `- export_project_code: full multi-screen Expo project\n\n` +
   `## WORKFLOW\n` +
   `1. If the app already has screens → use SURGICAL tools (fast, precise)\n` +
-  `2. If creating from scratch → use generate_app to create the full schema\n` +
+  `2. If creating from scratch → use generate_app with a RICH prompt\n` +
   `3. verify_schema runs AUTOMATICALLY after writes — fix any issues\n` +
   `4. Respond with a SHORT summary (under 40 words)\n\n` +
+  `## GENERATE_APP PROMPT RULES (CRITICAL)\n` +
+  `When calling generate_app, NEVER pass the user's message verbatim.\n` +
+  `Always EXPAND it into a detailed prompt with:\n` +
+  `- App name and concept\n` +
+  `- Target audience\n` +
+  `- 4-5 specific screens with features\n` +
+  `- Design style (dark/light, color palette, mood)\n` +
+  `- Key data to display (use realistic data, not "Item 1")\n` +
+  `Example: User says "build a fitness app" → you call generate_app with:\n` +
+  `"FitPulse - A premium fitness tracker for active millennials. Dark mode with neon green accent.\n` +
+  `Screen 1: Dashboard with daily steps (8,432), calories (1,847), active minutes (47), weekly sparklines.\n` +
+  `Screen 2: Workouts - browse workout plans (HIIT, Yoga, Strength), start timer.\n` +
+  `Screen 3: Progress - weight trend chart, body measurements, personal records.\n` +
+  `Screen 4: Nutrition - calorie tracker, macro donut chart, meal log.\n` +
+  `Screen 5: Profile - avatar, achievements, settings.\n` +
+  `Use glass-cards, stat-card-xl with sparklines, progress-rings, parallax-hero."\n\n` +
   `## RULES\n` +
   `- Make changes directly — don't describe what you would do\n` +
   `- Fix any verify_schema issues before responding\n` +
