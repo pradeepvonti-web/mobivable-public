@@ -1253,6 +1253,19 @@ function ProjectPage() {
         if (cancelRef.current) break;
         if (event.type === "team_assembled") {
           setTeamBanner({ phaseLabel: event.phaseLabel, agents: event.agents });
+        } else if (event.type === "applying_changes") {
+          // Show progress while schema rewrite runs
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `${tempId}-applying`,
+              role: "assistant",
+              content: "",
+              pending: true,
+              agentName: "System",
+            },
+          ]);
+          scrollToBottom();
         } else if (event.type === "agent_start") {
           activeAgentMsgId = `${tempId}-${event.role}-${Date.now()}`;
           const id = activeAgentMsgId;
@@ -1271,7 +1284,6 @@ function ProjectPage() {
         } else if (event.type === "delta") {
           const id = activeAgentMsgId;
           if (!id) continue;
-          // Use flushSync so each token renders immediately (no React batching)
           flushSync(() => {
             setMessages((prev) =>
               prev.map((m) =>
@@ -1279,7 +1291,6 @@ function ProjectPage() {
               ),
             );
           });
-          // Throttled scroll — one rAF per delta burst
           if (!scrollTickRef.current) {
             scrollTickRef.current = requestAnimationFrame(() => {
               scrollToBottom();
@@ -1287,7 +1298,7 @@ function ProjectPage() {
             });
           }
         } else if (event.type === "agent_done") {
-          // Clear pending — this reveals the final text instead of the progress bar
+          // Clear pending — reveals the final text
           if (activeAgentMsgId) {
             const doneId = activeAgentMsgId;
             setMessages((prev) =>
@@ -1310,7 +1321,32 @@ function ProjectPage() {
             { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
           ]);
         } else if (event.type === "project_updated") {
+          // Replace the "applying" progress with "changes applied"
+          const applyingId = `${tempId}-applying`;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === applyingId
+                ? { ...m, content: "✅ **Changes applied** — preview updated.", pending: false }
+                : m,
+            ),
+          );
           await reloadProject();
+          scrollToBottom();
+        } else if ((event as { type: string }).type === "rewrite_failed") {
+          const applyingId = `${tempId}-applying`;
+          const errMsg = `⚠️ Could not apply changes: ${(event as { error?: string }).error ?? "unknown error"}`;
+          setMessages((prev) => {
+            const hasApplying = prev.some((m) => m.id === applyingId);
+            if (hasApplying) {
+              return prev.map((m) =>
+                m.id === applyingId ? { ...m, content: errMsg, pending: false } : m,
+              );
+            }
+            return [
+              ...prev,
+              { id: `${tempId}-rewrite-err`, role: "assistant" as const, content: errMsg, agentName: "System" },
+            ];
+          });
         }
       }
       if (!errored && !cancelRef.current) {

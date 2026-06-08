@@ -234,6 +234,7 @@ RULES — these override everything:
     // Plan rewrite uses combined team output so the preview reflects everyone.
     const combined = teamReplies.map((t) => `### ${t.name}\n${t.content}`).join("\n\n");
     if (combined.length > 0) {
+      yield { type: "applying_changes" as const };
       try {
         const { CODE_GEN_SYSTEM_PROMPT, parseAppSchema } = await import("@/lib/code-gen");
         // Re-load knowledge so the schema rewrite also sees user-provided
