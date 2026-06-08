@@ -137,7 +137,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         : "";
 
       const systemPrompt = agent
-        ? `${agent.system}\n\nYou are the "${agent.name}" agent collaborating with the rest of the team on this mobile project (current SDLC phase: ${phaseLabel}). Speak in first person. Be concise (under ~180 words), use markdown bullets, and end with a one-line handoff if another teammate should act next.${teamContext}`
+        ? `${agent.system}\n\nCRITICAL CHAT RULES — you are "${agent.name}" in a live team chat (phase: ${phaseLabel}):\n- MAX 80 words. Seriously — 80 words or fewer.\n- Talk like a teammate on Slack, not a consultant writing a report.\n- State what you're doing/decided, not a full analysis.\n- No headers (##), no numbered lists, no long bullet lists.\n- 2-3 short sentences max. One key decision + one next step.\n- End with a one-line handoff if needed.\n- The user can ask follow-up questions if they want more detail.${teamContext}`
         : DEFAULT_SYSTEM;
 
       // Saved knowledge items (PRDs, design notes, ingested URLs from the
