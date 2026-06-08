@@ -76,6 +76,35 @@ async function assertOwnsProject(userId: string, projectId: string): Promise<voi
   }
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** Load and parse the project's MobileAppSchema JSON from the DB. */
+async function loadSchema(projectId: string): Promise<any> {
+  const { data, error } = await supabaseAdmin
+    .from("projects")
+    .select("result")
+    .eq("id", projectId)
+    .single();
+  if (error) throw new Error(error.message);
+  const raw = data?.result;
+  if (!raw) throw new Error("Project has no schema yet. Generate the app first.");
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    throw new Error("Project schema is invalid JSON.");
+  }
+}
+
+/** Save a modified schema back to the project's result column. */
+async function saveSchema(projectId: string, userId: string, schema: any): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("projects")
+    .update({ result: JSON.stringify(schema), updated_at: new Date().toISOString() })
+    .eq("id", projectId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 export const MCP_TOOLS: McpTool[] = [
   // ─── Read ───────────────────────────────────────────────────────────
   {
@@ -493,6 +522,281 @@ export const MCP_TOOLS: McpTool[] = [
   // write tools first, prove the wire end-to-end, then lift the heavy
   // actions in a follow-up. For now MCP callers should drive these from the
   // studio UI; we'll surface them once the impls are extracted.
+
+  // ─── Surgical Schema Edit Tools ─────────────────────────────────────
+  // Phase 1: Cursor/Antigravity-style precise edits. Each tool does a
+  // read-modify-write on projects.result JSON — no full regeneration.
+  {
+    name: "update_screen",
+    description:
+      "Update a specific screen's properties (title, layout, background, transition, icon) without regenerating the entire schema. Surgical edit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "UUID" },
+        screen_id: { type: "string", description: "Screen id to update" },
+        title: { type: "string", description: "New screen title" },
+        layout: { type: "string", description: "stack|bento-grid|magazine|split-hero|full-bleed" },
+        icon: { type: "string", description: "New icon name" },
+        transition: { type: "string", description: "slide|fade|zoom|none" },
+        background: { type: "object", description: "Background object: { type, color?, colors?, direction?, image?, prompt?, opacity? }" },
+      },
+      required: ["project_id", "screen_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
+      if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
+      if (args.title !== undefined) screen.title = str(args, "title");
+      if (args.layout !== undefined) screen.layout = str(args, "layout");
+      if (args.icon !== undefined) screen.icon = str(args, "icon");
+      if (args.transition !== undefined) screen.transition = str(args, "transition");
+      if (args.background !== undefined) screen.background = args.background;
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, screen_id: screen.id, updated: Object.keys(args).filter(k => k !== "project_id" && k !== "screen_id") };
+    },
+  },
+  {
+    name: "add_element",
+    description:
+      "Add a single UI element to a screen at a specific position. Use this instead of regenerating the entire schema. Supports all element types: glass-card, parallax-hero, stat-card-xl, button, list, etc.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        screen_id: { type: "string" },
+        element: { type: "object", description: "Full element object: { type, props, style?, action?, entrance?, gesture?, span?, margin? }" },
+        position: { type: "integer", description: "Insert index (0-based). Omit or -1 to append at end." },
+      },
+      required: ["project_id", "screen_id", "element"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
+      if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
+      if (!Array.isArray(screen.elements)) screen.elements = [];
+      const el = args.element as Record<string, unknown>;
+      if (!el?.type) throw new Error("`element.type` is required.");
+      const pos = num(args, "position", -1);
+      if (pos >= 0 && pos < screen.elements.length) {
+        screen.elements.splice(pos, 0, el);
+      } else {
+        screen.elements.push(el);
+      }
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, screen_id: screen.id, element_type: el.type, position: pos >= 0 ? pos : screen.elements.length - 1, total_elements: screen.elements.length };
+    },
+  },
+  {
+    name: "update_element",
+    description:
+      "Update a specific element's properties on a screen. Identify the element by index or by type+match. Only the provided props are merged — other props are preserved.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        screen_id: { type: "string" },
+        element_index: { type: "integer", description: "0-based index of the element on the screen." },
+        props: { type: "object", description: "Props to merge into the element's existing props." },
+        style: { type: "object", description: "Style overrides to merge." },
+        action: { type: "object", description: "Action to set (navigate, sheet, dialog, url, dismiss)." },
+        entrance: { type: "string", description: "Entrance animation: fade-up|fade-in|scale-in|slide-left|pop|blur-in|none" },
+        gesture: { type: "string", description: "Gesture: tap-scale|press-glow|swipe-hint" },
+      },
+      required: ["project_id", "screen_id", "element_index"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
+      if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
+      const idx = num(args, "element_index", -1);
+      if (idx < 0 || idx >= (screen.elements?.length ?? 0)) {
+        throw new Error(`Element index ${idx} out of range (screen has ${screen.elements?.length ?? 0} elements).`);
+      }
+      const el = screen.elements[idx];
+      if (args.props) el.props = { ...(el.props ?? {}), ...(args.props as Record<string, unknown>) };
+      if (args.style) el.style = { ...(el.style ?? {}), ...(args.style as Record<string, unknown>) };
+      if (args.action !== undefined) el.action = args.action;
+      if (args.entrance !== undefined) el.entrance = str(args, "entrance");
+      if (args.gesture !== undefined) el.gesture = str(args, "gesture");
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, screen_id: screen.id, element_index: idx, element_type: el.type };
+    },
+  },
+  {
+    name: "remove_element",
+    description:
+      "Remove an element from a screen by index.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        screen_id: { type: "string" },
+        element_index: { type: "integer", description: "0-based index of the element to remove." },
+      },
+      required: ["project_id", "screen_id", "element_index"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
+      if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
+      const idx = num(args, "element_index", -1);
+      if (idx < 0 || idx >= (screen.elements?.length ?? 0)) {
+        throw new Error(`Element index ${idx} out of range.`);
+      }
+      const removed = screen.elements.splice(idx, 1)[0];
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, removed_type: removed?.type, remaining_elements: screen.elements.length };
+    },
+  },
+  {
+    name: "update_theme",
+    description:
+      "Update specific theme properties without regenerating the entire schema. Merge-style: only provided fields are changed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        primary: { type: "string", description: "#hex color" },
+        accent: { type: "string", description: "#hex color" },
+        background: { type: "string", description: "#hex color" },
+        card: { type: "string", description: "#hex color" },
+        text: { type: "string", description: "#hex color" },
+        muted: { type: "string", description: "#hex color" },
+        border: { type: "string", description: "#hex color" },
+        mode: { type: "string", description: "dark|light" },
+        gradient: { type: "array", description: "[#hex, #hex]" },
+        typography: { type: "object", description: "{ headingFont?, bodyFont?, displayFont?, scale? }" },
+        motion: { type: "object", description: "{ duration?, easing?, intensity? }" },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      if (!schema.theme) schema.theme = {};
+      const themeFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode", "gradient"];
+      const updated: string[] = [];
+      for (const f of themeFields) {
+        if (args[f] !== undefined) {
+          schema.theme[f] = args[f];
+          updated.push(f);
+        }
+      }
+      if (args.typography) {
+        schema.theme.typography = { ...(schema.theme.typography ?? {}), ...(args.typography as Record<string, unknown>) };
+        updated.push("typography");
+      }
+      if (args.motion) {
+        schema.theme.motion = { ...(schema.theme.motion ?? {}), ...(args.motion as Record<string, unknown>) };
+        updated.push("motion");
+      }
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, updated_fields: updated };
+    },
+  },
+  {
+    name: "update_navigation",
+    description:
+      "Change navigation type, add/remove/reorder tabs, update nav styling.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        type: { type: "string", description: "bottom-tabs|drawer|floating-bottom|top-tabs|none" },
+        items: { type: "array", description: "Array of { screen, label, icon }" },
+        navStyle: { type: "object", description: "{ background?, activeColor?, inactiveColor?, blur? }" },
+        showLabels: { type: "boolean" },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      if (!schema.navigation) schema.navigation = { type: "bottom-tabs", items: [] };
+      const updated: string[] = [];
+      if (args.type !== undefined) { schema.navigation.type = str(args, "type"); updated.push("type"); }
+      if (args.items !== undefined) { schema.navigation.items = args.items; updated.push("items"); }
+      if (args.navStyle !== undefined) { schema.navigation.navStyle = args.navStyle; updated.push("navStyle"); }
+      if (args.showLabels !== undefined) { schema.navigation.showLabels = bool(args, "showLabels"); updated.push("showLabels"); }
+      await saveSchema(projectId, ctx.userId, schema);
+      return { ok: true, updated_fields: updated, nav_type: schema.navigation.type, tab_count: schema.navigation.items?.length ?? 0 };
+    },
+  },
+  {
+    name: "verify_schema",
+    description:
+      "Validate a project's schema for issues: missing screens, broken nav links, empty elements, incomplete theme. Call this after any write operation to ensure the schema is valid.",
+    inputSchema: {
+      type: "object",
+      properties: { project_id: { type: "string" } },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = uuid(args, "project_id");
+      await assertOwnsProject(ctx.userId, projectId);
+      const schema = await loadSchema(projectId);
+      const issues: string[] = [];
+      // Check screens
+      if (!schema.screens || schema.screens.length === 0) issues.push("No screens defined.");
+      for (const s of schema.screens ?? []) {
+        if (!s.id) issues.push(`Screen missing id.`);
+        if (!s.elements || s.elements.length === 0) issues.push(`Screen "${s.id}" has no elements.`);
+        if (s.elements && s.elements.length < 3) issues.push(`Screen "${s.id}" has only ${s.elements.length} elements — consider adding more for a premium feel.`);
+      }
+      // Check navigation
+      const screenIds = new Set((schema.screens ?? []).map((s: { id?: string }) => s.id));
+      for (const nav of schema.navigation?.items ?? []) {
+        if (nav.screen && !screenIds.has(nav.screen)) {
+          issues.push(`Nav tab "${nav.label}" points to missing screen "${nav.screen}".`);
+        }
+      }
+      // Check theme
+      if (!schema.theme) issues.push("No theme defined.");
+      else {
+        if (!schema.theme.primary) issues.push("Theme missing primary color.");
+        if (!schema.theme.background) issues.push("Theme missing background color.");
+        if (!schema.theme.typography) issues.push("Theme missing typography.");
+      }
+      // Check actions
+      let hasNavigateAction = false;
+      for (const s of schema.screens ?? []) {
+        for (const el of s.elements ?? []) {
+          if (el.action?.type === "navigate") {
+            hasNavigateAction = true;
+            if (el.action.screen && !screenIds.has(el.action.screen)) {
+              issues.push(`Element "${el.type}" on screen "${s.id}" navigates to missing screen "${el.action.screen}".`);
+            }
+          }
+        }
+      }
+      if (!hasNavigateAction) issues.push("No navigate actions found — screens are disconnected. Add navigate actions to buttons.");
+      return {
+        ok: issues.length === 0,
+        screen_count: schema.screens?.length ?? 0,
+        total_elements: (schema.screens ?? []).reduce((sum: number, s: { elements?: unknown[] }) => sum + (s.elements?.length ?? 0), 0),
+        nav_tabs: schema.navigation?.items?.length ?? 0,
+        issues,
+      };
+    },
+  },
 ];
 
 // ─── Native capabilities helpers ────────────────────────────────────

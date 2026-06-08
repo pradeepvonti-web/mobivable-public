@@ -617,9 +617,7 @@ function ProjectPage() {
       return updated;
     });
   };
-  const [messages, setMessages] = useState<
-    { id: string; role: "user" | "assistant"; content: string; pending?: boolean; agentRole?: AgentRole | null; agentName?: string; phase?: string }[]
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [teamBanner, setTeamBanner] = useState<{ phaseLabel: string; agents: { role: AgentRole; name: string }[] } | null>(null);
   const [input, setInput] = useState("");
   const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
@@ -2471,7 +2469,8 @@ function ProjectPage() {
                           </button>
                           {!m.collapsed && (
                             <div className="mt-2 pt-2 border-t border-border/20 prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:uppercase prose-headings:tracking-tight prose-a:text-primary prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground" style={{ animation: 'fadeInUp 0.2s ease-out' }}>
-                              <ReactMarkdown components={markdownComponents}>{m.content || "…"}</ReactMarkdown>
+                              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                              <ReactMarkdown components={markdownComponents as any}>{m.content || "…"}</ReactMarkdown>
                             </div>
                           )}
                         </div>
