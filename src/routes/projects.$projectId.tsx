@@ -470,6 +470,18 @@ function ProjectPage() {
   const [teamBanner, setTeamBanner] = useState<{ phaseLabel: string; agents: { role: AgentRole; name: string }[] } | null>(null);
   const [input, setInput] = useState("");
   const typedHint = useTypewriter(APP_TYPED_PHRASES, !input);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Auto-grow textarea to fit content (capped by max-h class).
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
+  // Focus composer on mount.
+  useEffect(() => {
+    composerRef.current?.focus();
+  }, []);
   const [plusOpen, setPlusOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
@@ -975,6 +987,8 @@ function ProjectPage() {
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    // Keep composer focused so the user can keep typing while the AI streams.
+    requestAnimationFrame(() => composerRef.current?.focus());
     selectedElRef.current?.classList.remove("visual-edit-selected");
     selectedElRef.current?.removeAttribute("draggable");
     selectedElRef.current = null;
@@ -2133,6 +2147,7 @@ function ProjectPage() {
           />
           <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-md px-4 py-3 shadow-lg transition-all duration-200 focus-within:border-primary/50 focus-within:shadow-primary/5 focus-within:shadow-xl">
             <textarea
+              ref={composerRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -2143,8 +2158,8 @@ function ProjectPage() {
               }}
               rows={1}
               placeholder={typedHint ? `Ask Mobivable to ${typedHint}` : "Ask Mobivable…"}
-              disabled={sending || !project}
-              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-32 leading-relaxed"
+              disabled={!project}
+              className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-40 leading-relaxed"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
