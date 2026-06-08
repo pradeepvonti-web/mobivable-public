@@ -987,6 +987,8 @@ function ProjectPage() {
     cancelRef.current = false;
     setSending(true);
     setInput("");
+    // Keep composer focused so the user can keep typing while the AI streams.
+    requestAnimationFrame(() => composerRef.current?.focus());
     selectedElRef.current?.classList.remove("visual-edit-selected");
     selectedElRef.current?.removeAttribute("draggable");
     selectedElRef.current = null;
