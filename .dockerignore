@@ -1,0 +1,15 @@
+node_modules
+.git
+.env
+.env.local
+.env*.local
+dist
+ai-app-studio
+flutter-preview-deploy
+flutter_preview_engine
+*.md
+.playwright
+test-results
+playwright-report
+.vscode
+.idea
