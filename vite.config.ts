@@ -35,11 +35,22 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [restartOnDepsChange()],
-    define: {
-      // Prevent "process is not defined" crashes when server function files
-      // are partially evaluated by the Vite client bundler.
-      "process.env": "globalThis.process?.env ?? {}",
-    },
+    plugins: [
+      restartOnDepsChange(),
+      // Polyfill `process` for the client bundle to prevent "process is not defined"
+      // crashes when TanStack Start evaluates .functions.ts import chains client-side.
+      {
+        name: "lovable:process-polyfill",
+        config(_, env) {
+          // Only apply to client builds — SSR has process available natively
+          if (env.isSsrBuild) return;
+          return {
+            define: {
+              "process.env": "(globalThis.process?.env ?? {})",
+            },
+          };
+        },
+      },
+    ],
   },
 });
