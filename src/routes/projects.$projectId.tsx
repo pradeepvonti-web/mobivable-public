@@ -1249,24 +1249,9 @@ function ProjectPage() {
       let errored = false;
       for await (const event of stream) {
         if (cancelRef.current) break;
-        if (event.type === "team_assembled") {
-          setTeamBanner({ phaseLabel: event.phaseLabel, agents: event.agents });
-        } else if (event.type === "applying_changes") {
-          // Show progress while schema rewrite runs
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `${tempId}-applying`,
-              role: "assistant",
-              content: "",
-              pending: true,
-              agentName: "System",
-            },
-          ]);
-          scrollToBottom();
-        } else if (event.type === "agent_start") {
-          // All agents start simultaneously — create spinner for each
-          const id = `${tempId}-${event.role}-${Date.now()}`;
+        if (event.type === "agent_start") {
+          // Single agent starting — show working indicator
+          const id = `${tempId}-agent-${Date.now()}`;
           setMessages((prev) => [
             ...prev,
             {
@@ -1274,33 +1259,31 @@ function ProjectPage() {
               role: "assistant",
               content: "",
               pending: true,
-              agentRole: event.role as AgentRole,
-              agentName: event.name,
+              agentName: event.name ?? "Studio Agent",
+              agentRole: "developer" as AgentRole,
               phase: event.phase,
-              collapsed: true, // #3: collapsed by default
+              collapsed: true,
             },
           ]);
           scrollToBottom();
         } else if ((event as { type: string }).type === "agent_complete") {
-          // Agent finished — fill content, clear pending, keep collapsed
+          // Agent finished — fill content
           const ev = event as { role: string; name: string; content: string };
           setMessages((prev) => {
-            // Find the pending message for this agent
             const idx = prev.findIndex(
-              (m) => m.agentRole === ev.role && m.pending,
+              (m) => m.agentName === "Studio Agent" && m.pending,
             );
             if (idx === -1) return prev;
             const updated = [...prev];
-            updated[idx] = { ...updated[idx], content: ev.content, pending: false };
+            updated[idx] = { ...updated[idx], content: ev.content, pending: false, collapsed: false };
             return updated;
           });
           scrollToBottom();
         } else if (event.type === "agent_error") {
           errored = true;
-          const errRole = event.role;
           setMessages((prev) =>
             prev.map((m) =>
-              m.agentRole === errRole && m.pending
+              m.agentName === "Studio Agent" && m.pending
                 ? { ...m, content: `⚠️ ${event.error}`, pending: false }
                 : m,
             ),
@@ -1312,29 +1295,16 @@ function ProjectPage() {
             { id: `${tempId}-err`, role: "assistant", content: `⚠️ ${event.error}` },
           ]);
         } else if (event.type === "project_updated") {
-          // Replace the "applying" progress with "changes applied" (gen mode)
-          const applyingId = `${tempId}-applying`;
-          setMessages((prev) => {
-            const hasApplying = prev.some(m => m.id === applyingId);
-            if (hasApplying) {
-              return prev.map((m) =>
-                m.id === applyingId
-                  ? { ...m, content: "✅ **Changes applied** — preview updated.", pending: false }
-                  : m,
-              );
-            }
-            return prev; // surgical mode — no applying card, project_updated is silent
-          });
           await reloadProject();
           scrollToBottom();
         } else if ((event as { type: string }).type === "tool_call") {
-          // Surgical mode: show compact tool progress
           const ev = event as { name: string; argsJson: string };
           const toolId = `${tempId}-tool-${ev.name}-${Date.now()}`;
           const toolLabels: Record<string, string> = {
             list_screens: "📋 Reading screens…",
             get_screen: "🔍 Inspecting screen…",
             get_project: "📂 Loading project…",
+            list_projects: "📂 Loading projects…",
             update_screen: "✏️ Updating screen…",
             add_element: "➕ Adding element…",
             update_element: "🔧 Updating element…",
@@ -1342,6 +1312,10 @@ function ProjectPage() {
             update_theme: "🎨 Updating theme…",
             update_navigation: "🧭 Updating navigation…",
             verify_schema: "✅ Verifying…",
+            send_chat_message: "🤖 Generating app…",
+            create_project: "🆕 Creating project…",
+            generate_code: "💻 Generating code…",
+            export_project_code: "📦 Exporting project…",
           };
           setMessages((prev) => [
             ...prev,
@@ -1350,19 +1324,16 @@ function ProjectPage() {
               role: "assistant",
               content: toolLabels[ev.name] ?? `🔧 ${ev.name}…`,
               pending: true,
-              agentName: "Editor",
-              agentRole: "developer" as AgentRole,
+              agentName: "Studio Agent",
               collapsed: true,
             },
           ]);
           scrollToBottom();
         } else if ((event as { type: string }).type === "tool_done") {
-          // Surgical mode: resolve tool progress
           const ev = event as { toolName: string; success: boolean };
           setMessages((prev) => {
-            // Find the most recent pending tool message
             const idx = [...prev].reverse().findIndex(
-              m => m.pending && m.agentName === "Editor",
+              m => m.pending && m.agentName === "Studio Agent",
             );
             if (idx === -1) return prev;
             const realIdx = prev.length - 1 - idx;
@@ -1374,21 +1345,6 @@ function ProjectPage() {
               pending: false,
             };
             return updated;
-          });
-        } else if ((event as { type: string }).type === "rewrite_failed") {
-          const applyingId = `${tempId}-applying`;
-          const errMsg = `⚠️ Could not apply changes: ${(event as { error?: string }).error ?? "unknown error"}`;
-          setMessages((prev) => {
-            const hasApplying = prev.some((m) => m.id === applyingId);
-            if (hasApplying) {
-              return prev.map((m) =>
-                m.id === applyingId ? { ...m, content: errMsg, pending: false } : m,
-              );
-            }
-            return [
-              ...prev,
-              { id: `${tempId}-rewrite-err`, role: "assistant" as const, content: errMsg, agentName: "System" },
-            ];
           });
         }
       }
