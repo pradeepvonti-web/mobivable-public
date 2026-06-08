@@ -57,15 +57,17 @@ jobs:
       - name: Capture Supabase URLs + keys
         id: supabase
         run: |
-          # `supabase status --output env` emits values wrapped in double
-          # quotes (API_URL="http://127.0.0.1:54321"). cut keeps the quotes,
-          # which then makes supabase-js reject the URL ("Invalid supabaseUrl").
-          # Strip surrounding quotes with `tr -d '"'`.
           status=$(supabase status --output env)
+          SUPA_URL=$(echo "$status" | grep '^API_URL=' | cut -d= -f2- | tr -d '"')
+          SUPA_KEY=$(echo "$status" | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
+          SUPA_SRK=$(echo "$status" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')
           {
-            echo "SUPABASE_URL=$(echo "$status" | grep '^API_URL=' | cut -d= -f2- | tr -d '\"')"
-            echo "SUPABASE_PUBLISHABLE_KEY=$(echo "$status" | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$status" | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_URL=$SUPA_URL"
+            echo "SUPABASE_PUBLISHABLE_KEY=$SUPA_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SUPA_SRK"
+            echo "VITE_SUPABASE_URL=$SUPA_URL"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$SUPA_KEY"
+            echo "VITE_SUPABASE_PROJECT_ID=local"
           } >> "$GITHUB_ENV"
 
       # `supabase start` already applies the migrations in supabase/migrations
@@ -78,6 +80,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ env.SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ env.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ env.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ env.VITE_SUPABASE_PROJECT_ID }}
         run: npm run build
 
       # ── Run the tests ──
