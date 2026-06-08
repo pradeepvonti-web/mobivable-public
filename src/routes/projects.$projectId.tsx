@@ -1072,8 +1072,10 @@ function ProjectPage() {
       .select(msgSelect)
       .eq(previewConfig.messagesFields.projectFk, projectId)
       .order(previewConfig.messagesFields.createdAt, { ascending: true });
-    setMessages(
-      ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => {
+    setMessages((prev) => {
+      // Preserve any design_brief messages from local state (they're never in the DB)
+      const briefMsgs = prev.filter(m => m.designBrief);
+      const dbMsgs: ChatMessage[] = ((data as { id: string; role: "user" | "assistant"; content: string }[] | null) ?? []).map((m) => {
         if (m.role !== "assistant") return { id: m.id, role: m.role, content: m.content };
         const { role, text } = parseAgentMarker(m.content);
         // legacy fallback: old messages used `**🤖 Name** *(Phase)*` prefix
@@ -1087,8 +1089,10 @@ function ProjectPage() {
           agentName: role ? AGENTS[role].name : legacy?.[1],
           phase: legacy?.[2],
         };
-      }),
-    );
+      });
+      // Append brief messages at the end if they're not already duplicated
+      return [...dbMsgs, ...briefMsgs.filter(b => !dbMsgs.some(d => d.id === b.id))];
+    });
   }
 
   function handleCancel() {
