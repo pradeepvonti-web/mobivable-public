@@ -590,18 +590,20 @@ export const MCP_TOOLS: McpTool[] = [
         // Non-fatal — plan works without mockup
       }
 
-      // ── Step 4: Save brief to project (non-fatal if admin client unavailable) ──
+      // ── Step 4: Save brief to project attachments ──
+      // This brief is loaded by generate_app to ensure mockup ↔ app consistency.
       try {
-        await supabaseAdmin
+        const db = getDb(ctx);
+        await db
           .from("projects")
           .update({
+            attachments: { design_brief: brief, mockup_url: mockupUrl },
             updated_at: new Date().toISOString(),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any)
+          })
           .eq("id", projectId)
           .eq("user_id", ctx.userId);
       } catch {
-        // Non-fatal — brief save skipped when SUPABASE_SERVICE_ROLE_KEY missing
+        // Non-fatal — brief save skipped, generate_app will create one
       }
 
       return {
@@ -636,13 +638,33 @@ export const MCP_TOOLS: McpTool[] = [
       const { callAIFast, callAIStrong } = await import("./ai-provider");
       const { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } = await import("./code-gen");
 
-      // ── PASS 1: Generate a design brief (fast model) ──
-      // This ensures every app gets a domain-specific palette, typography,
-      // layout plan, and screen structure — not just "blue + Inter + rounded".
-      const briefResult = await callAIFast(DESIGN_BRIEF_SYSTEM_PROMPT, prompt);
+      // ── PASS 1: Prefer saved design brief from research_and_plan ──
+      // When the plan-first workflow ran, the brief is already saved in
+      // project.attachments.design_brief. Re-using it ensures the generated
+      // app matches the mockup the user approved.
       let designBrief = "";
-      if (briefResult.ok && briefResult.text.includes("{")) {
-        designBrief = briefResult.text;
+      try {
+        const db = getDb(ctx);
+        const { data: proj } = await db
+          .from("projects")
+          .select("attachments")
+          .eq("id", project_id)
+          .single();
+        const att = proj?.attachments as Record<string, unknown> | null;
+        if (att?.design_brief && typeof att.design_brief === "object") {
+          designBrief = JSON.stringify(att.design_brief);
+          console.log("[generate_app] Using saved design brief from research_and_plan");
+        }
+      } catch {
+        // Fall through to generate a new one
+      }
+
+      // Only generate a fresh brief if none was saved (e.g., direct call without plan)
+      if (!designBrief) {
+        const briefResult = await callAIFast(DESIGN_BRIEF_SYSTEM_PROMPT, prompt);
+        if (briefResult.ok && briefResult.text.includes("{")) {
+          designBrief = briefResult.text;
+        }
       }
 
       // ── PASS 2: Generate the full schema (strong model) ──
