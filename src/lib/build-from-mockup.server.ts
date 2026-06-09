@@ -306,8 +306,11 @@ async function assembleSchemaCandidates(
   const candidates: AssembledCandidate[] = [];
   const errors: { model: string; error: string }[] = [];
   for (const r of results) {
-    if ("schema" in r) candidates.push(r);
-    else errors.push(r);
+    if ("schema" in r && r.schema) {
+      candidates.push({ model: r.model, schema: r.schema, json: r.json });
+    } else if ("error" in r && r.error) {
+      errors.push({ model: r.model, error: r.error });
+    }
   }
   return { candidates, errors };
 }
