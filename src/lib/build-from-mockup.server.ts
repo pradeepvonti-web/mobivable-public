@@ -394,6 +394,14 @@ export interface BuildFromMockupResult {
   schemaJson?: string;
   error?: string;
   stages?: { vision?: boolean; planner?: boolean; assembler?: boolean };
+  /** Which assembler model produced the chosen schema. */
+  winnerModel?: string;
+  /** Models that returned parseable candidates (in priority order). */
+  candidateModels?: string[];
+  /** Models that errored or failed to parse. */
+  failedModels?: { model: string; error: string }[];
+  /** Judge's one-line rationale for picking the winner. */
+  judgeRationale?: string;
 }
 
 export async function buildFromMockup(
@@ -417,8 +425,8 @@ export async function buildFromMockup(
   if (!s2.ok) return { ok: false, error: s2.error, stages };
   stages.planner = true;
 
-  // Stage 3
-  const s3 = await assembleSchema(
+  // Stage 3a — fan out across providers
+  const { candidates, errors } = await assembleSchemaCandidates(
     s1.spec,
     s2.plans,
     input.projectPrompt,
@@ -427,16 +435,30 @@ export async function buildFromMockup(
     input.agentContextText,
     input.codeGenSystemPrompt,
   );
-  if (!s3.ok) return { ok: false, error: s3.error, stages };
+  if (candidates.length === 0) {
+    const errSummary = errors.map((e) => `${e.model}: ${e.error}`).join("; ") || "all assembler candidates failed";
+    return { ok: false, error: `assembler: ${errSummary}`, stages, failedModels: errors };
+  }
 
-  const parsed = parseAppSchema(s3.json);
-  if (!parsed) return { ok: false, error: "assembler: schema failed to parse", stages };
-  const { schema: fixed } = validateAndFixSchema(parsed);
+  // Stage 3b — vision judge ranks candidates against the mockup
+  const judged = await judgeBestCandidate(candidates, httpsUrl);
+  const winner = candidates[judged.winnerIndex];
   stages.assembler = true;
+
+  console.log("[buildFromMockup] assembler picked", {
+    winner: winner.model,
+    rationale: judged.rationale,
+    candidates: candidates.map((c) => c.model),
+    failed: errors,
+  });
 
   return {
     ok: true,
-    schemaJson: JSON.stringify(fixed ?? parsed),
+    schemaJson: winner.json,
     stages,
+    winnerModel: winner.model,
+    candidateModels: candidates.map((c) => c.model),
+    failedModels: errors,
+    judgeRationale: judged.rationale,
   };
 }
