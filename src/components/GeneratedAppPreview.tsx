@@ -192,7 +192,8 @@ export function GeneratedAppPreview({ projectId }: { projectId: string }) {
       {/* Sandpack */}
       <div className="flex-1 min-h-0">
         <Sandpack
-          template="vite-react-ts"
+          key={`sp-${files.length}-${view}`}
+          template="react-ts"
           files={sandpackFiles}
           theme="dark"
           options={{
@@ -203,18 +204,13 @@ export function GeneratedAppPreview({ projectId }: { projectId: string }) {
             editorWidthPercentage: view === "code" ? 60 : 0,
             activeFile: "/src/App.tsx",
             visibleFiles: files.slice(0, 12).map((f) => `/${f.file_path}`),
+            recompileMode: "delayed",
+            recompileDelay: 400,
           }}
           customSetup={{
             dependencies: {
               react: "^18.3.1",
               "react-dom": "^18.3.1",
-            },
-            devDependencies: {
-              "@types/react": "^18.3.3",
-              "@types/react-dom": "^18.3.0",
-              tailwindcss: "^3.4.10",
-              autoprefixer: "^10.4.20",
-              postcss: "^8.4.41",
             },
           }}
         />
