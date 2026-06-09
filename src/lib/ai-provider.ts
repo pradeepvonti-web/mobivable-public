@@ -1,22 +1,34 @@
 /**
  * Centralized AI provider system for Mobivable.
- * Supports: OpenAI, Google Gemini, Anthropic Claude, Groq, OpenRouter, Ollama (local), and custom endpoints.
+ * Supports: OpenAI, Google Gemini, Anthropic Claude, Groq, OpenRouter, Ollama (local),
+ *           Vertex AI (GCP fallback), and custom endpoints.
  *
  * Environment Variables (set any one or more):
- *   OPENAI_API_KEY       — OpenAI (GPT-4o, GPT-4o-mini, o3, o4-mini)
- *   GOOGLE_AI_API_KEY    — Google AI Studio / Gemini API
- *   ANTHROPIC_API_KEY    — Anthropic (Claude 4 Sonnet, Opus, Haiku)
- *   GROQ_API_KEY         — Groq (Llama, Mixtral — fast inference)
- *   OPENROUTER_API_KEY   — OpenRouter (any model via unified API)
- *   OLLAMA_HOST          — Ollama base URL (default: http://localhost:11434)
- *   OLLAMA_ENABLED       — Set to "true" to enable Ollama (auto-detected if OLLAMA_HOST is set)
- *   AI_PROVIDER          — Override: "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama"
- *   AI_MODEL             — Override the default model for the selected provider
- *   AI_BASE_URL          — Custom OpenAI-compatible endpoint URL
+ *   OPENAI_API_KEY              — OpenAI (GPT-4o, GPT-4o-mini, o3, o4-mini)
+ *   GOOGLE_AI_API_KEY           — Google AI Studio / Gemini API
+ *   ANTHROPIC_API_KEY           — Anthropic (Claude 4 Sonnet, Opus, Haiku)
+ *   GROQ_API_KEY                — Groq (Llama, Mixtral — fast inference)
+ *   OPENROUTER_API_KEY          — OpenRouter (any model via unified API)
+ *   OLLAMA_HOST                 — Ollama base URL (default: http://localhost:11434)
+ *   OLLAMA_ENABLED              — Set to "true" to enable Ollama (auto-detected if OLLAMA_HOST is set)
+ *   VERTEX_AI_SERVICE_ACCOUNT   — GCP service account JSON (Vertex AI fallback)
+ *   VERTEX_AI_PROJECT           — GCP project ID (auto-detected from service account)
+ *   VERTEX_AI_LOCATION          — GCP region (default: "us-central1")
+ *   AI_PROVIDER                 — Override: "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama" | "vertex"
+ *   AI_MODEL                    — Override the default model for the selected provider
+ *   AI_BASE_URL                 — Custom OpenAI-compatible endpoint URL
  */
 
+import {
+  isVertexConfigured,
+  getVertexAccessToken,
+  getVertexBaseUrl,
+  getVertexImagenUrl,
+  invalidateVertexToken,
+} from "./vertex-auth";
+
 // ─── Types ──────────────────────────────────────────────────────
-export type AIProvider = "lovable" | "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama" | "custom";
+export type AIProvider = "lovable" | "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama" | "vertex" | "custom";
 
 export type AIMessage = {
   role: "system" | "user" | "assistant";
@@ -163,6 +175,20 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
       return undefined;
     },
   },
+  vertex: {
+    id: "vertex",
+    name: "Vertex AI (GCP)",
+    // URL is built dynamically via getVertexBaseUrl() — this is a placeholder.
+    baseUrl: "",
+    defaultModel: "google/gemini-2.5-flash",
+    models: [
+      { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Vertex)" },
+      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Vertex)" },
+      { id: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash (Vertex)" },
+    ],
+    authHeader: (token) => ({ Authorization: `Bearer ${token}` }),
+    getKey: () => isVertexConfigured() ? "vertex-configured" : undefined,
+  },
   custom: {
     id: "custom",
     name: "Custom Endpoint",
@@ -265,6 +291,14 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "GPT-4o": "openai/gpt-4o",
     "Claude Sonnet 4": "anthropic/claude-sonnet-4",
   },
+  vertex: {
+    "Gemini 2.5 Flash": "google/gemini-2.5-flash",
+    "Gemini 2.5 Pro": "google/gemini-2.5-pro",
+    "Gemini 3 Flash": "google/gemini-2.5-flash",
+    "GPT-4o": "google/gemini-2.5-pro",
+    "GPT-4o Mini": "google/gemini-2.5-flash",
+    "Claude Sonnet 4": "google/gemini-2.5-pro",
+  },
 };
 
 function resolveModel(friendlyName: string, provider: ProviderConfig): string {
@@ -277,8 +311,380 @@ function resolveModel(friendlyName: string, provider: ProviderConfig): string {
   return provider.defaultModel;
 }
 
+// ─── Vertex AI Fallback Infrastructure ──────────────────────────
+//
+// When the primary provider fails with retriable errors (429, 401, 403,
+// 500, 502, 503, network errors), the system automatically retries
+// through Vertex AI if it's configured. This is transparent to callers.
+
+/** HTTP status codes that trigger a Vertex AI fallback retry. */
+const VERTEX_FALLBACK_STATUSES = new Set([401, 403, 429, 500, 502, 503]);
+
+/**
+ * Wraps an AI call with automatic Vertex AI fallback.
+ * If the primary call fails with a retriable error and Vertex AI is configured,
+ * retries the same request through the Vertex AI endpoint.
+ */
+async function withVertexFallback<T extends AIResult>(
+  primaryCall: () => Promise<T>,
+  vertexRetry: () => Promise<T>,
+): Promise<T> {
+  // If Vertex AI isn't configured, just run the primary call
+  if (!isVertexConfigured()) return primaryCall();
+
+  const result = await primaryCall();
+
+  // If primary succeeded, return it
+  if (result.ok) return result;
+
+  // Check if the error is retriable
+  const err = (result as { ok: false; error: string }).error;
+  const isRetriable =
+    /rate limit/i.test(err) ||
+    /429/i.test(err) ||
+    /401|403/i.test(err) ||
+    /invalid api key/i.test(err) ||
+    /billing/i.test(err) ||
+    /500|502|503/i.test(err) ||
+    /ECONNREFUSED|ETIMEDOUT|fetch failed/i.test(err);
+
+  if (!isRetriable) return result;
+
+  // Retry through Vertex AI
+  console.log(`[vertex-fallback] Primary provider failed (${err.slice(0, 80)}), retrying via Vertex AI...`);
+  try {
+    const vertexResult = await vertexRetry();
+    if (vertexResult.ok) {
+      console.log(`[vertex-fallback] ✓ Vertex AI succeeded`);
+    }
+    return vertexResult;
+  } catch (e) {
+    console.error(`[vertex-fallback] Vertex AI also failed:`, e instanceof Error ? e.message : e);
+    // Return the original primary error — it's more informative
+    return result;
+  }
+}
+
+/**
+ * Wraps a streaming AI call with automatic Vertex AI fallback.
+ * Similar to withVertexFallback but for streaming responses.
+ */
+async function withVertexFallbackStreaming<
+  T extends { ok: true; response: Response; provider: AIProvider | string; model: string } | { ok: false; error: string },
+>(
+  primaryCall: () => Promise<T>,
+  vertexRetry: () => Promise<T>,
+): Promise<T> {
+  if (!isVertexConfigured()) return primaryCall();
+
+  const result = await primaryCall();
+  if (result.ok) return result;
+
+  const err = (result as { ok: false; error: string }).error;
+  const isRetriable =
+    /rate limit|429|401|403|invalid api key|billing|500|502|503|ECONNREFUSED|ETIMEDOUT|fetch failed/i.test(err);
+
+  if (!isRetriable) return result;
+
+  console.log(`[vertex-fallback] Primary streaming failed (${err.slice(0, 80)}), retrying via Vertex AI...`);
+  try {
+    const vertexResult = await vertexRetry();
+    if (vertexResult.ok) console.log(`[vertex-fallback] ✓ Vertex AI streaming succeeded`);
+    return vertexResult;
+  } catch (e) {
+    console.error(`[vertex-fallback] Vertex AI streaming also failed:`, e instanceof Error ? e.message : e);
+    return result;
+  }
+}
+
+/**
+ * Make a non-streaming chat completion call directly to Vertex AI.
+ * Uses the OpenAI-compatible endpoint.
+ */
+async function vertexCallChat(
+  system: string,
+  user: string,
+  modelHint?: string,
+): Promise<AIResult> {
+  const token = await getVertexAccessToken();
+  if (!token) return { ok: false, error: "Vertex AI: Failed to obtain access token." };
+
+  const vertexCfg = PROVIDERS.vertex;
+  const model = resolveModel(modelHint ?? "", vertexCfg);
+  const url = getVertexBaseUrl();
+  if (!url) return { ok: false, error: "Vertex AI: Project ID not configured." };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+
+    if (res.status === 401) {
+      invalidateVertexToken();
+      return { ok: false, error: "Vertex AI: Auth token expired." };
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Vertex AI error (${res.status}): ${body.slice(0, 200)}` };
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+
+    return {
+      ok: true,
+      text: json.choices?.[0]?.message?.content?.trim() ?? "",
+      provider: "Vertex AI (GCP)",
+      model,
+    };
+  } catch (e) {
+    return { ok: false, error: `Vertex AI: ${e instanceof Error ? e.message : "Call failed"}` };
+  }
+}
+
+/**
+ * Make a streaming chat completion call directly to Vertex AI.
+ */
+async function vertexCallStreaming(
+  messages: AIMessage[],
+  modelHint?: string,
+): Promise<{ ok: true; response: Response; provider: string; model: string } | { ok: false; error: string }> {
+  const token = await getVertexAccessToken();
+  if (!token) return { ok: false, error: "Vertex AI: Failed to obtain access token." };
+
+  const vertexCfg = PROVIDERS.vertex;
+  const model = resolveModel(modelHint ?? "", vertexCfg);
+  const url = getVertexBaseUrl();
+  if (!url) return { ok: false, error: "Vertex AI: Project ID not configured." };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model, messages, stream: true }),
+    });
+
+    if (res.status === 401) {
+      invalidateVertexToken();
+      return { ok: false, error: "Vertex AI: Auth token expired." };
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Vertex AI streaming error (${res.status}): ${body.slice(0, 200)}` };
+    }
+
+    return { ok: true, response: res, provider: "Vertex AI (GCP)", model };
+  } catch (e) {
+    return { ok: false, error: `Vertex AI: ${e instanceof Error ? e.message : "Streaming failed"}` };
+  }
+}
+
+/**
+ * Make a streaming tool-use call directly to Vertex AI.
+ * Uses the OpenAI-compatible tools protocol.
+ */
+async function vertexCallToolsStreaming(args: {
+  system: string;
+  messages: ProviderNeutralMsg;
+  tools: { openai: OpenAIToolDef[] };
+  modelHint?: string;
+}): Promise<
+  | { ok: true; response: Response; provider: AIProvider; model: string }
+  | { ok: false; error: string }
+> {
+  const token = await getVertexAccessToken();
+  if (!token) return { ok: false, error: "Vertex AI: Failed to obtain access token." };
+
+  const vertexCfg = PROVIDERS.vertex;
+  const model = resolveModel(args.modelHint ?? "", vertexCfg);
+  const url = getVertexBaseUrl();
+  if (!url) return { ok: false, error: "Vertex AI: Project ID not configured." };
+
+  try {
+    const body = {
+      model,
+      messages: [
+        { role: "system" as const, content: args.system },
+        ...(args.messages.openai ?? []),
+      ],
+      tools: args.tools.openai,
+      tool_choice: "auto" as const,
+      stream: true,
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.status === 401) {
+      invalidateVertexToken();
+      return { ok: false, error: "Vertex AI: Auth token expired." };
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `Vertex AI tools error (${res.status}): ${text.slice(0, 200)}` };
+    }
+
+    return { ok: true, response: res, provider: "vertex" as AIProvider, model };
+  } catch (e) {
+    return { ok: false, error: `Vertex AI: ${e instanceof Error ? e.message : "Tools streaming failed"}` };
+  }
+}
+
+/**
+ * Make a vision call directly to Vertex AI.
+ */
+async function vertexCallVision(
+  system: string,
+  user: string,
+  imageUrls: string[],
+  modelHint?: string,
+): Promise<AIResult> {
+  const token = await getVertexAccessToken();
+  if (!token) return { ok: false, error: "Vertex AI: Failed to obtain access token." };
+
+  const vertexCfg = PROVIDERS.vertex;
+  const model = resolveModel(modelHint ?? "", vertexCfg);
+  const url = getVertexBaseUrl();
+  if (!url) return { ok: false, error: "Vertex AI: Project ID not configured." };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: [
+              ...imageUrls.map((u) => ({ type: "image_url", image_url: { url: u } })),
+              { type: "text", text: user },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (res.status === 401) {
+      invalidateVertexToken();
+      return { ok: false, error: "Vertex AI: Auth token expired." };
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Vertex AI vision error (${res.status}): ${body.slice(0, 200)}` };
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+
+    return {
+      ok: true,
+      text: json.choices?.[0]?.message?.content?.trim() ?? "",
+      provider: "Vertex AI (GCP)",
+      model,
+    };
+  } catch (e) {
+    return { ok: false, error: `Vertex AI: ${e instanceof Error ? e.message : "Vision call failed"}` };
+  }
+}
+
+/**
+ * Generate an image via Vertex AI Imagen.
+ */
+async function vertexCallImage(
+  prompt: string,
+): Promise<{ ok: true; dataUrl: string } | { ok: false; error: string }> {
+  const token = await getVertexAccessToken();
+  if (!token) return { ok: false, error: "Vertex AI: Failed to obtain access token." };
+
+  const url = getVertexImagenUrl();
+  if (!url) return { ok: false, error: "Vertex AI: Project ID not configured." };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        instances: [{ prompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+          safetyFilterLevel: "block_few",
+        },
+      }),
+    });
+
+    if (res.status === 401) {
+      invalidateVertexToken();
+      return { ok: false, error: "Vertex AI: Auth token expired." };
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Vertex AI Imagen error (${res.status}): ${body.slice(0, 200)}` };
+    }
+
+    const json = (await res.json()) as {
+      predictions?: { bytesBase64Encoded?: string; mimeType?: string }[];
+    };
+
+    const b64 = json.predictions?.[0]?.bytesBase64Encoded;
+    const mime = json.predictions?.[0]?.mimeType ?? "image/png";
+    if (!b64) return { ok: false, error: "Vertex AI: No image returned from Imagen." };
+
+    return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
+  } catch (e) {
+    return { ok: false, error: `Vertex AI: ${e instanceof Error ? e.message : "Image generation failed"}` };
+  }
+}
+
 // ─── Core API: Non-streaming chat completion ────────────────────
 export async function callAI(
+  system: string,
+  user: string,
+  modelHint?: string,
+): Promise<AIResult> {
+  return withVertexFallback(
+    () => _callAICore(system, user, modelHint),
+    () => vertexCallChat(system, user, modelHint),
+  );
+}
+
+/** Internal core implementation — called by the fallback wrapper. */
+async function _callAICore(
   system: string,
   user: string,
   modelHint?: string,
@@ -363,6 +769,7 @@ const FAST_MODELS: Record<AIProvider, string> = {
   groq: "llama-3.1-8b-instant",
   openrouter: "google/gemini-2.5-flash",
   ollama: "llama3.1",
+  vertex: "google/gemini-2.5-flash",
   custom: "default",
 };
 
@@ -375,6 +782,7 @@ const STRONG_MODELS: Record<AIProvider, string> = {
   groq: "llama-3.3-70b-versatile",
   openrouter: "google/gemini-2.5-pro",
   ollama: "llama3.1:70b",
+  vertex: "google/gemini-2.5-pro",
   custom: "default",
 };
 
@@ -520,6 +928,19 @@ export async function callAIVision(
   imageUrls: string[],
   modelHint?: string,
 ): Promise<AIResult> {
+  const images = imageUrls.filter((u) => /^https?:\/\//i.test(u)).slice(0, MAX_VISION_IMAGES);
+  return withVertexFallback(
+    () => _callAIVisionCore(system, user, imageUrls, modelHint),
+    () => vertexCallVision(system, user, images, modelHint),
+  );
+}
+
+async function _callAIVisionCore(
+  system: string,
+  user: string,
+  imageUrls: string[],
+  modelHint?: string,
+): Promise<AIResult> {
   const provider = detectProvider();
   if (!provider) {
     return { ok: false, error: "No AI provider configured. Set an API key in environment variables." };
@@ -618,6 +1039,16 @@ export async function callAIVision(
 
 // ─── Streaming API (OpenAI-compatible only) ─────────────────────
 export async function callAIStreaming(
+  messages: AIMessage[],
+  modelHint?: string,
+): Promise<{ ok: true; response: Response; provider: string; model: string } | { ok: false; error: string }> {
+  return withVertexFallbackStreaming(
+    () => _callAIStreamingCore(messages, modelHint),
+    () => vertexCallStreaming(messages, modelHint),
+  );
+}
+
+async function _callAIStreamingCore(
   messages: AIMessage[],
   modelHint?: string,
 ): Promise<{ ok: true; response: Response; provider: string; model: string } | { ok: false; error: string }> {
@@ -728,6 +1159,21 @@ export async function callAIToolsStreaming(args: {
   | { ok: true; response: Response; provider: AIProvider; model: string }
   | { ok: false; error: string }
 > {
+  return withVertexFallbackStreaming(
+    () => _callAIToolsStreamingCore(args),
+    () => vertexCallToolsStreaming({ ...args, tools: { openai: args.tools.openai } }),
+  );
+}
+
+async function _callAIToolsStreamingCore(args: {
+  system: string;
+  messages: ProviderNeutralMsg;
+  tools: { anthropic: AnthropicToolDef[]; openai: OpenAIToolDef[] };
+  modelHint?: string;
+}): Promise<
+  | { ok: true; response: Response; provider: AIProvider; model: string }
+  | { ok: false; error: string }
+> {
   const provider = detectProvider();
   if (!provider) {
     return { ok: false, error: "No AI provider configured." };
@@ -792,6 +1238,28 @@ export async function callAIToolsStreaming(args: {
 
 // ─── Image generation (for asset creation) ──────────────────────
 export async function callAIImage(
+  prompt: string,
+): Promise<{ ok: true; dataUrl: string } | { ok: false; error: string }> {
+  // Image generation fallback uses a different type shape, handle inline
+  const result = await _callAIImageCore(prompt);
+  if (result.ok || !isVertexConfigured()) return result;
+
+  const err = (result as { ok: false; error: string }).error;
+  const isRetriable =
+    /rate limit|429|401|403|invalid api key|billing|500|502|503|ECONNREFUSED|ETIMEDOUT|fetch failed|does not support/i.test(err);
+  if (!isRetriable) return result;
+
+  console.log(`[vertex-fallback] Primary image gen failed (${err.slice(0, 80)}), retrying via Vertex AI Imagen...`);
+  try {
+    const vertexResult = await vertexCallImage(prompt);
+    if (vertexResult.ok) console.log(`[vertex-fallback] ✓ Vertex AI Imagen succeeded`);
+    return vertexResult;
+  } catch {
+    return result;
+  }
+}
+
+async function _callAIImageCore(
   prompt: string,
 ): Promise<{ ok: true; dataUrl: string } | { ok: false; error: string }> {
   const provider = detectProvider();
