@@ -590,7 +590,7 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             // Lovable-AI image so the preview ships with real pictures, not
             // placeholders. Best-effort — failures do NOT fail the run.
             try {
-              const { runAppImagesInternal } = await import("./app-images.functions");
+              const { runAppImagesInternal } = await import("./app-images.server");
               const imgRes = await runAppImagesInternal({
                 supabase,
                 userId,
