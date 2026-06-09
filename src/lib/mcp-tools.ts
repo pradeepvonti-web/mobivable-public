@@ -558,21 +558,55 @@ export const MCP_TOOLS: McpTool[] = [
         brief = { raw: briefResult.text };
       }
 
-      // ── Step 2: Generate plan steps from the brief ──
+      // ── Step 2: Generate comprehensive plan steps from the brief ──
       const screens = (brief.screens ?? []) as { id: string; title: string; layout?: string; purpose?: string; keyPrimitives?: string[] }[];
+      const appName = (brief.appName as string) ?? "App";
+      const audience = (brief.audience as string) ?? "general users";
+      const domain = (brief.domain as string) ?? "general";
+      const mood = (brief.mood as string) ?? "modern, clean";
+      const paletteObj = (brief.palette ?? {}) as Record<string, unknown>;
+      const typoObj = (brief.typography ?? {}) as Record<string, unknown>;
+      const navItems = (brief.navigation as string[]) ?? [];
+
       const planSteps = [
-        `App Concept: ${(brief.appName as string) ?? "App"} — ${(brief.audience as string) ?? "general users"}`,
-        `Design Mood: ${(brief.mood as string) ?? "modern, clean"}`,
-        `Color Palette: ${(brief.palette as Record<string, unknown>)?.mode ?? "dark"} mode — Primary ${(brief.palette as Record<string, unknown>)?.primary ?? "#6366F1"}`,
-        `Typography: ${(brief.typography as Record<string, unknown>)?.headingFont ?? "Inter"} + ${(brief.typography as Record<string, unknown>)?.bodyFont ?? "DM Sans"}`,
-        ...screens.map((s, i) => `Screen ${i + 1}: ${s.title ?? s.id} — ${s.layout ?? "stack"} layout — ${s.purpose ?? ""}`),
-        `Navigation: ${(brief.navigation as string[])?.join(", ") ?? "bottom-tabs"}`,
-        `Visual Style: ${(brief.radius as string) ?? "rounded"} corners, ${(brief.spacing as string) ?? "comfortable"} spacing, ${(brief.motion as string) ?? "medium"} animations`,
-        `Inspirations: ${((brief.references as string[]) ?? []).join(", ") || "Premium app designs"}`,
+        // 1. App Vision
+        `📱 APP VISION: ${appName} — ${mood} ${domain} app for ${audience}`,
+        // 2. Core Features
+        `⚙️ CORE FEATURES: Auth, Profile, Dashboard, ${screens.map(s => s.title ?? s.id).join(", ")}, Search, Notifications, Settings`,
+        // 3. User Journey
+        `🗺️ USER JOURNEY: Open → Sign Up → Onboarding → Dashboard → ${screens.length > 2 ? (screens[1]?.title ?? "Main Action") : "Main Action"} → Review → Submit → Notifications`,
+        // 4. Screen List
+        ...screens.map((s, i) => `📋 Screen ${i + 1}: ${s.title ?? s.id} — ${s.layout ?? "stack"} layout — ${s.purpose ?? ""}`),
+        // 5. UI/UX Design
+        `🎨 DESIGN: ${paletteObj.mode ?? "dark"} mode — Primary ${paletteObj.primary ?? "#6366F1"}, Accent ${paletteObj.accent ?? "#F59E0B"}`,
+        `✍️ TYPOGRAPHY: ${typoObj.headingFont ?? "Inter"} + ${typoObj.bodyFont ?? "DM Sans"}, ${typoObj.scale ?? "comfortable"} scale`,
+        `✨ VISUAL STYLE: ${(brief.radius as string) ?? "rounded"} corners, ${(brief.spacing as string) ?? "comfortable"} spacing, ${(brief.motion as string) ?? "medium"} animations`,
+        // 6. Architecture
+        `🏗️ ARCHITECTURE: React Native/Expo + Supabase (PostgreSQL, Auth, RLS, Storage)`,
+        // 7. Data Model
+        `🗄️ DATA MODEL: User, Profile, ${domain === "fintech" ? "Account, Transaction, Card" : domain === "fitness" ? "Workout, Exercise, Progress" : domain === "ecommerce" ? "Product, Order, Cart, Review" : "MainEntity, SubEntity"}, Notification`,
+        // 8. API Plan
+        `🔌 API: Auth (signup/login/reset), CRUD for main entities, Notifications, Profile management`,
+        // 9. Development Phases
+        `📅 PHASES: Discovery (1w) → UI/UX Design (1-2w) → Backend (1-2w) → Mobile Dev (3-6w) → Testing (1-2w) → App Store (1w)`,
+        // 10. MVP Scope
+        `🎯 MVP: Login, Dashboard, Core workflow, Basic profile — defer advanced features, animations, admin panel`,
+        // 11. Navigation
+        `🧭 NAVIGATION: ${navItems.length > 0 ? navItems.join(", ") : "bottom-tabs"}`,
+        // 12. Inspirations
+        `💡 INSPIRATIONS: ${((brief.references as string[]) ?? []).join(", ") || "Premium app designs"}`,
+        // 13. Testing
+        `✅ TESTING: Install, auth flows, navigation, form validation, API error handling, multi-device`,
+        // 14. Security
+        `🔒 SECURITY: Secure auth, API protection, input validation, HTTPS, RLS policies, encrypted secrets`,
+        // 15. App Store
+        `📦 APP STORE: Logo, icon, splash screen, screenshots, descriptions, privacy policy, terms`,
+        // 16. Success Metrics
+        `📊 SUCCESS: Track downloads, active users, retention, crash-free rate, app store rating, conversion`,
       ];
 
+
       // ── Step 3: Generate design mockup image ──
-      const appName = (brief.appName as string) ?? "Mobile App";
       const palette = brief.palette as Record<string, string> | undefined;
       const screenDescs = screens.slice(0, 4).map((s, i) =>
         `Screen ${i + 1} "${s.title ?? s.id}": ${s.layout ?? "stack"} layout with ${(s.keyPrimitives ?? []).slice(0, 3).join(", ") || "cards and lists"}`
