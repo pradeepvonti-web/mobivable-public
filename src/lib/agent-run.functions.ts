@@ -540,30 +540,53 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         const { loadKnowledgeForUser } = await import("./knowledge-context");
         const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);
 
+        // If we have a structured approved brief, render each screen as an
+        // explicit checklist so the strong model knows exactly which real
+        // element types to emit (no `text` placeholders like "[split-hero]").
+        let screensChecklist = "";
+        try {
+          const brief = (savedBrief && typeof savedBrief === "object") ? savedBrief as Record<string, unknown> : null;
+          const briefScreens = Array.isArray(brief?.screens) ? brief!.screens as Array<Record<string, unknown>> : [];
+          if (briefScreens.length > 0) {
+            screensChecklist =
+              `\n\n## Screen Build Checklist (render EACH as a real screen with the listed element TYPES — never as a text element containing the type name)\n` +
+              briefScreens.map((s, i) => {
+                const id = String(s.id ?? `screen-${i + 1}`);
+                const title = String(s.title ?? id);
+                const layout = String(s.layout ?? "stack");
+                const icon = String(s.icon ?? "circle");
+                const purpose = typeof s.purpose === "string" ? s.purpose : "";
+                const prims = Array.isArray(s.keyPrimitives) ? (s.keyPrimitives as string[]).join(", ") : "";
+                return `${i + 1}. id="${id}" title="${title}" layout="${layout}" icon="${icon}"\n   purpose: ${purpose}\n   required element types (emit as real elements, 6-10 total): ${prims}`;
+              }).join("\n");
+          }
+        } catch { /* non-fatal */ }
+
         const userPrompt =
           `Build a premium mobile app based on the following specifications.\n\n` +
           `## App Idea\n${project.prompt}\n\n` +
           (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
           (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
           `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
-          designBrief + `\n\n` +
+          designBrief +
+          screensChecklist + `\n\n` +
           `## CRITICAL INSTRUCTIONS\n` +
-          `1. Use the UI/UX Designer's EXACT element choices if they specified element types (parallax-hero, glass-card, stat-card-xl, etc.)\n` +
-          `2. Use the Designer's EXACT color palette if hex values were provided. If Figma tokens were imported (listed above), map theme.palette.primary, theme.palette.accent, theme.palette.background, and theme.palette.card to the exact hex values from Figma.\n` +
-          `3. Map typography.headingFont and typography.bodyFont to the fonts extracted from Figma if available.\n` +
-          `4. Include ALL screens the Product Manager identified\n` +
-          `5. Add navigate actions on buttons to connect screens as the UX Researcher mapped\n` +
-          `6. Include reusable components in the components map if the Frontend Developer identified them\n` +
-          `7. Add skeleton loading states and empty-state elements where appropriate\n` +
-          `8. Every screen MUST have 6-10 elements minimum\n` +
-          `9. Use at least 3 premium elements (glass-card, parallax-hero, stat-card-xl, feature-showcase, etc.)\n` +
-          `10. Include at least 1 chart element and 1 hero element with an image prompt\n` +
-          `11. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow)\n` +
-          `12. Set a page transition (slide, fade, zoom) on each screen\n` +
-          `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen\n\n` +
-          `Generate the COMPLETE app JSON now. Make it PREMIUM — this should look like a Dribbble featured shot.`;
+          `1. Follow the Screen Build Checklist EXACTLY — same id, title, layout, icon, and element types per screen. Element types in the checklist MUST be emitted as real elements (e.g. {"type":"split-hero",...}), NEVER as a "text" element whose content is "[split-hero]".\n` +
+          `2. Use the Designer's EXACT color palette (already in theme.palette). Do not invent new colors.\n` +
+          `3. Map typography.headingFont and typography.bodyFont from the brief.\n` +
+          `4. Include ALL screens from the checklist, in the same order.\n` +
+          `5. Add navigate actions on buttons/tabs to connect screens.\n` +
+          `6. Include reusable components in the components map when the Frontend Developer identified them.\n` +
+          `7. Add skeleton loading states and empty-state elements where appropriate.\n` +
+          `8. Every screen MUST have 6-10 real elements. No placeholder text elements. No screen under 6 elements.\n` +
+          `9. Use at least 3 premium elements across the app (glass-card, parallax-hero, stat-card-xl, feature-showcase, split-hero, bento-grid).\n` +
+          `10. Include at least 1 chart element and 1 hero element with an image "prompt" string for media auto-fill.\n` +
+          `11. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow).\n` +
+          `12. Set a page transition (slide, fade, zoom) on each screen.\n` +
+          `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen.\n\n` +
+          `Generate the COMPLETE app JSON now. Make it PREMIUM — Dribbble-featured quality.`;
 
-        const result = await callAI(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+        const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
 
         if (result.ok && result.text.length > 50) {
           const parsed = parseAppSchema(result.text);
