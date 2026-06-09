@@ -127,9 +127,17 @@ ${pad}</div>`;
     }
     case "glass-card":
     case "hero-banner":
-      return `${pad}<div className="mx-5 my-2 rounded-3xl p-5 bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)] text-white">
-${pad}  <h3 className="text-lg font-bold">${jsx(e.title ?? "Welcome")}</h3>
-${pad}  ${e.subtitle ? `<p className="text-sm opacity-90 mt-1">${jsx(e.subtitle)}</p>` : ""}
+    case "parallax-hero":
+    case "hero":
+    case "banner":
+    case "onboarding-slide":
+    case "slide":
+    case "feature-card":
+    case "promo-card":
+      return `${pad}<div className="mx-5 my-3 rounded-3xl p-6 bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)] text-white shadow-lg">
+${pad}  ${e.eyebrow ? `<p className="text-[10px] uppercase tracking-widest opacity-80 mb-2">${jsx(e.eyebrow)}</p>` : ""}
+${pad}  <h3 className="text-2xl font-bold leading-tight">${jsx(e.title ?? e.heading ?? "Welcome")}</h3>
+${pad}  ${e.subtitle || e.description ? `<p className="text-sm opacity-90 mt-2 leading-relaxed">${jsx(e.subtitle ?? e.description)}</p>` : ""}
 ${pad}</div>`;
     case "image":
       return `${pad}<img src=${JSON.stringify(String(e.src ?? e.url ?? ""))} alt=${JSON.stringify(String(e.alt ?? ""))} className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] object-cover" />`;
@@ -185,9 +193,31 @@ ${pad}</div>`;
       return `${pad}<label className="px-5 py-2 flex items-center justify-between"><span className="text-sm text-[var(--c-text)]">${jsx(e.label)}</span><input type="checkbox" defaultChecked={${Boolean(e.value)}} className="h-5 w-9 rounded-full appearance-none bg-[var(--c-border)] checked:bg-[var(--c-primary)] transition-colors" /></label>`;
     case "empty-state":
       return `${pad}<div className="px-5 py-10 text-center"><h4 className="font-semibold text-[var(--c-text)]">${jsx(e.title ?? "Nothing here yet")}</h4><p className="text-sm text-[var(--c-muted)] mt-1">${jsx(e.subtitle ?? e.message ?? "")}</p></div>`;
-    default:
-      // Generic fallback — show type + any title/text we can find.
-      return `${pad}<div className="mx-5 my-2 rounded-xl bg-[var(--c-card)] border border-dashed border-[var(--c-border)] p-3 text-sm text-[var(--c-muted)]"><span className="text-[10px] font-mono uppercase tracking-widest opacity-60">${jsx(t)}</span>${e.title ? `<p className="text-[var(--c-text)] mt-1">${jsx(e.title)}</p>` : ""}${e.text ? `<p className="text-[var(--c-text)] mt-1">${jsx(e.text)}</p>` : ""}</div>`;
+    default: {
+      // Best-effort fallback: render whatever recognizable fields exist
+      // so unknown element types still produce useful UI instead of just
+      // showing their type name.
+      const title = e.title ?? e.heading ?? e.name;
+      const subtitle = e.subtitle ?? e.description ?? e.text ?? e.content;
+      const items = Array.isArray(e.items)
+        ? (e.items as Array<Record<string, unknown>>)
+        : Array.isArray(e.slides)
+          ? (e.slides as Array<Record<string, unknown>>)
+          : Array.isArray(e.options)
+            ? (e.options as Array<Record<string, unknown>>)
+            : [];
+      const itemsJsx = items
+        .map(
+          (it, i) =>
+            `${pad}    <div key={${i}} className="rounded-xl bg-[var(--c-card)] border border-[var(--c-border)] p-3"><p className="text-sm font-medium text-[var(--c-text)]">${jsx(it.title ?? it.label ?? it.name ?? String(it))}</p>${it.subtitle || it.description ? `<p className="text-xs text-[var(--c-muted)] mt-0.5">${jsx(it.subtitle ?? it.description)}</p>` : ""}</div>`,
+        )
+        .join("\n");
+      return `${pad}<div className="mx-5 my-2 rounded-2xl bg-[var(--c-card)] border border-[var(--c-border)] p-4">
+${title ? `${pad}  <h4 className="font-semibold text-[var(--c-text)]">${jsx(title)}</h4>` : ""}
+${subtitle ? `${pad}  <p className="text-sm text-[var(--c-muted)] mt-1">${jsx(subtitle)}</p>` : ""}
+${items.length ? `${pad}  <div className="mt-3 space-y-2">\n${itemsJsx}\n${pad}  </div>` : ""}
+${pad}</div>`;
+    }
   }
 }
 
