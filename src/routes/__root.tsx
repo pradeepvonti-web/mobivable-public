@@ -111,11 +111,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Inline polyfill: ensures `process.env` exists globally before any client-side
+// JS evaluates. TanStack Start's createClientRpc references process.env.TSS_*
+// which Vite's define replaces in source, but NOT in pre-bundled node_modules
+// served during dev-mode SPA navigation.
+const processPolyfill = `if(typeof globalThis.process==="undefined"){globalThis.process={env:{}};}`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: processPolyfill }} />
       </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
