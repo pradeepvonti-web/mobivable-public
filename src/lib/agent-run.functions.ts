@@ -380,7 +380,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
 
         const { data: project } = await supabase
           .from("projects")
-          .select("id, prompt, name, result, figma_tokens")
+          .select("id, prompt, name, result, figma_tokens, attachments")
           .eq("id", runRow.project_id)
           .single();
         if (!project) throw new Error("Project not found");
