@@ -2507,7 +2507,27 @@ function ProjectPage() {
                           planSteps={m.planSteps ?? []}
                           brief={m.designBrief}
                           mockupUrl={m.mockupUrl ?? null}
-                          onApprove={() => {
+                          onApprove={async () => {
+                            // Persist the approved brief so generate_app + finalizeAgentRun
+                            // build from THIS design instead of regenerating from the raw prompt.
+                            if (m.designBrief) {
+                              try {
+                                const { data: row } = await supabase
+                                  .from("projects")
+                                  .select("attachments")
+                                  .eq("id", projectId)
+                                  .maybeSingle();
+                                const prev = (row?.attachments && typeof row.attachments === "object" && !Array.isArray(row.attachments))
+                                  ? (row.attachments as Record<string, unknown>)
+                                  : {};
+                                await supabase
+                                  .from("projects")
+                                  .update({ attachments: { ...prev, design_brief: m.designBrief } })
+                                  .eq("id", projectId);
+                              } catch (e) {
+                                console.error("[approve] failed to persist design brief", e);
+                              }
+                            }
                             handleSend(undefined, "Approved! Build the app exactly as planned.");
                           }}
                           onEdit={(feedback) => {
