@@ -59,6 +59,14 @@ export function GeneratedAppPreview({ projectId }: { projectId: string }) {
     if (!files) return {};
     const map: Record<string, string> = {};
     for (const f of files) map[`/${f.file_path}`] = f.content;
+    // Inject Tailwind Play CDN into index.html so preview is styled without PostCSS.
+    const idx = map["/index.html"];
+    if (idx && !idx.includes("cdn.tailwindcss.com")) {
+      map["/index.html"] = idx.replace(
+        /<\/head>/i,
+        `  <script src="https://cdn.tailwindcss.com"></script>\n  </head>`,
+      );
+    }
     return map;
   }, [files]);
 
