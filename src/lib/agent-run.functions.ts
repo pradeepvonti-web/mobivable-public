@@ -380,7 +380,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
 
         const { data: project } = await supabase
           .from("projects")
-          .select("id, prompt, name, result, figma_tokens")
+          .select("id, prompt, name, result, figma_tokens, attachments")
           .eq("id", runRow.project_id)
           .single();
         if (!project) throw new Error("Project not found");
@@ -468,11 +468,20 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           console.error("[finalizeAgentRun] Backend spec extraction failed:", e);
         }
 
-        // Pass 1: Extract structured design brief from agent outputs
+        // Pass 1: Prefer the user-approved brief stored on the project; only
+        // fall back to AI extraction when no approved brief exists.
         let designBrief = '';
-        try {
-          await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
-          const extractionPrompt = `You are a design brief extractor. Given agent outputs from a mobile app build team, extract a STRUCTURED design brief. RESPOND WITH ONLY VALID JSON — no markdown, no prose.
+        const savedBrief =
+          (project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments))
+            ? (project.attachments as Record<string, unknown>).design_brief
+            : undefined;
+
+        if (savedBrief) {
+          designBrief = `\n\n## Approved Design Brief (user-confirmed — build exactly this)\n${JSON.stringify(savedBrief, null, 2)}`;
+        } else {
+          try {
+            await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
+            const extractionPrompt = `You are a design brief extractor. Given agent outputs from a mobile app build team, extract a STRUCTURED design brief. RESPOND WITH ONLY VALID JSON — no markdown, no prose.
 
 Agent Outputs:
 ${agentContext.slice(0, 6000)}
@@ -494,12 +503,13 @@ Extract this JSON:
 }
 
 Use agents' exact values if provided. Infer from domain if not. Always 4-6 screens.`;
-          const briefResult = await callAI(extractionPrompt, '');
-          if (briefResult.ok) {
-            designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
+            const briefResult = await callAI(extractionPrompt, '');
+            if (briefResult.ok) {
+              designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
+            }
+          } catch (e) {
+            console.log("[finalizeAgentRun] Brief extraction skipped (credits):", (e as Error).message);
           }
-        } catch (e) {
-          console.log("[finalizeAgentRun] Brief extraction skipped (credits):", (e as Error).message);
         }
 
         // Pass 2: Generate the full app schema
