@@ -1,0 +1,15 @@
+# Google Agent Development Kit (ADK) — core framework
+google-adk>=1.2.0
+
+# Google Cloud AI Platform — Vertex AI integration
+google-cloud-aiplatform>=1.82.0
+
+# Web server
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+
+# HTTP client for bridging to Node.js MCP tools
+httpx>=0.28.0
+
+# Environment variable management
+python-dotenv>=1.0.0

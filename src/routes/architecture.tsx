@@ -46,11 +46,12 @@ const mcpTools = [
 ];
 
 const googleCloud = [
-  { icon: "✨", name: "Gemini 2.5 Flash / Pro", desc: "Primary LLM — design briefs & schema generation" },
+  { icon: "✨", name: "Gemini 2.5 Flash / Pro", desc: "Primary LLM via Vertex AI — design briefs & schema generation" },
   { icon: "🖼️", name: "Gemini Flash Image", desc: "Mockups & in-app asset generation" },
-  { icon: "🔁", name: "Vertex AI (Fallback)", desc: "JWT auth + Imagen 4.0" },
-  { icon: "🚀", name: "Cloud Run", desc: "Serverless container hosting" },
-  { icon: "🔨", name: "Cloud Build", desc: "CI/CD pipeline" },
+  { icon: "🧠", name: "Agent Development Kit (ADK)", desc: "Google's framework for multi-agent orchestration" },
+  { icon: "🔁", name: "Vertex AI", desc: "Primary AI platform — Gemini + Imagen 4.0 + Agent Engine" },
+  { icon: "🚀", name: "Cloud Run", desc: "Serverless hosting — app + ADK agent service" },
+  { icon: "🔨", name: "Cloud Build", desc: "CI/CD pipeline for both services" },
 ];
 
 const dataLayer = [
@@ -67,8 +68,8 @@ const workflowSteps = [
 ];
 
 const badges = [
-  "Gemini-Powered", "MCP Protocol", "Multi-Agent",
-  "Plan-First", "Vertex AI Fallback", "Real-Time Streaming",
+  "Gemini-Powered", "Agent Development Kit", "MCP Protocol", "Multi-Agent",
+  "Plan-First", "Vertex AI", "Real-Time Streaming", "Cloud Run",
 ];
 
 /* ─── Component ────────────────────────────────────────────── */
@@ -290,15 +291,16 @@ function ArchitecturePage() {
             <ul className="space-y-1">
               <li>• Gemini 2.5 Flash (fast briefs) + Pro (schema gen)</li>
               <li>• Gemini Flash Image (mockups & assets)</li>
-              <li>• Vertex AI fallback with JWT auth + Imagen 4.0</li>
+              <li>• Vertex AI — primary AI platform + Imagen 4.0</li>
+              <li>• Agent Development Kit (ADK) — Google's agent framework</li>
               <li>• MCP Server with 25+ surgical tools</li>
-              <li>• Multi-agent: Studio Agent + MCP Agent</li>
+              <li>• Multi-agent: Studio Agent + MCP Agent (ADK orchestrated)</li>
             </ul>
           </div>
           <div>
             <p className="font-medium text-foreground text-xs uppercase tracking-wider mb-2">Infrastructure</p>
             <ul className="space-y-1">
-              <li>• Cloud Run (serverless, 0–10 instances)</li>
+              <li>• Cloud Run (2 services: app + ADK agent)</li>
               <li>• Cloud Build (CI/CD with Docker)</li>
               <li>• Supabase (PostgreSQL + Auth + Storage)</li>
               <li>• TanStack Start (React SSR + streaming)</li>

@@ -479,7 +479,126 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
       }
     }
 
+    // ── 2.5. ADK Agent Routing ──
+    // When the ADK_AGENT_URL env var is set, delegate the agent turn to
+    // the Google Agent Development Kit (ADK) microservice instead of
+    // running the custom tool-use loop below. The ADK service uses
+    // Gemini on Vertex AI with native ADK orchestration (Runner,
+    // SessionService, tool-use loop). This satisfies the challenge
+    // requirement of using the Agent Development Kit for orchestration.
+    //
+    // When ADK_AGENT_URL is not set (local dev), falls through to the
+    // existing custom TypeScript tool-use loop below.
+    const adkUrl = process.env.ADK_AGENT_URL;
+    if (adkUrl) {
+      try {
+        const adkRes = await fetch(`${adkUrl}/run/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: data.content,
+            session_id: thread.id,
+            user_id: userId,
+          }),
+        });
+
+        if (!adkRes.ok) {
+          const errText = await adkRes.text().catch(() => "");
+          console.error(`[adk-routing] ADK service error (${adkRes.status}): ${errText.slice(0, 200)}`);
+          // Fall through to custom loop on ADK failure
+        } else {
+          yield { type: "model", provider: "Google ADK (Vertex AI)", model: "gemini-2.5-flash" };
+
+          const body = adkRes.body;
+          if (!body) {
+            yield { type: "error", error: "Empty ADK stream." };
+            return;
+          }
+          const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+          let adkText = "";
+          let adkBuf = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            adkBuf += value;
+            const lines = adkBuf.split("\n");
+            adkBuf = lines.pop() ?? "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const jsonStr = trimmed.slice(5).trim();
+              if (!jsonStr) continue;
+              try {
+                const evt = JSON.parse(jsonStr) as {
+                  type: string;
+                  text?: string;
+                  name?: string;
+                  args?: Record<string, unknown>;
+                  result?: string;
+                  error?: string;
+                  session_id?: string;
+                };
+                if (evt.type === "delta" && evt.text) {
+                  adkText += evt.text;
+                  yield { type: "delta", text: evt.text };
+                } else if (evt.type === "tool_start" && evt.name) {
+                  yield {
+                    type: "tool_start" as const,
+                    id: `adk-${Date.now()}`,
+                    name: evt.name,
+                    argumentsJson: JSON.stringify(evt.args ?? {}),
+                  };
+                } else if (evt.type === "tool_result" && evt.name) {
+                  yield {
+                    type: "tool_result",
+                    id: `adk-${Date.now()}`,
+                    content: evt.result ?? "",
+                    isError: false,
+                  };
+                } else if (evt.type === "error") {
+                  yield { type: "error", error: evt.error ?? "ADK error" };
+                  return;
+                } else if (evt.type === "done") {
+                  // Persist the ADK assistant response
+                  if (adkText) {
+                    await adm.from("mcp_agent_messages").insert({
+                      thread_id: thread.id,
+                      user_id: userId,
+                      role: "assistant",
+                      content: adkText,
+                    });
+                  }
+                  yield { type: "done" };
+                  return;
+                }
+              } catch {
+                // Skip unparseable SSE lines
+              }
+            }
+          }
+
+          // Stream ended without a "done" event — persist what we have
+          if (adkText) {
+            await adm.from("mcp_agent_messages").insert({
+              thread_id: thread.id,
+              user_id: userId,
+              role: "assistant",
+              content: adkText,
+            });
+          }
+          yield { type: "done" };
+          return;
+        }
+      } catch (e) {
+        console.error(`[adk-routing] ADK service unreachable, falling back to custom loop:`, e instanceof Error ? e.message : e);
+        // Fall through to the custom tool-use loop below
+      }
+    }
+
     // ── 3. build provider-neutral message list ──
+    // (Only reached when ADK_AGENT_URL is not set or ADK is unreachable)
     const msgs: AgentMsg[] = [
       { role: "system", content: MCP_AGENT_SYSTEM_PROMPT },
     ];

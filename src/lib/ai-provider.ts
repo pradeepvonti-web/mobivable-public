@@ -209,8 +209,12 @@ export function detectProvider(): ProviderConfig | null {
     if (cfg.getKey()) return cfg;
   }
 
-  // Auto-detect by checking which keys are available
-  const priority: AIProvider[] = ["lovable", "openai", "gemini", "anthropic", "groq", "openrouter", "ollama"];
+  // Auto-detect by checking which keys are available.
+  // Vertex AI is checked before Google AI Studio ("gemini") so that
+  // production deployments route through Vertex AI — the required
+  // intelligence path for Google Cloud Agent Platform compliance.
+  // Google AI Studio remains available as a fallback for local dev.
+  const priority: AIProvider[] = ["lovable", "vertex", "gemini", "openai", "anthropic", "groq", "openrouter", "ollama"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;

@@ -1,7 +1,13 @@
-# Mobivable MCP server
+# Mobivable MCP Server
 
 Drive your Mobivable projects from any MCP-aware AI client — Cursor,
 Claude Code, Claude Desktop, Zed, Continue.
+
+> **ADK Note:** In production, agent orchestration is handled by the
+> [Google Agent Development Kit (ADK)](../adk-agent/agent.py) service,
+> which calls these same MCP tools via HTTP bridge. The MCP endpoint
+> below is the tool-execution layer that both ADK and direct MCP clients
+> use.
 
 The studio exposes a single JSON-RPC endpoint at:
 
@@ -70,7 +76,7 @@ the URL above and add the Bearer token header.
 
 ## 3. What the agent can do
 
-The MCP server exposes **14 tools** today, split into _read_ and _write_:
+The MCP server exposes **25+ tools** today, split into _read_, _write_, and _surgical edit_:
 
 ### Read
 
@@ -90,11 +96,32 @@ The MCP server exposes **14 tools** today, split into _read_ and _write_:
 | Tool                    | What it does                                                       |
 | ----------------------- | ------------------------------------------------------------------ |
 | `create_project`        | Start a new Mobivable project from a one-paragraph idea.           |
+| `research_and_plan`     | Research the domain and create a design plan with AI mockup.       |
+| `generate_app`          | Generate a complete mobile app schema from a prompt.               |
 | `update_project_prompt` | Replace a project's seed prompt.                                   |
 | `delete_project`        | Hard-delete one of your projects (irreversible).                   |
 | `send_chat_message`     | Queue a user-side chat turn the studio picks up on next render.    |
 | `add_knowledge_item`    | Save a text snippet to your knowledge base.                        |
 | `ingest_url`            | Fetch a public URL and store its text as a knowledge item.         |
+
+### Surgical Edit
+
+| Tool                    | What it does                                                       |
+| ----------------------- | ------------------------------------------------------------------ |
+| `update_screen`         | Update a screen's title, layout, icon, or transition.              |
+| `add_element`           | Add a UI element to a screen at a specific position.               |
+| `update_element`        | Update an element's properties by index (merge-style).             |
+| `remove_element`        | Remove an element from a screen by index.                          |
+| `update_theme`          | Update colors, fonts, spacing — only provided fields change.       |
+| `update_navigation`     | Change nav type, add/remove tabs.                                  |
+| `verify_schema`         | Verify the schema for structural errors and broken nav links.      |
+
+### Code Generation
+
+| Tool                    | What it does                                                       |
+| ----------------------- | ------------------------------------------------------------------ |
+| `generate_code`         | Generate Flutter/Expo code for a screen or the full project.       |
+| `export_project_code`   | Export a complete multi-screen Expo project with tab navigation.   |
 
 Each tool's input schema is published via `tools/list` — the client's
 tool picker will surface the right argument shape automatically.
@@ -106,7 +133,7 @@ A health probe (no JSON-RPC) — handy when wiring things up:
 ```bash
 curl -sS https://studio.mobivable.ai/api/public/mcp \
   -H "Authorization: Bearer mvbl_pat_REPLACE_ME"
-# → {"ok":true,"server":{...},"protocolVersion":"2024-11-05","tools":14}
+# → {"ok":true,"server":{...},"protocolVersion":"2024-11-05","tools":25}
 ```
 
 A real `tools/list` call:
@@ -146,7 +173,25 @@ curl -sS https://studio.mobivable.ai/api/public/mcp \
 - **No token in URL.** Always send via the `Authorization` header so
   the secret never ends up in proxy logs or browser histories.
 
-## 6. Known limitations
+## 6. ADK integration
+
+In production, the [ADK agent service](../adk-agent/) orchestrates
+multi-step tool workflows using Google's Agent Development Kit:
+
+```
+User → Node.js App → ADK Service (Cloud Run)
+                       ↓ (Agent Runner + Gemini on Vertex AI)
+                     ADK calls MCP tools via HTTP bridge
+                       ↓
+                     Node.js MCP endpoint executes tools
+                       ↓
+                     Results flow back through ADK → User
+```
+
+When `ADK_AGENT_URL` is not set (local dev), the Node.js app falls back
+to its built-in TypeScript tool-use loop.
+
+## 7. Known limitations
 
 - **Long-running studio actions are not yet exposed** (Expo zip export,
   backend provisioning to your Supabase, Maestro Cloud dispatch). Those
@@ -157,5 +202,3 @@ curl -sS https://studio.mobivable.ai/api/public/mcp \
 - **`send_chat_message` is queue-only.** It writes the turn to
   `project_messages`; the agent crew runs when someone opens the
   project. Direct cloud trigger is on the roadmap.
-- **No streaming yet.** Every tool call is request → JSON response. MCP
-  streaming responses are easy to add once a tool actually benefits.

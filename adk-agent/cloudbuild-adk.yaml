@@ -1,0 +1,30 @@
+# Google Cloud Build — Deploy ADK Agent Service to Cloud Run
+# Usage: gcloud builds submit --config adk-agent/cloudbuild-adk.yaml adk-agent/
+
+steps:
+  # Step 0: Build and deploy the ADK agent service to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        gcloud run deploy mobivable-adk \
+          --source . \
+          --region us-central1 \
+          --platform managed \
+          --no-allow-unauthenticated \
+          --memory 1Gi \
+          --cpu 1 \
+          --min-instances 0 \
+          --max-instances 5 \
+          --port 8081 \
+          --set-env-vars "MOBIVABLE_MCP_URL=https://mobivable-${_REGION_HASH}.run.app/api/public/mcp" \
+          --set-env-vars "ADK_FAST_MODEL=gemini-2.5-flash" \
+          --set-env-vars "ADK_STRONG_MODEL=gemini-2.5-pro" \
+          --quiet
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION_HASH: 'us-central1'
