@@ -12,6 +12,8 @@ import { recommendAgents, startAgentRun, runAgentTask, finalizeAgentRun } from "
 import { generateMockupImage } from "@/lib/generate-mockup.functions";
 import { extractThemeFromDesigner } from "@/lib/extract-theme.functions";
 import { SDLCProgressBar } from "./SDLCProgressBar";
+import { BuildMatchCard } from "./BuildMatchCard";
+
 
 type Run = { id: string; status: string; selected_roles: string[]; created_at: string };
 type Task = { id: string; role: string; ordinal: number; status: "waiting" | "working" | "completed" | "failed"; output: string | null; error_text: string | null; created_at?: string; updated_at?: string };
