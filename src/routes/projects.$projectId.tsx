@@ -4501,12 +4501,13 @@ function ProjectPage() {
                         handleDrop(e);
                       }}
                     >
-                      <MobileAppRenderer
+                      <GeneratedAppPreview
                         key={previewKey}
-                        schema={baseSchema}
-                        onScreenChange={setActiveScreenId}
-                        hideStatusBar
+                        projectId={project.id}
                       />
+                      {/* Schema is still kept in state for the drag-drop palette and visual edits; the canonical preview is now the generated React source above. */}
+                      {false && baseSchema && setActiveScreenId(activeScreenId)}
+
                       {dropFlash && (
                         <div
                           style={{
