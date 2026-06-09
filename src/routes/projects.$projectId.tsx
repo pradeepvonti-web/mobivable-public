@@ -2522,7 +2522,7 @@ function ProjectPage() {
                                   : {};
                                 await supabase
                                   .from("projects")
-                                  .update({ attachments: { ...prev, design_brief: m.designBrief } as never })
+                                  .update({ attachments: { ...prev, design_brief: m.designBrief, design_mockup_url: m.mockupUrl ?? null } as never })
                                   .eq("id", projectId);
                               } catch (e) {
                                 console.error("[approve] failed to persist design brief", e);
