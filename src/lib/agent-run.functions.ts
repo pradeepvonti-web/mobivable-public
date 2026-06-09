@@ -629,7 +629,56 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen.\n\n` +
             `Generate the COMPLETE app JSON now. Make it PREMIUM — Dribbble-featured quality.`;
 
-        const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+        // ─── Multi-AI vision-grounded pipeline ────────────────────────
+        // When we have BOTH a saved brief AND a mockup image the user
+        // approved, run a 3-stage pipeline (vision re-read → screen plan
+        // → schema assemble) so the build matches the mockup. On any
+        // failure, fall through to the single strong-call path below.
+        let result: { ok: boolean; text: string; error?: string } = { ok: false, text: "" };
+        let usedMockupPipeline = false;
+        const mockupUrl =
+          (project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments))
+            ? ((project.attachments as Record<string, unknown>).design_mockup_url as string | undefined)
+            : undefined;
+
+        if (savedBrief && typeof savedBrief === "object" && mockupUrl) {
+          try {
+            await supabase.from("agent_messages").insert({
+              run_id: data.runId,
+              project_id: project.id,
+              user_id: userId,
+              role: "summary_agent",
+              content: `🔍 Reading the approved mockup, planning screens, and assembling the app…`,
+            });
+            const { buildFromMockup } = await import("./build-from-mockup.server");
+            const mp = await buildFromMockup({
+              projectId: project.id,
+              projectPrompt: project.prompt ?? "",
+              savedBrief: savedBrief as Record<string, unknown>,
+              mockupUrl,
+              agentContextText: filteredAgentContext,
+              knowledgeBlock: knowledgeBlock ?? "",
+              figmaPromptSnippet,
+              codeGenSystemPrompt: CODE_GEN_SYSTEM_PROMPT,
+            });
+            if (mp.ok && mp.schemaJson) {
+              result = { ok: true, text: mp.schemaJson };
+              usedMockupPipeline = true;
+              console.log("[finalizeAgentRun] ✅ mockup pipeline succeeded", mp.stages);
+            } else {
+              console.warn("[finalizeAgentRun] mockup pipeline failed, falling back:", mp.error, mp.stages);
+            }
+          } catch (e) {
+            console.error("[finalizeAgentRun] mockup pipeline error, falling back:", e);
+          }
+        }
+
+        if (!usedMockupPipeline) {
+          const r = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+          result = r.ok
+            ? { ok: true, text: r.text }
+            : { ok: false, text: "", error: r.error };
+        }
 
         if (result.ok && result.text.length > 50) {
           const parsed = parseAppSchema(result.text);

@@ -1,84 +1,70 @@
-# Pivot to GitHub-triggered EAS Builds
+# Make the build match the mockup — multi-AI vision-grounded pipeline
 
-## The flow
+## The similarity problem you're seeing
 
+The mockup (Culina Modern — dark chef app, indigo accents, 4 screens: Onboarding, The Pass, Flavor Atlas, Technical Sheet) and the actual build (serif "Master the Art of Cooking" / "Geometry of Gastronomy" with a giant `?` placeholder) share **almost nothing**: different palette, different typography, different screens, missing content. Same failure class as the prior FlavorShare run.
+
+Root cause: today's pipeline only feeds the **textual brief JSON** into the final schema model. The mockup image — which is what the user actually approved — is never re-shown to the generator. So the model improvises whenever the brief is ambiguous, and drifts.
+
+## Fix: a 3-stage multi-AI pipeline, mockup image as ground truth
+
+```text
+   ┌───────────────────────────────┐
+   │ Stage 1 — VISION RE-READ      │  callAIVision (Gemini 2.5 Pro / GPT-5)
+   │ Input:  approved mockup IMAGE │  Re-derives a strict CloneSpec from
+   │         + saved brief JSON    │  the IMAGE, reconciled with brief.
+   │ Output: ReconciledSpec        │  Image wins on visual fields.
+   └──────────────┬────────────────┘
+                  │
+   ┌──────────────▼────────────────┐
+   │ Stage 2 — PER-SCREEN PLANNER  │  callAIStrong (Claude Sonnet / GPT-5)
+   │ Input:  ReconciledSpec        │  Emits, per screen: ordered list of
+   │ Output: ScreenPlan[]          │  REAL element types + copy + data.
+   └──────────────┬────────────────┘  (No "[split-hero]" placeholders.)
+                  │
+   ┌──────────────▼────────────────┐
+   │ Stage 3 — SCHEMA ASSEMBLER    │  callAIStrong, constrained
+   │ Input:  ReconciledSpec +      │  Emits MobileAppSchema JSON
+   │         ScreenPlan[]          │  matching the existing validator.
+   │ Output: MobileAppSchema       │
+   └──────────────┬────────────────┘
+                  │
+        Validator → schema-validator.ts → DB → image auto-fill
 ```
-Lovable                    GitHub                   Expo (EAS)
--------                    ------                   ----------
-1. Push Expo scaffold  →   New repo created
-   (multi-file commit)     `lovable-<slug>`
 
-2. User clicks         →   (one-time)          →    Install Expo GitHub App
-   "Connect to Expo"        Install app on repo     on selected repo
+Three models, three roles. Vision grounds design; planner enforces structure; assembler emits valid JSON. Each stage's output is the next stage's input, so a single weak step can't ruin the build.
 
-3. Server links EAS app                         →   setGitHubRepositoryOnEasApp
-   to that repo
+## Why three calls, not one
 
-4. Build button        →                        →   createGitHubBuildAsync
-                                                     (EAS pulls from GitHub,
-                                                      runs `eas build`,
-                                                      handles all schema)
+A single strong call has to simultaneously: read an image, reconcile it with a brief, plan 5–8 screens, and emit ~1000 lines of valid JSON. That's the workload that currently fails. Splitting it:
+- Vision call is cheap and short (returns ~spec-sized JSON).
+- Planner call is text-only and small (returns ~screen plan).
+- Assembler call is large but has zero design decisions left to make — it just composes known pieces into the schema shape.
 
-5. Poll status         ←                        ←   builds.byId
-   Download APK / logs
-```
+## Where it plugs in
 
-## What changes
+- `src/lib/agent-run.functions.ts` → `finalizeAgentRun`, the block that today builds `userPrompt` + calls `callAIStrong` once (lines ~543–632). Replace with the 3-stage pipeline **only when `savedBrief` exists AND `projects.attachments.design_mockup_url` is set** (already saved on approval). Fall back to today's single-call path otherwise.
+- New helper file: `src/lib/build-from-mockup.functions.ts` with `reconcileFromMockup()`, `planScreens()`, `assembleSchema()` — pure functions, no route changes.
+- Reuse existing helpers: `callAIVision`, `callAIStrong`, `parseAppSchema`, `validateAndFixSchema`, `runAppImagesInternal`. No new dependencies.
 
-**1. Push multi-file commit to GitHub** (extend `pushCodeToGithub`)
-- Current: PUTs a single file via Contents API
-- New: use Git Data API (createTree + createCommit + updateRef) to commit
-  the whole Expo scaffold (package.json, app.json, eas.json, App.js,
-  index.js, assets/*, babel.config.js, .gitignore, eas-hook README) in
-  one commit. Reuse `scaffoldExpoProject()` from `eas.server.ts`.
+## Guardrails
 
-**2. New `eas_apps` columns** (migration)
-- `github_repo_owner text`
-- `github_repo_name text`
-- `github_repo_installed boolean default false`  (whether Expo GitHub app
-  is installed on this repo — we detect via EAS API)
+1. Each stage validates its output; on parse failure, retry once with a "previous attempt was invalid: <reason>" tail, then fall back to today's path so the user always gets *something*.
+2. Per-screen element count enforced post-assembly (6–10); if a screen is short, re-call the assembler for that screen only.
+3. Palette/typography/screen-ids from Stage 1 are passed to Stage 3 as **locked** fields — assembler is instructed to copy verbatim, and the validator rejects drift.
+4. Credits: ~3× current cost on builds with a mockup. Gated behind the existing `consumeOrThrow` flow with a single combined charge so partial failures don't leak credits.
 
-**3. New server functions in `eas.functions.ts`**
-- `pushExpoScaffoldToGithub({ projectId })` — creates repo + commits
-  scaffold + records repo in `eas_apps`.
-- `linkEasAppToGithub({ projectId })` — calls EAS
-  `setGitHubRepositoryAndBaseDirectory` mutation; returns
-  `{ ok, needsAppInstall, installUrl }` if the Expo GitHub App isn't
-  installed yet.
-- Rewrite `startEasBuild` to use `createGitHubBuildAsync` (or current
-  equivalent) — no more tarball upload, no more `AndroidJobInput`.
+## What the user will see
 
-**4. UI changes in `DeploymentsPanel`**
-- Three-step gate before the Build button:
-  1. ✓ Expo connected
-  2. ✓ GitHub connected (link to `/settings` if not)
-  3. ✓ Repo created & linked (button: "Push to GitHub & link to EAS")
-     - If Expo GitHub App not installed → show clear CTA with
-       `https://github.com/apps/expo/installations/new` link.
-- Once all three green: enable "Build APK on EAS".
+- "Approve & Build" stays the same button.
+- Status messages will progress: "Reading mockup…", "Planning screens…", "Assembling app…", "Generating images…" so the user knows it's doing real work.
+- Build time goes from ~1 strong call to ~3 (≈ 1.5–2× wall clock).
+- Output should visibly match the mockup: same screen titles ("The Pass", "Flavor Atlas", "Technical Sheet"), same dark palette, same indigo accent, same chef imagery.
 
-**5. Drop the tarball path**
-- Remove `makeTarGz`, `uploadProjectArchive`, `archive_url` writes.
-  Keep `scaffoldExpoProject` (still used for the GitHub commit content).
+## Out of scope for this change
 
-## Manual step the user must do once
+- No edits to the renderer (`flutter_preview_engine`), schema validator, or DesignBriefCard UI.
+- No changes to the no-mockup / no-brief path.
+- Mockup regeneration flow stays as-is.
 
-Install **Expo's GitHub App** on the repo:
-- We surface a deep link directly to the install page in the UI
-- Takes ~10 seconds; only required first time per repo
-
-After that, every rebuild is one click — EAS pulls latest `main` from
-GitHub and runs `eas build` natively. No more reverse-engineering EAS's
-private GraphQL shape.
-
-## What we keep
-- EXPO_TOKEN, `easGraphql()` client, `eas_builds` table, polling, status UI.
-- `scaffoldExpoProject()` (used to generate files for the GitHub commit).
-- All RLS, all secret handling.
-
-## Tradeoffs
-- One-time manual GitHub-App install per repo (clear UI link).
-- We commit a working Expo project to the user's GitHub — they can also
-  clone & build locally if they want (a nice bonus).
-- ~1 build cycle to verify the EAS GraphQL mutation name is current
-  (the EAS schema for GitHub builds is public-stable, unlike `AndroidJobInput`).
+Confirm and I'll implement.
