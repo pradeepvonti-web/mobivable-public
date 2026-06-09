@@ -803,6 +803,28 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             } catch (e) {
               console.error("[finalizeAgentRun] image fill error:", e);
             }
+
+            // ─── Code-gen: emit real React + TS source for every screen
+            // into project_file_overrides. The Sandpack preview reads from
+            // there, so this is what the user actually sees and ships.
+            try {
+              const { buildCodeForProjectInternal } = await import("./code-gen-build.functions");
+              const cg = await buildCodeForProjectInternal(project.id, userId);
+              if (cg.ok) {
+                await supabase.from("agent_messages").insert({
+                  run_id: data.runId,
+                  project_id: project.id,
+                  user_id: userId,
+                  role: "summary_agent",
+                  content: `💻 **Source code generated:** ${cg.fileCount} files across ${cg.screenCount} screens. Open the Code tab to view, or push to GitHub.`,
+                });
+              } else {
+                console.warn("[finalizeAgentRun] codegen skipped:", cg.error);
+              }
+            } catch (e) {
+              console.error("[finalizeAgentRun] codegen error:", e);
+            }
+
           } else {
             await supabase
               .from("projects")
