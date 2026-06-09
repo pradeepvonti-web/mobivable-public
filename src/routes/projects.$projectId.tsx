@@ -93,6 +93,8 @@ import { sendProjectMessage } from "@/lib/project-chat.functions";
 import { ProjectPreview } from "@/components/ProjectPreview";
 import { AgentWorkspace } from "@/components/AgentWorkspace";
 import { MobileAppRenderer } from "@/components/MobileAppRenderer";
+import { GeneratedAppPreview } from "@/components/GeneratedAppPreview";
+
 import { DeviceFrame, DEVICE_PRESETS, DeviceToolbar } from "@/components/DeviceFrame";
 import { resolveTheme } from "@/lib/mobile-theme";
 import { ComponentPalette } from "@/components/ComponentPalette";
