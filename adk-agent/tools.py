@@ -13,6 +13,7 @@ it falls back to http://localhost:3000/api/public/mcp.
 import os
 import json
 import httpx
+import contextvars
 from typing import Any
 
 # ── Configuration ─────────────────────────────────────────────────
@@ -23,6 +24,12 @@ MCP_BASE_URL = os.getenv(
 # Service-to-service auth token (internal Cloud Run → Cloud Run)
 MCP_AUTH_TOKEN = os.getenv("MCP_SERVICE_TOKEN", "")
 
+# Thread-local user_id context — set by the server before running tools
+# so every MCP call is attributed to the actual project owner.
+_current_user_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_user_id", default="anonymous"
+)
+
 _client = httpx.AsyncClient(timeout=120.0)
 
 
@@ -31,6 +38,11 @@ async def _call_mcp_tool(tool_name: str, arguments: dict[str, Any]) -> dict:
     headers = {"Content-Type": "application/json"}
     if MCP_AUTH_TOKEN:
         headers["Authorization"] = f"Bearer {MCP_AUTH_TOKEN}"
+
+    # Pass the real user_id so the MCP endpoint can verify project ownership
+    user_id = _current_user_id.get()
+    if user_id and user_id != "anonymous":
+        headers["X-User-Id"] = user_id
 
     payload = {
         "jsonrpc": "2.0",

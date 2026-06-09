@@ -31,6 +31,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from agent import root_agent
+from tools import _current_user_id
 
 # ── Configuration ─────────────────────────────────────────────────
 PORT = int(os.getenv("PORT", "8081"))
@@ -131,6 +132,8 @@ async def run_agent(req: RunRequest):
             )
 
         # Create the user message
+        # Set the user_id context so MCP tool calls are attributed correctly
+        _current_user_id.set(req.user_id)
         user_content = types.Content(
             role="user",
             parts=[types.Part.from_text(text=req.prompt)],
@@ -200,6 +203,8 @@ async def run_agent_stream(req: RunRequest):
                 )
 
             # Create the user message
+            # Set the user_id context so MCP tool calls are attributed correctly
+            _current_user_id.set(req.user_id)
             user_content = types.Content(
                 role="user",
                 parts=[types.Part.from_text(text=req.prompt)],

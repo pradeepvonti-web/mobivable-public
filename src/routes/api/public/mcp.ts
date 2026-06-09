@@ -76,12 +76,12 @@ async function authenticate(
 
   // ── Internal service token (ADK agent → MCP bridge) ──
   // When the ADK Cloud Run service calls this endpoint, it sends the
-  // MCP_INTERNAL_TOKEN as a Bearer token. We validate it against the
-  // server-side env var. This avoids needing a user-scoped PAT for
-  // service-to-service calls.
+  // MCP_INTERNAL_TOKEN as a Bearer token. The real user_id is passed
+  // via the X-User-Id header so tools can verify project ownership.
   const internalToken = process.env.MCP_INTERNAL_TOKEN;
   if (internalToken && token === internalToken) {
-    return { userId: "adk-service", patHash: "internal" };
+    const realUserId = request.headers.get("x-user-id") || "adk-service";
+    return { userId: realUserId, patHash: "internal" };
   }
 
   // ── User PAT auth (mvbl_pat_…) ──
