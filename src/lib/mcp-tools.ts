@@ -21,6 +21,20 @@ import {
   type NativeCapabilityId,
   type NativeCapabilityRow,
 } from "./native-capabilities";
+import {
+  wsWriteFile,
+  wsReadFile,
+  wsEditFile,
+  wsListFiles,
+  wsRunCommand,
+  wsStartCommand,
+  wsCommandStatus,
+  ensureExpoWebPreview,
+  embedMockupPng,
+  probeWorkspaceRuntime,
+  type WorkspaceCtx,
+} from "./agent-workspace.server";
+import { getBuiltinSkill, builtinSkillNames } from "./builtin-skills";
 
 export interface McpToolContext {
   userId: string;
@@ -624,14 +638,26 @@ export const MCP_TOOLS: McpTool[] = [
         // Non-fatal — plan works without mockup
       }
 
-      // ── Step 4: Save brief to project attachments ──
-      // This brief is loaded by generate_app to ensure mockup ↔ app consistency.
+      // ── Step 4: Save brief + mockup to project attachments ──
+      // Loaded by generate_app (brief) and read_mockup / the build pipeline
+      // (mockup). MUST use the `design_mockup_url` key every reader expects,
+      // and MERGE so we don't clobber other attachment keys (target_stack,
+      // agent_workspace, …) on a re-plan.
       try {
         const db = getDb(ctx);
+        const { data: existing } = await db
+          .from("projects")
+          .select("attachments")
+          .eq("id", projectId)
+          .maybeSingle();
+        const prev =
+          existing?.attachments && typeof existing.attachments === "object" && !Array.isArray(existing.attachments)
+            ? (existing.attachments as Record<string, unknown>)
+            : {};
         await db
           .from("projects")
           .update({
-            attachments: { design_brief: brief, mockup_url: mockupUrl },
+            attachments: { ...prev, design_brief: brief, design_mockup_url: mockupUrl },
             updated_at: new Date().toISOString(),
           })
           .eq("id", projectId)
@@ -1316,6 +1342,282 @@ export default function RootLayout() {
         total_bytes: files.reduce((sum, f) => sum + f.code.length, 0),
         files: files.map(f => ({ path: f.path, bytes: f.code.length })),
       };
+    },
+  },
+
+  // ─── Agent workspace (real files + shell in a persistent E2B sandbox) ──
+  // These power the autonomous build flow: the agent writes real Expo source
+  // and runs bun/tsc/eslint against a live sandbox, then self-corrects. Every
+  // write is mirrored to project_file_overrides so output is durable + viewable.
+  {
+    name: "ws_write_file",
+    description:
+      "Write (create or overwrite) a file in the project's live build workspace (an Expo app sandbox). Use forward-slash paths relative to the workspace root, e.g. 'app/(tabs)/index.tsx'. Mirrors to the project so it persists.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "Target project id (the workspace owner)." },
+        path: { type: "string", description: "Workspace-relative path, e.g. 'store/useAppStore.ts'." },
+        content: { type: "string", description: "Full file contents to write." },
+      },
+      required: ["project_id", "path", "content"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsWriteFile(str(args, "project_id"), wctx, str(args, "path"), str(args, "content"));
+    },
+  },
+  {
+    name: "ws_read_file",
+    description: "Read a file from the project's live build workspace. Returns its full text content.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        path: { type: "string", description: "Workspace-relative path to read." },
+      },
+      required: ["project_id", "path"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsReadFile(str(args, "project_id"), wctx, str(args, "path"));
+    },
+  },
+  {
+    name: "ws_edit_file",
+    description:
+      "Make a surgical edit to a workspace file by replacing an exact, unique substring. old_string must appear exactly once. Prefer this over ws_write_file for small changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        path: { type: "string" },
+        old_string: { type: "string", description: "Exact text to replace (must be unique in the file)." },
+        new_string: { type: "string", description: "Replacement text." },
+      },
+      required: ["project_id", "path", "old_string", "new_string"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsEditFile(str(args, "project_id"), wctx, str(args, "path"), str(args, "old_string"), str(args, "new_string"));
+    },
+  },
+  {
+    name: "ws_list_files",
+    description: "List files/directories at a path in the project's build workspace (default: workspace root).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        path: { type: "string", description: "Workspace-relative directory (default '.')." },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsListFiles(str(args, "project_id"), wctx, str(args, "path", "."));
+    },
+  },
+  {
+    name: "ws_run_command",
+    description:
+      "Run a shell command in the project's build workspace (cwd = workspace root). Allowlisted to dev tools: bun, bunx, npm, npx, node, tsc, eslint, expo, ls, cat, find, grep, head, tail, mkdir, rm, mv, cp. Use for `bunx tsc --noEmit`, `bun run lint`, `bun install`, etc. Returns exitCode, stdout, stderr.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        command: { type: "string", description: "The command line to run, e.g. 'bunx tsc --noEmit'." },
+        timeout_ms: { type: "integer", description: "Optional wall-clock cap (1000–300000)." },
+      },
+      required: ["project_id", "command"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      const timeoutMs = num(args, "timeout_ms", 0);
+      return wsRunCommand(str(args, "project_id"), wctx, str(args, "command"), timeoutMs ? { timeoutMs } : {});
+    },
+  },
+  {
+    name: "ws_run_command_async",
+    description:
+      "Start a LONG shell command (e.g. `bun install`, `bunx expo export -p web`) in the background and return a job id immediately. Use this for anything that may take more than ~60s so the request doesn't time out, then poll ws_command_status. Use the synchronous ws_run_command for quick checks (tsc, lint, ls).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        command: { type: "string", description: "The command to run in the background." },
+      },
+      required: ["project_id", "command"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsStartCommand(str(args, "project_id"), wctx, str(args, "command"));
+    },
+  },
+  {
+    name: "ws_command_status",
+    description:
+      "Check a background job started by ws_run_command_async or ws_start_preview. Returns status ('running' or 'done'), exitCode when done, and the captured output so far. Poll this until status='done'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        job_id: { type: "string", description: "The jobId returned by the async tool." },
+      },
+      required: ["project_id", "job_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return wsCommandStatus(str(args, "project_id"), wctx, str(args, "job_id"));
+    },
+  },
+  {
+    name: "ws_start_preview",
+    description:
+      "Build the project's Expo app for web and start a live preview, returning a public URL the studio renders in the device frame. Call this as the FINAL step of a build (after tsc/lint pass). Pass rebuild=true to re-export after later edits.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        rebuild: { type: "boolean", description: "Re-export the web bundle to pick up new edits (default false)." },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      return ensureExpoWebPreview(str(args, "project_id"), wctx, { rebuild: bool(args, "rebuild", false) });
+    },
+  },
+  {
+    name: "invoke_skill",
+    description:
+      "Load a reusable instruction skill by name and return its body to follow. Use 'frontend-design' during an Expo build (after reading the mockup, before writing screens) to anchor the UI on a premium design system. Resolves the caller's own saved skills first, then built-in skills.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Skill name, e.g. 'frontend-design'." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const name = str(args, "name").trim().toLowerCase();
+      if (!name) throw new Error("`name` is required.");
+      // 1. The caller's own saved skill wins (lets users override built-ins).
+      // mcp_agent_skills isn't in the generated types — use the loose-cast
+      // client pattern (same as skills.functions.ts).
+      const adm = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { data } = (await adm
+        .from("mcp_agent_skills")
+        .select("name, body")
+        .eq("user_id", ctx.userId)
+        .eq("name", name)
+        .maybeSingle()) as { data: { name: string; body: string } | null };
+      if (data?.body) {
+        return { name: data.name, source: "user", body: data.body };
+      }
+      // 2. Fall back to a built-in skill.
+      const builtin = getBuiltinSkill(name);
+      if (builtin) {
+        return { name, source: "builtin", body: builtin };
+      }
+      throw new Error(
+        `Unknown skill "${name}". Available built-in skills: ${builtinSkillNames().join(", ")}. Create your own in Settings.`,
+      );
+    },
+  },
+  {
+    name: "read_mockup",
+    description:
+      "Look at the project's APPROVED design mockup image with a vision model and return a pixel-level description (exact colors, fonts, per-screen layout, components, spacing, charts, data). Call this FIRST in an Expo build — the mockup is the source of truth above the text brief. Also saves the analysis to designs/mockup.md in the workspace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = str(args, "project_id");
+      if (!projectId) throw new Error("`project_id` is required.");
+      const client = (ctx.supabase ?? supabaseAdmin) as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { data: project, error } = (await client
+        .from("projects")
+        .select("id, user_id, attachments")
+        .eq("id", projectId)
+        .maybeSingle()) as {
+        data: { id: string; user_id: string; attachments: unknown } | null;
+        error: { message: string } | null;
+      };
+      if (error) throw new Error(error.message);
+      if (!project) throw new Error("Project not found.");
+      if (project.user_id && project.user_id !== ctx.userId) throw new Error("Not authorized for this project.");
+
+      const attachments =
+        project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments)
+          ? (project.attachments as Record<string, unknown>)
+          : {};
+      const rawUrl = attachments.design_mockup_url as string | undefined;
+      if (!rawUrl) {
+        throw new Error("No approved mockup found for this project. Generate and approve a design first.");
+      }
+
+      const { ensureHttpsImageUrl } = await import("./build-from-mockup.server");
+      const httpsUrl = await ensureHttpsImageUrl(rawUrl, projectId);
+      if (!httpsUrl) throw new Error("Could not resolve the mockup to an https URL for the vision model.");
+
+      const visionSystem =
+        "You are a senior mobile engineer reverse-engineering an APPROVED app mockup so it can be rebuilt PIXEL-FAITHFULLY in Expo / React Native. Describe exactly what you see — do not invent or improve.";
+      const visionUser =
+        "Analyze the attached mockup. For EACH distinct phone screen, report: screen name/purpose; exact background + surface colors as hex; primary/accent colors as hex; font family feel, weights and approximate sizes; the full layout top-to-bottom; every component (cards, stats, charts, lists, tab bar, buttons, inputs) with its position, copy, and any numbers/data shown; spacing/rounding/shadow feel; icons used; and any imagery. Be concrete and exhaustive — this is the source of truth for the build.";
+
+      const { callAIVision } = await import("./ai-provider");
+      const r = await callAIVision(visionSystem, visionUser, [httpsUrl]);
+      if (!r.ok) throw new Error(`Vision read failed: ${r.error}`);
+      const analysis = r.text;
+
+      // Persist to the workspace as durable artifacts the agent can re-read:
+      // the vision analysis (designs/mockup.md) AND the literal image (designs/mockup.png).
+      const wctx: WorkspaceCtx = { userId: ctx.userId, supabase: ctx.supabase };
+      let savedTo: string | undefined;
+      try {
+        await wsWriteFile(
+          projectId,
+          wctx,
+          "designs/mockup.md",
+          `# Approved mockup — vision analysis\n\nSource: ${httpsUrl}\n\n${analysis}\n`,
+        );
+        savedTo = "designs/mockup.md";
+      } catch {
+        /* non-fatal: the analysis is still returned for the agent to use */
+      }
+      let imageSavedTo: string | undefined;
+      try {
+        const r2 = await embedMockupPng(projectId, wctx);
+        if (r2.embedded) imageSavedTo = r2.path;
+      } catch {
+        /* non-fatal */
+      }
+
+      return { mockup_url: httpsUrl, analysis, saved_to: savedTo, image_saved_to: imageSavedTo };
+    },
+  },
+  {
+    name: "ws_diagnose",
+    description:
+      "Runtime self-check for the agent workspace: spins up a throwaway sandbox and verifies create / file write+read / command run / bun present / getHost all work ON THIS SERVER. Use right after deploy to confirm E2B works on the host (e.g. Cloudflare Workers) and the bun/expo template is wired. Returns a per-step report.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    async run() {
+      return probeWorkspaceRuntime();
     },
   },
 ];

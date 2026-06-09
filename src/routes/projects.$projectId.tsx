@@ -86,6 +86,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
+import { refreshExpoPreview } from "@/lib/expo-preview.functions";
 import { generateAppImages } from "@/lib/app-images.functions";
 
 import { generateAsset } from "@/lib/generate-asset.functions";
@@ -593,7 +594,8 @@ function ProjectPage() {
   const [monetizationConfig, setMonetizationConfig] = useState<{ provider: string | null; keys: Record<string, string> }>({ provider: null, keys: {} });
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
-  const [renderMode, setRenderMode] = useState<'react' | 'flutter'>('react');
+  const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('react');
+  const [restartingExpo, setRestartingExpo] = useState(false);
   // Phase B: per-screen PNG capture from the preview toolbar. Single handler
   // for both render modes — React uses captureSimple on previewRootRef,
   // Flutter uses the postMessage protocol exposed by flutter-bridge.ts.
@@ -793,6 +795,36 @@ function ProjectPage() {
   const generateFn = useServerFn(generateProject);
   const chatFn = useServerFn(sendProjectMessage);
   const exportExpoFn = useServerFn(exportExpoProject);
+  const refreshExpoFn = useServerFn(refreshExpoPreview);
+
+  // Live Expo-web preview URL persisted by the build agent (ws_start_preview).
+  const expoPreviewUrl =
+    project?.attachments && !Array.isArray(project.attachments)
+      ? ((project.attachments as Record<string, unknown>).agent_workspace as
+          | { previewUrl?: string }
+          | undefined)?.previewUrl
+      : undefined;
+  // Once a live preview exists, default the device frame to it.
+  useEffect(() => {
+    if (expoPreviewUrl) setRenderMode("expo");
+  }, [expoPreviewUrl]);
+
+  const handleRestartExpo = async () => {
+    setRestartingExpo(true);
+    try {
+      const r = await refreshExpoFn({ data: { projectId } });
+      if (r.ok && r.url) {
+        setRenderMode("expo");
+        await reloadProject();
+      } else if (!r.ok) {
+        toast.error(r.error ?? "Preview rebuild failed");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Preview rebuild failed");
+    } finally {
+      setRestartingExpo(false);
+    }
+  };
 
   const handleExportExpo = async () => {
     setExportingExpo(true);
@@ -1348,6 +1380,16 @@ function ProjectPage() {
             create_project: "🆕 Creating project…",
             generate_code: "💻 Generating code…",
             export_project_code: "📦 Exporting project…",
+            ws_write_file: "📝 Writing file…",
+            ws_read_file: "📄 Reading file…",
+            ws_edit_file: "✏️ Editing file…",
+            ws_list_files: "📁 Listing files…",
+            ws_run_command: "⌨️ Running command…",
+            ws_run_command_async: "⏳ Running (background)…",
+            ws_command_status: "🔄 Checking job…",
+            ws_start_preview: "📲 Starting live preview…",
+            invoke_skill: "🧩 Invoking skill…",
+            read_mockup: "🖼️ Reading mockup…",
           };
           setMessages((prev) => [
             ...prev,
@@ -3691,7 +3733,32 @@ function ProjectPage() {
               >
                 Flutter
               </button>
+              <button
+                type="button"
+                onClick={() => setRenderMode('expo')}
+                title="Live Expo app (the real generated React Native build)"
+                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  renderMode === 'expo'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Expo
+              </button>
             </div>
+            {/* Restart / rebuild the live Expo preview */}
+            {renderMode === 'expo' && (
+              <button
+                type="button"
+                onClick={() => handleRestartExpo()}
+                disabled={restartingExpo}
+                title="Rebuild the live Expo web preview from the latest code"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border bg-background/90 text-xs text-foreground/90 hover:text-foreground hover:bg-background shadow-lg backdrop-blur transition-colors disabled:opacity-60"
+              >
+                <RotateCcw className={`h-3.5 w-3.5 ${restartingExpo ? "animate-spin" : ""}`} />
+                <span className="hidden md:inline">{restartingExpo ? "Rebuilding…" : "Restart"}</span>
+              </button>
+            )}
             {/* Regenerate assets */}
             <button
               type="button"
@@ -4205,6 +4272,7 @@ function ProjectPage() {
               } catch { return undefined; }
             })()}
             renderMode={renderMode}
+            expoPreviewUrl={expoPreviewUrl}
             schema={resolveRenderableSchema(project?.result, liveSchema, demoApp)}
             theme={(() => {
               try {

@@ -769,7 +769,8 @@ const FAST_MODELS: Record<AIProvider, string> = {
   lovable: "google/gemini-3-flash-preview",
   openai: "gpt-4o-mini",
   gemini: "gemini-2.5-flash",
-  anthropic: "claude-haiku-4-20250514",
+  // Execution tier for the agentic build — Sonnet (not Haiku) for code quality.
+  anthropic: "claude-sonnet-4-20250514",
   groq: "llama-3.1-8b-instant",
   openrouter: "google/gemini-2.5-flash",
   ollama: "llama3.1",
@@ -782,7 +783,8 @@ const STRONG_MODELS: Record<AIProvider, string> = {
   lovable: "google/gemini-2.5-pro",
   openai: "gpt-4o",
   gemini: "gemini-2.5-pro",
-  anthropic: "claude-sonnet-4-20250514",
+  // Planning/reasoning tier for the agentic build — Opus.
+  anthropic: "claude-opus-4-20250514",
   groq: "llama-3.3-70b-versatile",
   openrouter: "google/gemini-2.5-pro",
   ollama: "llama3.1:70b",

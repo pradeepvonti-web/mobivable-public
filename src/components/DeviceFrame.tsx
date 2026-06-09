@@ -14,7 +14,6 @@ import {
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
 import type { MobileTheme } from "@/lib/mobile-theme";
 
-
 export type DeviceOS = "ios" | "android";
 
 /* ─── Device Presets ─── */
@@ -135,12 +134,10 @@ function FlutterPreview({
   themeRef.current = theme;
   activeScreenIndexRef.current = activeScreenIndex;
 
-
-
   // Listen for FLUTTER_READY to hide the loading overlay and flush latest state
   useEffect(() => {
     const unsub = onFlutterMessage((event: FlutterEvent) => {
-      if (event.type === 'FLUTTER_READY') {
+      if (event.type === "FLUTTER_READY") {
         setReady(true);
         setLoading(false);
         if (schemaRef.current) sendSchemaToFlutter(iframeRef.current, schemaRef.current);
@@ -177,11 +174,11 @@ function FlutterPreview({
   }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <iframe
         ref={iframeRef}
         src={previewUrl}
-        style={{ width: '100%', height: '100%', border: 'none' }}
+        style={{ width: "100%", height: "100%", border: "none" }}
         title="Flutter Preview"
         allow="cross-origin-isolated"
         sandbox="allow-scripts allow-same-origin"
@@ -195,15 +192,15 @@ function FlutterPreview({
       {loading && (
         <div
           style={{
-            position: 'absolute',
+            position: "absolute",
             inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(10,10,26,0.85)',
-            backdropFilter: 'blur(8px)',
-            color: '#fff',
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,10,26,0.85)",
+            backdropFilter: "blur(8px)",
+            color: "#fff",
             gap: 12,
             zIndex: 10,
           }}
@@ -212,15 +209,88 @@ function FlutterPreview({
             style={{
               width: 28,
               height: 28,
-              borderRadius: '50%',
-              border: '2.5px solid rgba(255,255,255,0.25)',
-              borderTopColor: '#fff',
-              animation: 'flutterLoadSpin 0.8s linear infinite',
+              borderRadius: "50%",
+              border: "2.5px solid rgba(255,255,255,0.25)",
+              borderTopColor: "#fff",
+              animation: "flutterLoadSpin 0.8s linear infinite",
             }}
           />
-          <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.9 }}>
-            Flutter loading…
-          </span>
+          <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.9 }}>Flutter loading…</span>
+          <style>{`@keyframes flutterLoadSpin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Expo Live Preview Sub-Component ─── */
+
+/**
+ * Embeds the running Expo-web build (served from the project's sandbox) in an
+ * iframe. This is the "Live" preview — the actual generated React Native app
+ * compiled to web — as opposed to the schema-driven Flutter/React renderers.
+ */
+function ExpoPreview({ url }: { url?: string | null }) {
+  const [loading, setLoading] = useState(true);
+
+  if (!url) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          textAlign: "center",
+          color: "#9CA3AF",
+          fontSize: 13,
+          background: "#0A0A1A",
+        }}
+      >
+        Live preview not started yet. Build the app, or press Restart to compile and serve it.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <iframe
+        key={url}
+        src={url}
+        style={{ width: "100%", height: "100%", border: "none", background: "#fff" }}
+        title="Expo Preview"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+        onLoad={() => setLoading(false)}
+      />
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,10,26,0.85)",
+            backdropFilter: "blur(8px)",
+            color: "#fff",
+            gap: 12,
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              border: "2.5px solid rgba(255,255,255,0.25)",
+              borderTopColor: "#fff",
+              animation: "flutterLoadSpin 0.8s linear infinite",
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.9 }}>Loading live app…</span>
           <style>{`@keyframes flutterLoadSpin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
@@ -240,10 +310,11 @@ export function DeviceFrame({
   width = 320,
   height = 640,
   children,
-  renderMode = 'react',
+  renderMode = "react",
   schema,
   theme,
   activeScreenIndex = 0,
+  expoPreviewUrl,
 }: {
   os?: DeviceOS;
   /** Hex/rgb/oklch color of the app screen background (top area). Used to pick contrast for the status bar. */
@@ -251,14 +322,16 @@ export function DeviceFrame({
   width?: number;
   height?: number;
   children: ReactNode;
-  /** Render mode: 'react' shows children as-is, 'flutter' embeds the Flutter preview iframe. */
-  renderMode?: 'react' | 'flutter';
+  /** Render mode: 'react' shows children as-is, 'flutter' embeds the Flutter preview iframe, 'expo' embeds the live Expo-web build. */
+  renderMode?: "react" | "flutter" | "expo";
   /** The MobileAppSchema to send to the Flutter preview (used when renderMode='flutter'). */
   schema?: MobileAppSchema;
   /** The resolved MobileTheme to send to the Flutter preview (used when renderMode='flutter'). */
   theme?: MobileTheme;
   /** Current screen index so React and Flutter stay on the same screen. */
   activeScreenIndex?: number;
+  /** Public URL of the running Expo-web build (used when renderMode='expo'). */
+  expoPreviewUrl?: string | null;
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -305,7 +378,6 @@ export function DeviceFrame({
       className="relative"
       style={{ width: width + bezel * 2, height: height + bezel * 2 }}
     >
-
       {/* Soft glow halo */}
       <div
         aria-hidden
@@ -324,10 +396,8 @@ export function DeviceFrame({
           height: "100%",
           borderRadius: radius,
           padding: bezel,
-          background:
-            "linear-gradient(140deg, #1c1c1e 0%, #0a0a0a 50%, #1c1c1e 100%)",
-          boxShadow:
-            "inset 0 0 0 1px rgba(255,255,255,0.06), 0 30px 60px -20px rgba(0,0,0,0.6)",
+          background: "linear-gradient(140deg, #1c1c1e 0%, #0a0a0a 50%, #1c1c1e 100%)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06), 0 30px 60px -20px rgba(0,0,0,0.6)",
         }}
       >
         {/* Side buttons */}
@@ -360,8 +430,7 @@ export function DeviceFrame({
             className="absolute top-0 inset-x-0 z-30 flex items-center justify-between"
             style={{
               height: statusBarH,
-              padding:
-                os === "ios" ? "10px 24px 0 24px" : "6px 16px 0 16px",
+              padding: os === "ios" ? "10px 24px 0 24px" : "6px 16px 0 16px",
               color: chromeColor,
               fontSize: 12,
               fontWeight: 600,
@@ -369,9 +438,7 @@ export function DeviceFrame({
               pointerEvents: "none",
             }}
           >
-            <span style={{ letterSpacing: os === "ios" ? "-0.01em" : 0 }}>
-              {time}
-            </span>
+            <span style={{ letterSpacing: os === "ios" ? "-0.01em" : 0 }}>{time}</span>
             <div className="flex items-center gap-1.5">
               {os === "ios" ? (
                 <>
@@ -432,7 +499,7 @@ export function DeviceFrame({
               overflow: "hidden",
             }}
           >
-            {renderMode === 'flutter' ? (
+            {renderMode === "flutter" ? (
               <FlutterPreview
                 schema={schema}
                 theme={theme}
@@ -441,6 +508,8 @@ export function DeviceFrame({
                 width={width}
                 height={height}
               />
+            ) : renderMode === "expo" ? (
+              <ExpoPreview url={expoPreviewUrl} />
             ) : (
               children
             )}
@@ -502,11 +571,7 @@ function BatteryShape({ color }: { color: string }) {
   );
 }
 
-function sideBtn(
-  top: number,
-  height: number,
-  side: "left" | "right",
-): React.CSSProperties {
+function sideBtn(top: number, height: number, side: "left" | "right"): React.CSSProperties {
   return {
     position: "absolute",
     top,
@@ -527,7 +592,11 @@ function estimateIsDark(color?: string): boolean {
   const hex = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
   if (hex) {
     let h = hex[1];
-    if (h.length === 3) h = h.split("").map((x) => x + x).join("");
+    if (h.length === 3)
+      h = h
+        .split("")
+        .map((x) => x + x)
+        .join("");
     const r = parseInt(h.slice(0, 2), 16);
     const g = parseInt(h.slice(2, 4), 16);
     const b = parseInt(h.slice(4, 6), 16);

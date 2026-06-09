@@ -6,6 +6,7 @@ import { callAIToolsStreamingTiered } from "./ai-provider";
 import { loadKnowledgeForUser } from "./knowledge-context";
 import { initProjectPhases } from './sdlc.functions';
 import { getMcpTool } from "./mcp-tools";
+import { resolveBuildStack } from "./agent-workspace.server";
 import {
   clipToolResult,
   mcpToolsAsAnthropic,
@@ -81,6 +82,19 @@ const UNIFIED_AGENT_PROMPT =
   `2. verify_schema runs AUTOMATICALLY\n` +
   `3. Respond with SHORT summary (under 40 words)\n\n` +
 
+  `## REAL EXPO BUILD MODE (when system context says target_stack: expo)\n` +
+  `After the user approves the plan, BUILD A REAL EXPO APP by writing source files and verifying them — do NOT call generate_app. Use the workspace tools:\n` +
+  `- ws_list_files / ws_read_file: inspect the pre-seeded Expo scaffold (app/_layout.tsx, app/(tabs)/_layout.tsx, package.json, tsconfig.json already exist).\n` +
+  `- ws_write_file: create each screen (files under app/), store, component, and util.\n` +
+  `- ws_edit_file: surgical fixes (exact unique substring).\n` +
+  `- ws_run_command: synchronous — for QUICK commands only (\`bunx tsc --noEmit\`, \`bun run lint\`, ls, cat). Read errors; fix; re-run until clean.\n` +
+  `- ws_run_command_async + ws_command_status: for LONG commands (\`bun install\`, \`bunx expo export -p web\`). Start async → poll ws_command_status until status="done" (check exitCode), then continue. Never run these with ws_run_command (they time out).\n` +
+  `- read_mockup: vision-read the APPROVED mockup image. Call this FIRST — it returns exact colors, fonts, layout, and components. The mockup is the source of truth ABOVE the text brief; match it pixel-wise.\n` +
+  `- invoke_skill: load reusable guidance. Call invoke_skill("frontend-design") after read_mockup and BEFORE writing screens — then follow its design-system discipline.\n` +
+  `- ws_start_preview: FINAL step — compiles the app to web and makes the live preview appear.\n` +
+  `Workflow: (1) read the scaffold, (2) read_mockup to SEE the approved design and match it exactly, (3) invoke_skill("frontend-design") and follow it, (4) lock the design system (constants/theme.ts) from the mockup's real colors/fonts, (5) build the data layer (store/types/seed), (6) navigation (app/(tabs)/_layout.tsx), (7) each screen as an app/ route using realistic data + the mockup's exact palette/typography/layout, (8) install deps: ws_run_command_async("bun install") then poll ws_command_status until done, (9) \`bunx tsc --noEmit\` (sync) → fix → \`bun run lint\` → clean up, (10) ws_start_preview, then poll ws_command_status on its jobId until done — the preview is then live.\n` +
+  `Narrate each step briefly ("Now let's build the Dashboard screen:") before its tool calls. The approved design brief in your context is the source of truth for palette, typography, and screen list.\n\n` +
+
   `## PREVIEW LIMITATIONS (IMPORTANT)\n` +
   `The preview is a web renderer. These actions WORK:\n` +
   `- navigate: switches to another screen (MUST match a screen id)\n` +
@@ -105,6 +119,13 @@ const AGENT_TOOLS = [
   "research_and_plan", "generate_app", "create_project",
   "generate_code", "export_project_code",
   "list_projects",
+  // Real Expo build: write/read/edit files + run bun/tsc/eslint, then preview.
+  "ws_list_files", "ws_read_file", "ws_write_file", "ws_edit_file",
+  "ws_run_command", "ws_run_command_async", "ws_command_status", "ws_start_preview",
+  // Load reusable design/build guidance on demand.
+  "invoke_skill",
+  // Vision-read the approved mockup so the build matches it pixel-wise.
+  "read_mockup",
 ];
 
 export const sendProjectMessage = createServerFn({ method: "POST" })
@@ -123,7 +144,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     const { data: project, error: pErr } = await supabase
       .from("projects")
-      .select("id, prompt, model, user_id, result, current_phase")
+      .select("id, prompt, model, user_id, result, current_phase, attachments")
       .eq("id", data.projectId)
       .maybeSingle();
     if (pErr) { yield { type: "error" as const, error: pErr.message }; return; }
@@ -158,12 +179,16 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     });
 
     // ─────────────────────────────────────────────────────────────────
-    // ADK ROUTING: When ADK_AGENT_URL is set, delegate to the ADK
-    // agent service (Google ADK on Vertex AI) instead of the local
-    // TypeScript tool-use loop.
+    // BRAIN SELECTION: the local TypeScript tool-use loop runs on Claude
+    // (Opus plan / Sonnet execute via the Anthropic provider) and is the
+    // DEFAULT. The Google ADK service runs on Gemini; it only takes over
+    // when explicitly opted in with AGENT_BRAIN=adk (and ADK_AGENT_URL set).
+    // This ensures real builds run on Opus/Sonnet, not Gemini, even when an
+    // ADK URL is configured.
     // ─────────────────────────────────────────────────────────────────
+    const useAdk = process.env.AGENT_BRAIN === "adk";
     const adkUrl = process.env.ADK_AGENT_URL;
-    if (adkUrl) {
+    if (adkUrl && useAdk) {
       yield { type: 'agent_start' as const, role: 'developer' as AgentRole, name: 'Studio Agent', phase: 'working' };
 
       // Build a context-rich prompt for ADK with plan approval detection
@@ -223,9 +248,18 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         }
       }
 
+      // Target stack drives which build mode the agent uses. Defaults to a real
+      // Expo build (ws_* workspace tools), but falls back to the schema path
+      // ("web") when the workspace runtime is unavailable (no E2B / kill-switch).
+      const targetStack = resolveBuildStack(project.attachments as Record<string, unknown> | null);
+
       const contextLines = [
         `[PROJECT CONTEXT]`,
         `project_id: ${project.id}`,
+        `target_stack: ${targetStack}`,
+        targetStack === "expo"
+          ? `Build mode: REAL EXPO BUILD — after approval, build a real Expo app with the ws_* workspace tools (ws_write_file/ws_read_file/ws_edit_file/ws_list_files/ws_run_command). Verify with \`bunx tsc --noEmit\` and \`bun run lint\`. Do NOT call generate_app.`
+          : `Build mode: SCHEMA — use generate_app / surgical schema tools.`,
         `App name/idea: ${project.prompt}`,
         hasSchema
           ? `The app HAS a schema with screens. Prefer surgical tools for edits.`
@@ -311,6 +345,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
               const WRITE_TOOLS_ADK = new Set([
                 "update_screen", "add_element", "update_element", "remove_element",
                 "update_theme", "update_navigation", "generate_app", "create_project",
+                "ws_write_file", "ws_edit_file",
               ]);
               yield { type: 'tool_done' as const, toolName: evt.name, success: true };
               if (WRITE_TOOLS_ADK.has(evt.name)) {
@@ -396,6 +431,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     let planApprovedInSession = hadPlanInHistory && (userMsgsApproved || currentMsgApproves);
     let planGeneratedThisTurn = false; // Track if we generated a plan THIS turn
 
+    // Real Expo build vs legacy schema path.
+    // Falls back to "web" (schema path) when the workspace runtime is
+    // unavailable (no E2B key / kill-switch) so builds never flail on dead ws_* tools.
+    const targetStackFallback = resolveBuildStack(project.attachments as Record<string, unknown> | null);
+    const isExpoBuild = targetStackFallback === "expo" && planApprovedInSession && !hasSchema;
+
     const msgs: AgentMsg[] = [
       { role: "system", content: UNIFIED_AGENT_PROMPT },
       {
@@ -404,11 +445,14 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           `PROJECT CONTEXT:`,
           `- project_id: ${project.id}`,
           `- App name/idea: ${project.prompt}`,
-          hasSchema
-            ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
-            : planApprovedInSession
-              ? `- The app has NO schema yet BUT the user has APPROVED the design plan. Call generate_app NOW with a detailed prompt based on the approved plan. Do NOT call research_and_plan again.`
-              : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
+          `- target_stack: ${targetStackFallback}`,
+          isExpoBuild
+            ? `- BUILD MODE: target_stack is expo and the plan is APPROVED → build a REAL Expo app now using the ws_* workspace tools (ws_list_files/ws_read_file/ws_write_file/ws_edit_file/ws_run_command). Verify with \`bunx tsc --noEmit\` and \`bun run lint\`, then call ws_start_preview. Do NOT call generate_app.`
+            : hasSchema
+              ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
+              : planApprovedInSession
+                ? `- The app has NO schema yet BUT the user has APPROVED the design plan. Call generate_app NOW with a detailed prompt based on the approved plan. Do NOT call research_and_plan again.`
+                : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
           !hasSchema && !planApprovedInSession
             ? `\n⚠️ IMPORTANT: generate_app is LOCKED until you call research_and_plan and the user approves the plan. Do NOT try to call generate_app directly.`
             : "",
@@ -436,11 +480,21 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       openai: mcpToolsAsOpenAI().filter(t => allowedTools.includes(t.function.name)),
     };
 
-    const MAX_ITERS = 8;
+    // Real Expo builds need a large step budget (write many files, run tsc/lint,
+    // fix, re-verify). Schema edits stay cheap.
+    const MAX_ITERS = isExpoBuild ? 60 : 8;
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
       "update_theme", "update_navigation", "generate_app", "create_project",
+      "ws_write_file", "ws_edit_file", "ws_start_preview",
     ]);
+
+    // ── Token-budget guard ──────────────────────────────────────────
+    // The Expo build loop can run dozens of iterations; cap total spend so a
+    // confused agent can't burn unbounded tokens. Approximate (chars/4),
+    // summed across iterations. Configurable via AGENT_BUILD_TOKEN_BUDGET.
+    const TOKEN_BUDGET = Math.max(50_000, Number(process.env.AGENT_BUILD_TOKEN_BUDGET) || 2_000_000);
+    let approxTokens = 0;
 
     for (let iter = 0; iter < MAX_ITERS; iter++) {
       // Decide tier: first iteration uses "strong" for better reasoning,
@@ -449,6 +503,19 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
       const anth = toAnthropicMessages(msgs);
       const oai = toOpenAIMessages(msgs);
+
+      // Stop BEFORE spending if this turn would exceed the token budget.
+      const inputEst = Math.ceil((anth.system.length + JSON.stringify(anth.messages).length) / 4);
+      if (approxTokens + inputEst > TOKEN_BUDGET) {
+        const note = `⚠️ Reached the build token budget (~${Math.round(TOKEN_BUDGET / 1000)}k tokens) after ${iter} step(s). Pausing to avoid runaway cost — reply "continue" to keep building.`;
+        await supabase.from("project_messages").insert({
+          project_id: project.id, user_id: userId, role: "assistant", content: note,
+        });
+        yield { type: 'agent_complete' as const, role: 'developer' as AgentRole, name: 'Studio Agent', content: note };
+        break;
+      }
+      approxTokens += inputEst;
+
       const streamRes = await callAIToolsStreamingTiered({
         system: anth.system,
         messages: { anthropic: anth.messages, openai: oai },
@@ -540,6 +607,8 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           completedTools.push({ id: tc.id, name: tc.name, input });
         }
       }
+
+      approxTokens += Math.ceil(assistantText.length / 4);
 
       msgs.push({
         role: "assistant", content: assistantText,

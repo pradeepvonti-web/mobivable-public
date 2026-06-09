@@ -88,7 +88,7 @@ export interface ScreenPlan {
  * it to project-attachments and return the public URL. Best-effort: if the
  * upload fails, return null and the caller will fall back.
  */
-async function ensureHttpsImageUrl(
+export async function ensureHttpsImageUrl(
   rawUrl: string,
   projectId: string,
 ): Promise<string | null> {
