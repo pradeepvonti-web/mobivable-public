@@ -221,18 +221,23 @@ Produce the JSON plans now.`;
   return { ok: true, plans: parsed.plans };
 }
 
-// ─── Stage 3: Schema assembler ──────────────────────────────────────
+// ─── Stage 3: Multi-provider schema assembler + vision judge ────────
 
-async function assembleSchema(
+interface AssembledCandidate {
+  model: string;
+  schema: MobileAppSchema;
+  json: string;
+}
+
+function buildAssemblerUserPrompt(
   spec: ReconciledSpec,
   plans: ScreenPlan[],
   appPrompt: string,
   knowledgeBlock: string,
   figmaPromptSnippet: string,
   agentContextText: string,
-  systemPrompt: string,
-): Promise<{ ok: true; json: string } | { ok: false; error: string }> {
-  const userPrompt =
+): string {
+  return (
     `Compose the final mobile app JSON. All design decisions are LOCKED — copy palette, typography, radius, spacing, motion, screen ids, screen titles, icons, layouts VERBATIM from the spec. Compose each screen exactly from the matching plan's elements, in order.\n\n` +
     `## App Idea\n${appPrompt}\n\n` +
     (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
@@ -253,12 +258,119 @@ async function assembleSchema(
     `8. Add navigate actions on buttons/tabs to connect screens; use spec.navigation order.\n` +
     `9. Include at least 1 chart element and 1 hero element with an image "prompt" string for media auto-fill.\n` +
     `10. Add entrance animations (pop, fade-up, scale-in, blur-in), gesture hints (tap-scale, press-glow), and a page transition per screen.\n\n` +
-    `Generate the COMPLETE app JSON now.`;
+    `Generate the COMPLETE app JSON now.`
+  );
+}
 
-  const r = await callAIStrong(systemPrompt, userPrompt);
-  if (!r.ok) return { ok: false, error: `assembler: ${r.error}` };
-  if (r.text.length < 50) return { ok: false, error: "assembler: empty output" };
-  return { ok: true, json: r.text };
+/**
+ * Fan out the assembly across every candidate model in parallel. Each
+ * candidate that returns parseable schema becomes an option for the judge.
+ * Failures (rate-limit, credit exhaustion, parse failure on that model) are
+ * dropped so the strongest models that DID respond still race.
+ */
+async function assembleSchemaCandidates(
+  spec: ReconciledSpec,
+  plans: ScreenPlan[],
+  appPrompt: string,
+  knowledgeBlock: string,
+  figmaPromptSnippet: string,
+  agentContextText: string,
+  systemPrompt: string,
+): Promise<{ candidates: AssembledCandidate[]; errors: { model: string; error: string }[] }> {
+  const userPrompt = buildAssemblerUserPrompt(
+    spec,
+    plans,
+    appPrompt,
+    knowledgeBlock,
+    figmaPromptSnippet,
+    agentContextText,
+  );
+
+  const results = await Promise.all(
+    ASSEMBLER_CANDIDATES.map(async (model) => {
+      const r = await callAI(systemPrompt, userPrompt, model);
+      if (!r.ok) return { model, error: r.error };
+      if (r.text.length < 50) return { model, error: "empty output" };
+      const parsed = parseAppSchema(r.text);
+      if (!parsed) return { model, error: "schema parse failed" };
+      const { schema: fixed } = validateAndFixSchema(parsed);
+      const final = fixed ?? parsed;
+      return {
+        model,
+        schema: final,
+        json: JSON.stringify(final),
+      } satisfies AssembledCandidate;
+    }),
+  );
+
+  const candidates: AssembledCandidate[] = [];
+  const errors: { model: string; error: string }[] = [];
+  for (const r of results) {
+    if ("schema" in r) candidates.push(r);
+    else errors.push(r);
+  }
+  return { candidates, errors };
+}
+
+/**
+ * Compact, judge-friendly summary of a candidate schema. We DON'T send the
+ * full schema to the vision model — too much text dilutes attention and
+ * costs more. Instead, send only the visually-load-bearing fields.
+ */
+function summarizeCandidate(c: AssembledCandidate): string {
+  const theme = (c.schema as unknown as { theme?: { palette?: Record<string, unknown>; typography?: Record<string, unknown> } }).theme;
+  const screens = Array.isArray(c.schema.screens) ? c.schema.screens : [];
+  const palette = theme?.palette ? JSON.stringify(theme.palette) : "(none)";
+  const typography = theme?.typography ? JSON.stringify(theme.typography) : "(none)";
+  const screenLines = screens.map((s, i) => {
+    const elements = Array.isArray((s as { elements?: unknown[] }).elements) ? (s as { elements: unknown[] }).elements : [];
+    const types = elements
+      .map((e) => (e && typeof e === "object" ? String((e as { type?: unknown }).type ?? "?") : "?"))
+      .slice(0, 12)
+      .join(", ");
+    return `  ${i + 1}. id=${(s as { id?: string }).id ?? "?"} title=${(s as { title?: string }).title ?? "?"} layout=${(s as { layout?: string }).layout ?? "?"} elements=[${types}]`;
+  }).join("\n");
+  return `palette: ${palette}\ntypography: ${typography}\nscreens (${screens.length}):\n${screenLines}`;
+}
+
+/**
+ * Vision-based judge. Shows the mockup image + a compact summary of each
+ * candidate and asks the model to pick the closest visual match. On any
+ * failure we fall back to "first candidate wins" — the candidates are
+ * already ordered by priority.
+ */
+async function judgeBestCandidate(
+  candidates: AssembledCandidate[],
+  mockupHttpsUrl: string,
+): Promise<{ winnerIndex: number; rationale: string }> {
+  if (candidates.length <= 1) {
+    return { winnerIndex: 0, rationale: "single candidate" };
+  }
+
+  const labelled = candidates
+    .map((c, i) => `### Candidate ${i} — model: ${c.model}\n${summarizeCandidate(c)}`)
+    .join("\n\n");
+
+  const system = `You are a strict visual QA judge. Pick the candidate whose schema best matches the attached mockup image.
+
+Score each candidate on:
+- palette fidelity (exact hex match to mockup colors): 0–40
+- typography fit (heading/body fonts match mockup feel): 0–15
+- screen list fidelity (titles, count, order match mockup): 0–25
+- element richness (6+ real typed elements per screen, no "text" placeholders): 0–20
+
+RESPOND WITH ONLY VALID JSON: { "winnerIndex": <int>, "scores": [<int>,...], "rationale": "one short sentence" }`;
+
+  const user = `Pick the closest match to the attached mockup.\n\n${labelled}`;
+
+  const r = await callAIVision(system, user, [mockupHttpsUrl]);
+  if (!r.ok) return { winnerIndex: 0, rationale: `judge failed (${r.error}); priority order` };
+  const parsed = safeParse<{ winnerIndex?: number; rationale?: string }>(r.text);
+  const idx = typeof parsed?.winnerIndex === "number" ? parsed!.winnerIndex : 0;
+  if (idx < 0 || idx >= candidates.length) {
+    return { winnerIndex: 0, rationale: "judge returned out-of-range index; priority order" };
+  }
+  return { winnerIndex: idx, rationale: parsed?.rationale ?? "" };
 }
 
 // ─── Public entry ───────────────────────────────────────────────────
