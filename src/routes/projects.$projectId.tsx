@@ -4503,12 +4503,14 @@ function ProjectPage() {
                         handleDrop(e);
                       }}
                     >
-                      <GeneratedAppPreview
-                        key={previewKey}
-                        projectId={project.id}
-                      />
-                      {/* Schema is still kept in state for the drag-drop palette and visual edits; the canonical preview is now the generated React source above. */}
-                      {false && baseSchema && setActiveScreenId(activeScreenId)}
+                      {project && (
+                        <GeneratedAppPreview
+                          key={previewKey}
+                          projectId={project.id}
+                        />
+                      )}
+                      {/* baseSchema/activeScreenId are still consumed by the palette/visual-edit panels elsewhere on the page. */}
+
 
                       {dropFlash && (
                         <div
