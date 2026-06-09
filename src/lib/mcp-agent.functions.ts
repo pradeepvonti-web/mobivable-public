@@ -696,7 +696,7 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
           isError = true;
         } else {
           try {
-            const result = await tool.run(tc.input, { userId, patHash: "in-studio" });
+            const result = await tool.run(tc.input, { userId, patHash: "in-studio", supabase });
             resultContent = clipToolResult(JSON.stringify(result, null, 2)).text;
           } catch (e) {
             resultContent = e instanceof Error ? e.message : String(e);
@@ -749,7 +749,7 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
           try {
             const result = await verifyTool.run(
               { project_id: modifiedProjectId },
-              { userId, patHash: "in-studio" },
+              { userId, patHash: "in-studio", supabase },
             );
             verifyContent = clipToolResult(JSON.stringify(result, null, 2)).text;
           } catch (e) {

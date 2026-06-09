@@ -366,7 +366,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         if (!tool) { resultContent = `Unknown tool: ${tc.name}`; isError = true; }
         else {
           try {
-            const result = await tool.run(tc.input, { userId, patHash: "project-chat" });
+            const result = await tool.run(tc.input, { userId, patHash: "project-chat", supabase });
             resultContent = clipToolResult(JSON.stringify(result, null, 2)).text;
 
             // ── Emit design_brief event for plan-first workflow ──
@@ -408,7 +408,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         if (vTool) {
           const vid = `v-${Date.now()}`;
           try {
-            const r = await vTool.run({ project_id: project.id }, { userId, patHash: "project-chat" });
+            const r = await vTool.run({ project_id: project.id }, { userId, patHash: "project-chat", supabase });
             msgs.push({ role: "assistant", content: "", tool_calls: [{ id: vid, name: "verify_schema", arguments: { project_id: project.id } }] });
             msgs.push({ role: "tool", tool_call_id: vid, name: "verify_schema", content: clipToolResult(JSON.stringify(r, null, 2)).text });
           } catch { /* non-fatal */ }

@@ -26,6 +26,10 @@ export interface McpToolContext {
   userId: string;
   /** sha256-hex of the bearer used; logged for forensics, never returned. */
   patHash: string;
+  /** Optional user-authenticated Supabase client (passed from chat handler).
+   *  Falls back to supabaseAdmin for DB operations. When SUPABASE_SERVICE_ROLE_KEY
+   *  is missing, this client is the only way to read/write. */
+  supabase?: { from: (table: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export interface McpTool {
@@ -81,6 +85,25 @@ function uuid(args: Record<string, unknown>, key: string): string {
   return v;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Get a working Supabase client — tries supabaseAdmin first (RLS bypass),
+ * falls back to the user's authenticated client from context.
+ * This ensures tools work even when SUPABASE_SERVICE_ROLE_KEY is missing.
+ */
+function getDb(ctx?: McpToolContext): { from: (table: string) => any } {
+  try {
+    // Test if supabaseAdmin works by triggering the lazy proxy
+    const test = supabaseAdmin;
+    if (test && typeof test.from === "function") return test;
+  } catch {
+    // supabaseAdmin threw (SUPABASE_SERVICE_ROLE_KEY missing)
+  }
+  if (ctx?.supabase) return ctx.supabase;
+  throw new Error("No database client available. Set SUPABASE_SERVICE_ROLE_KEY or pass a user session.");
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 /** Confirm the project belongs to the caller. Throws on mismatch. */
 async function assertOwnsProject(userId: string, projectId: string): Promise<void> {
   try {
@@ -107,8 +130,9 @@ async function assertOwnsProject(userId: string, projectId: string): Promise<voi
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Load and parse the project's MobileAppSchema JSON from the DB. */
-async function loadSchema(projectId: string): Promise<any> {
-  const { data, error } = await supabaseAdmin
+async function loadSchema(projectId: string, ctx?: McpToolContext): Promise<any> {
+  const db = getDb(ctx);
+  const { data, error } = await db
     .from("projects")
     .select("result")
     .eq("id", projectId)
@@ -124,8 +148,9 @@ async function loadSchema(projectId: string): Promise<any> {
 }
 
 /** Save a modified schema back to the project's result column. */
-async function saveSchema(projectId: string, userId: string, schema: any): Promise<void> {
-  const { error } = await supabaseAdmin
+async function saveSchema(projectId: string, userId: string, schema: any, ctx?: McpToolContext): Promise<void> {
+  const db = getDb(ctx);
+  const { error } = await db
     .from("projects")
     .update({ result: JSON.stringify(schema), updated_at: new Date().toISOString() })
     .eq("id", projectId)
@@ -634,7 +659,8 @@ export const MCP_TOOLS: McpTool[] = [
       if (!schema) throw new Error("Failed to parse generated schema. The AI output was not valid JSON.");
 
       // Save to project and mark as ready
-      const { error: saveErr } = await supabaseAdmin
+      const db = getDb(ctx);
+      const { error: saveErr } = await db
         .from("projects")
         .update({
           result: JSON.stringify(schema),
@@ -703,7 +729,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       if (args.title !== undefined) screen.title = str(args, "title");
@@ -712,7 +738,7 @@ export const MCP_TOOLS: McpTool[] = [
       if (args.transition !== undefined) screen.transition = str(args, "transition");
       const bg = obj(args, "background");
       if (bg !== undefined) screen.background = bg;
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, screen_id: screen.id, updated: Object.keys(args).filter(k => k !== "project_id" && k !== "screen_id") };
     },
   },
@@ -734,7 +760,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       if (!Array.isArray(screen.elements)) screen.elements = [];
@@ -746,7 +772,7 @@ export const MCP_TOOLS: McpTool[] = [
       } else {
         screen.elements.push(el);
       }
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, screen_id: screen.id, element_type: el.type, position: pos >= 0 ? pos : screen.elements.length - 1, total_elements: screen.elements.length };
     },
   },
@@ -772,7 +798,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       const idx = num(args, "element_index", -1);
@@ -788,7 +814,7 @@ export const MCP_TOOLS: McpTool[] = [
       if (a !== undefined) el.action = a;
       if (args.entrance !== undefined) el.entrance = str(args, "entrance");
       if (args.gesture !== undefined) el.gesture = str(args, "gesture");
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, screen_id: screen.id, element_index: idx, element_type: el.type };
     },
   },
@@ -809,7 +835,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const screen = schema.screens?.find((s: { id?: string }) => s.id === str(args, "screen_id"));
       if (!screen) throw new Error(`Screen "${str(args, "screen_id")}" not found.`);
       const idx = num(args, "element_index", -1);
@@ -817,7 +843,7 @@ export const MCP_TOOLS: McpTool[] = [
         throw new Error(`Element index ${idx} out of range.`);
       }
       const removed = screen.elements.splice(idx, 1)[0];
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, removed_type: removed?.type, remaining_elements: screen.elements.length };
     },
   },
@@ -847,7 +873,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       if (!schema.theme) schema.theme = {};
       const scalarFields = ["primary", "accent", "background", "card", "text", "muted", "border", "mode"];
       const updated: string[] = [];
@@ -869,7 +895,7 @@ export const MCP_TOOLS: McpTool[] = [
         schema.theme.motion = { ...(schema.theme.motion ?? {}), ...mo };
         updated.push("motion");
       }
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, updated_fields: updated };
     },
   },
@@ -892,7 +918,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       if (!schema.navigation) schema.navigation = { type: "bottom-tabs", items: [] };
       const updated: string[] = [];
       if (args.type !== undefined) { schema.navigation.type = str(args, "type"); updated.push("type"); }
@@ -901,7 +927,7 @@ export const MCP_TOOLS: McpTool[] = [
       const ns = obj(args, "navStyle");
       if (ns) { schema.navigation.navStyle = ns; updated.push("navStyle"); }
       if (args.showLabels !== undefined) { schema.navigation.showLabels = bool(args, "showLabels"); updated.push("showLabels"); }
-      await saveSchema(projectId, ctx.userId, schema);
+      await saveSchema(projectId, ctx.userId, schema, ctx);
       return { ok: true, updated_fields: updated, nav_type: schema.navigation.type, tab_count: schema.navigation.items?.length ?? 0 };
     },
   },
@@ -918,7 +944,7 @@ export const MCP_TOOLS: McpTool[] = [
     async run(args, ctx) {
       const projectId = uuid(args, "project_id");
       await assertOwnsProject(ctx.userId, projectId);
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const issues: string[] = [];
       // Check screens
       if (!schema.screens || schema.screens.length === 0) issues.push("No screens defined.");
@@ -982,7 +1008,7 @@ export const MCP_TOOLS: McpTool[] = [
       const projectId = args.project_id as string;
       const screenId = args.screen_id as string;
       const style = (args.style as string) ?? "expo-router";
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
       const screen = schema.screens?.find((s: { id?: string }) => s.id === screenId);
       if (!screen) throw new Error(`Screen '${screenId}' not found`);
 
@@ -1039,7 +1065,7 @@ export const MCP_TOOLS: McpTool[] = [
     },
     run: async (args: Record<string, unknown>, ctx: McpToolContext) => {
       const projectId = args.project_id as string;
-      const schema = await loadSchema(projectId);
+      const schema = await loadSchema(projectId, ctx);
 
       // Read project name
       const adm = supabaseAdmin;
