@@ -664,67 +664,7 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             if (mp.ok && mp.schemaJson) {
               result = { ok: true, text: mp.schemaJson };
               usedMockupPipeline = true;
-              console.log("[finalizeAgentRun] ✅ mockup pipeline succeeded", {
-                ...mp.stages,
-                winner: mp.winnerModel,
-                score: mp.winnerScore,
-                candidates: mp.candidateModels,
-                scores: mp.candidateScores,
-                failed: mp.failedModels,
-                rationale: mp.judgeRationale,
-                report: mp.comparisonReportUrl,
-              });
-
-              // Persist match metadata on the project so the UI can render
-              // the provider, confidence, rationale, and a link to the
-              // comparison artifact next to the build output.
-              try {
-                const prevAttachments =
-                  project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments)
-                    ? (project.attachments as Record<string, unknown>)
-                    : {};
-                const buildMatch = {
-                  winnerModel: mp.winnerModel,
-                  winnerScore: mp.winnerScore,
-                  candidates: (mp.candidateModels ?? []).map((m, i) => ({
-                    model: m,
-                    score: mp.candidateScores?.[i] ?? 0,
-                    isWinner: m === mp.winnerModel,
-                  })),
-                  failed: mp.failedModels ?? [],
-                  rationale: mp.judgeRationale ?? "",
-                  comparisonReportUrl: mp.comparisonReportUrl ?? null,
-                  mockupUrl,
-                  generatedAt: new Date().toISOString(),
-                };
-                await supabase
-                  .from("projects")
-                  .update({ attachments: { ...prevAttachments, build_match: buildMatch } as never })
-                  .eq("id", project.id);
-              } catch (e) {
-                console.warn("[finalizeAgentRun] failed to persist build_match:", e);
-              }
-
-              const scoreStr = typeof mp.winnerScore === "number" ? ` — **${mp.winnerScore}/100 confidence**` : "";
-              const racedList = mp.candidateModels && mp.candidateModels.length > 1
-                ? `\n_Raced ${mp.candidateModels.length} models:_ ${mp.candidateModels
-                    .map((m, i) => `${m} (${mp.candidateScores?.[i] ?? 0})`)
-                    .join(", ")}`
-                : "";
-              const reportLink = mp.comparisonReportUrl
-                ? `\n[📊 View comparison artifacts](${mp.comparisonReportUrl})`
-                : "";
-              await supabase.from("agent_messages").insert({
-                run_id: data.runId,
-                project_id: project.id,
-                user_id: userId,
-                role: "summary_agent",
-                content:
-                  `🏆 **Picked best match:** ${mp.winnerModel}${scoreStr}` +
-                  (mp.judgeRationale ? `\n_${mp.judgeRationale}_` : "") +
-                  racedList +
-                  reportLink,
-              });
+              console.log("[finalizeAgentRun] ✅ mockup pipeline succeeded", mp.stages);
             } else {
               console.warn("[finalizeAgentRun] mockup pipeline failed, falling back:", mp.error, mp.stages);
             }
@@ -732,7 +672,6 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             console.error("[finalizeAgentRun] mockup pipeline error, falling back:", e);
           }
         }
-
 
         if (!usedMockupPipeline) {
           const r = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
@@ -803,28 +742,6 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             } catch (e) {
               console.error("[finalizeAgentRun] image fill error:", e);
             }
-
-            // ─── Code-gen: emit real React + TS source for every screen
-            // into project_file_overrides. The Sandpack preview reads from
-            // there, so this is what the user actually sees and ships.
-            try {
-              const { buildCodeForProjectInternal } = await import("./code-gen-build.functions");
-              const cg = await buildCodeForProjectInternal(project.id, userId);
-              if (cg.ok) {
-                await supabase.from("agent_messages").insert({
-                  run_id: data.runId,
-                  project_id: project.id,
-                  user_id: userId,
-                  role: "summary_agent",
-                  content: `💻 **Source code generated:** ${cg.fileCount} files across ${cg.screenCount} screens. Open the Code tab to view, or push to GitHub.`,
-                });
-              } else {
-                console.warn("[finalizeAgentRun] codegen skipped:", cg.error);
-              }
-            } catch (e) {
-              console.error("[finalizeAgentRun] codegen error:", e);
-            }
-
           } else {
             await supabase
               .from("projects")
