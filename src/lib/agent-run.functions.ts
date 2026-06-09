@@ -657,7 +657,7 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               savedBrief: savedBrief as Record<string, unknown>,
               mockupUrl,
               agentContextText: filteredAgentContext,
-              knowledgeBlock,
+              knowledgeBlock: knowledgeBlock ?? "",
               figmaPromptSnippet,
               codeGenSystemPrompt: CODE_GEN_SYSTEM_PROMPT,
             });
@@ -674,7 +674,10 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         }
 
         if (!usedMockupPipeline) {
-          result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+          const r = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
+          result = r.ok
+            ? { ok: true, text: r.text }
+            : { ok: false, text: "", error: r.error };
         }
 
         if (result.ok && result.text.length > 50) {
