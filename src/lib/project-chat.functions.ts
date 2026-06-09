@@ -166,16 +166,73 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     if (adkUrl) {
       yield { type: 'agent_start' as const, role: 'developer' as AgentRole, name: 'Studio Agent', phase: 'working' };
 
-      // Build a context-rich prompt for ADK
+      // Build a context-rich prompt for ADK with plan approval detection
       const hasSchema = !!(project.result && project.result.length > 50);
-      const recentHistory = (history ?? []).slice(-6);
+      const recentHistory = (history ?? []).slice(-10);
+
+      // ── PLAN APPROVAL DETECTION (mirrors TypeScript fallback logic) ──
+      const historyTexts = (history ?? []).map(h => (h.content ?? ""));
+      const historyLower = historyTexts.map(t => t.toLowerCase());
+      const hadPlanInHistory = historyLower.some(t =>
+        t.includes("[design_plan_generated]") ||
+        t.includes("design plan") ||
+        t.includes("awaiting_approval") ||
+        t.includes("plan_steps")
+      );
+      const APPROVAL_REGEX = /\b(approv|looks good|go ahead|build it|let'?s go|proceed|start building|lgtm|build the app|exactly as planned)\b/i;
+      const userMsgsApproved = historyTexts
+        .filter((_, i) => (history ?? [])[i]?.role === "user")
+        .some(t => APPROVAL_REGEX.test(t));
+      const currentMsgApproves = APPROVAL_REGEX.test(data.content);
+      const planApprovedInSession = hadPlanInHistory && (userMsgsApproved || currentMsgApproves);
+
+      // ── LOAD SAVED DESIGN BRIEF for approved plans ──
+      let designBriefContext = "";
+      if (planApprovedInSession && !hasSchema) {
+        try {
+          const { data: projData } = await supabase
+            .from("projects")
+            .select("attachments")
+            .eq("id", project.id)
+            .single();
+          const att = projData?.attachments as Record<string, unknown> | null;
+          if (att?.design_brief && typeof att.design_brief === "object") {
+            const brief = att.design_brief as Record<string, unknown>;
+            const screens = (brief.screens ?? []) as { id: string; title: string; layout?: string; purpose?: string; keyPrimitives?: string[] }[];
+            const palette = (brief.palette ?? {}) as Record<string, string>;
+            const typo = (brief.typography ?? {}) as Record<string, string>;
+            designBriefContext = [
+              `\n[APPROVED DESIGN BRIEF — USE THIS FOR generate_app]`,
+              `App Name: ${brief.appName ?? "App"}`,
+              `Domain: ${brief.domain ?? "general"}`,
+              `Mood: ${brief.mood ?? "modern"}`,
+              `Audience: ${brief.audience ?? "general users"}`,
+              `Palette: ${palette.mode ?? "dark"} mode, primary ${palette.primary ?? "#6366F1"}, accent ${palette.accent ?? "#F59E0B"}, bg ${palette.background ?? "#0A0A1A"}`,
+              `Typography: ${typo.headingFont ?? "Inter"} + ${typo.bodyFont ?? "DM Sans"}, ${typo.scale ?? "comfortable"} scale`,
+              `Radius: ${brief.radius ?? "rounded"}, Spacing: ${brief.spacing ?? "comfortable"}, Motion: ${brief.motion ?? "medium"}`,
+              `Screens:`,
+              ...screens.map((s, i) =>
+                `  ${i + 1}. ${s.title ?? s.id} (${s.layout ?? "stack"}) — ${s.purpose ?? ""} [${(s.keyPrimitives ?? []).join(", ")}]`
+              ),
+              `Navigation: ${(brief.navigation as string[])?.join(", ") ?? "bottom-tabs"}`,
+              `References: ${((brief.references as string[]) ?? []).join(", ") || "Premium app designs"}`,
+            ].join("\n");
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+
       const contextLines = [
         `[PROJECT CONTEXT]`,
         `project_id: ${project.id}`,
         `App name/idea: ${project.prompt}`,
         hasSchema
           ? `The app HAS a schema with screens. Prefer surgical tools for edits.`
-          : `The app has NO schema yet. Call research_and_plan FIRST.`,
+          : planApprovedInSession
+            ? `⚠️ The user has APPROVED the design plan. Call generate_app NOW with a DETAILED prompt based on the approved design brief below. Do NOT call research_and_plan again.`
+            : `The app has NO schema yet. Call research_and_plan FIRST.`,
+        designBriefContext,
         ``,
         `[RECENT CONVERSATION]`,
         ...recentHistory.map(h => `${h.role}: ${h.content?.slice(0, 500)}`),
@@ -184,6 +241,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         data.content,
       ];
       const fullPrompt = contextLines.join("\n");
+
 
       // Fetch Cloud Run identity token for service-to-service auth
       const headers: Record<string, string> = { "Content-Type": "application/json" };
