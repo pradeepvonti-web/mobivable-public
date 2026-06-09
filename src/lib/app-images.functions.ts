@@ -58,30 +58,33 @@ async function generateOne(prompt: string, paletteHint: string): Promise<{ ok: t
   const finalPrompt = `${prompt}\n\nColor palette to harmonize with: ${paletteHint}. Photographic / illustrative quality, high detail, no text, no watermarks.`;
   const key = typeof process !== "undefined" ? process.env?.LOVABLE_API_KEY : undefined;
 
-  // Prefer Lovable gateway if key is available
+  // Prefer Lovable AI Gateway. Try Nano Banana 2 first, fall back to 2.5-flash-image.
   if (key) {
-    try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [{ role: "user", content: finalPrompt }],
-          modalities: ["image", "text"],
-        }),
-      });
-      if (res.ok) {
-        const json = (await res.json()) as {
-          choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
-        };
-        const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (url && url.startsWith("data:image/")) {
-          const b64 = url.split(",")[1] ?? "";
-          return { ok: true, b64 };
+    const models = ["google/gemini-3.1-flash-image-preview", "google/gemini-2.5-flash-image"];
+    for (const model of models) {
+      try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: finalPrompt }],
+            modalities: ["image", "text"],
+          }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as {
+            choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+          };
+          const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (url && url.startsWith("data:image/")) {
+            const b64 = url.split(",")[1] ?? "";
+            if (b64) return { ok: true, b64 };
+          }
         }
+      } catch {
+        // try next model / fall through to callAIImage
       }
-    } catch {
-      // Fall through to callAIImage
     }
   }
 
