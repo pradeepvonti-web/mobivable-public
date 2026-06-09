@@ -223,12 +223,13 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 
-    // 1) Load files for this project.
+    // 1) Load files for this project (scoped to caller).
     const { data: rows, error: rowsErr } = await supabaseAdmin
       .from("project_file_overrides")
       .select("file_path, content")
-      .eq("project_id", projectIdGuarded(data.projectId, userId))
+      .eq("project_id", data.projectId)
       .eq("user_id", userId);
+
     if (rowsErr) return { ok: false as const, error: rowsErr.message };
     if (!rows || rows.length === 0) {
       return { ok: false as const, error: "No generated files for this project. Run the build first." };
