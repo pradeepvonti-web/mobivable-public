@@ -582,8 +582,10 @@ export function AgentWorkspace({ projectId }: { projectId: string }) {
             ))}
 
             {/* Build Summary */}
+            {isDone && <BuildMatchCard projectId={projectId} />}
             {isDone && <BuildSummary tasks={tasks} run={run} />}
           </div>
+
         ) : (
           /* Team Chat view */
           <div className="max-w-2xl mx-auto space-y-3">
