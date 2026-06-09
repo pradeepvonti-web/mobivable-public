@@ -664,7 +664,25 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             if (mp.ok && mp.schemaJson) {
               result = { ok: true, text: mp.schemaJson };
               usedMockupPipeline = true;
-              console.log("[finalizeAgentRun] ✅ mockup pipeline succeeded", mp.stages);
+              console.log("[finalizeAgentRun] ✅ mockup pipeline succeeded", {
+                ...mp.stages,
+                winner: mp.winnerModel,
+                candidates: mp.candidateModels,
+                failed: mp.failedModels,
+                rationale: mp.judgeRationale,
+              });
+              await supabase.from("agent_messages").insert({
+                run_id: data.runId,
+                project_id: project.id,
+                user_id: userId,
+                role: "summary_agent",
+                content:
+                  `🏆 **Picked best match:** ${mp.winnerModel}` +
+                  (mp.candidateModels && mp.candidateModels.length > 1
+                    ? ` (raced ${mp.candidateModels.length} models: ${mp.candidateModels.join(", ")})`
+                    : "") +
+                  (mp.judgeRationale ? `\n_${mp.judgeRationale}_` : ""),
+              });
             } else {
               console.warn("[finalizeAgentRun] mockup pipeline failed, falling back:", mp.error, mp.stages);
             }
