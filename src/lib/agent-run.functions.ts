@@ -562,29 +562,72 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
           }
         } catch { /* non-fatal */ }
 
-        const userPrompt =
-          `Build a premium mobile app based on the following specifications.\n\n` +
-          `## App Idea\n${project.prompt}\n\n` +
-          (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
-          (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
-          `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
-          designBrief +
-          screensChecklist + `\n\n` +
-          `## CRITICAL INSTRUCTIONS\n` +
-          `1. Follow the Screen Build Checklist EXACTLY — same id, title, layout, icon, and element types per screen. Element types in the checklist MUST be emitted as real elements (e.g. {"type":"split-hero",...}), NEVER as a "text" element whose content is "[split-hero]".\n` +
-          `2. Use the Designer's EXACT color palette (already in theme.palette). Do not invent new colors.\n` +
-          `3. Map typography.headingFont and typography.bodyFont from the brief.\n` +
-          `4. Include ALL screens from the checklist, in the same order.\n` +
-          `5. Add navigate actions on buttons/tabs to connect screens.\n` +
-          `6. Include reusable components in the components map when the Frontend Developer identified them.\n` +
-          `7. Add skeleton loading states and empty-state elements where appropriate.\n` +
-          `8. Every screen MUST have 6-10 real elements. No placeholder text elements. No screen under 6 elements.\n` +
-          `9. Use at least 3 premium elements across the app (glass-card, parallax-hero, stat-card-xl, feature-showcase, split-hero, bento-grid).\n` +
-          `10. Include at least 1 chart element and 1 hero element with an image "prompt" string for media auto-fill.\n` +
-          `11. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow).\n` +
-          `12. Set a page transition (slide, fade, zoom) on each screen.\n` +
-          `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen.\n\n` +
-          `Generate the COMPLETE app JSON now. Make it PREMIUM — Dribbble-featured quality.`;
+        // When an approved brief exists, it is the SINGLE SOURCE OF TRUTH for
+        // design (palette, typography, screens, layout). Agent design outputs
+        // (ui_ux_designer, frontend_developer) are dropped to avoid the model
+        // re-imagining the look. Only backend/data-shape specialists carry
+        // through so the schema still gets sensible data wiring.
+        const briefIsTruth = Boolean(savedBrief);
+        const filteredAgentContext = briefIsTruth
+          ? completedTasks
+              .filter((t) =>
+                ["database_architect", "backend_developer", "product_manager"].includes(
+                  String(t.role),
+                ),
+              )
+              .map((t) => {
+                const agentName = AGENTS[t.role as AgentRole]?.name ?? t.role;
+                return `### ${agentName} Output\n${t.output}`;
+              })
+              .join("\n\n---\n\n")
+          : agentContext;
+
+        const userPrompt = briefIsTruth
+          ? // ─── Brief-led prompt: brief first, agents only for data/backend ───
+            `Build a premium mobile app that EXACTLY matches the user-approved design below. The approved brief is the SINGLE SOURCE OF TRUTH — do not re-imagine the visual design, palette, typography, or screens.\n\n` +
+            `## App Idea\n${project.prompt}\n\n` +
+            (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
+            (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
+            designBrief +
+            screensChecklist + `\n\n` +
+            (filteredAgentContext
+              ? `## Supporting Specialist Outputs (data/backend only — DO NOT use to override design)\n${filteredAgentContext}\n\n`
+              : "") +
+            `## CRITICAL INSTRUCTIONS — BRIEF IS LAW\n` +
+            `1. theme.palette MUST be the brief's palette VERBATIM (primary/accent/background/card/text/muted/border/danger/success/gradient). Do not invent or adjust colors.\n` +
+            `2. typography.headingFont, bodyFont, displayFont, and scale MUST be exactly the brief's values.\n` +
+            `3. radius, spacing, motion MUST match the brief.\n` +
+            `4. Generate ONE screen per Screen Build Checklist entry, in the same order, with the SAME id, title, layout, icon, and required element TYPES emitted as real elements (e.g. {"type":"split-hero",...}) — NEVER as a "text" element whose content is "[split-hero]".\n` +
+            `5. Every screen MUST have 6-10 real elements. No placeholder text elements. No screen under 6 elements.\n` +
+            `6. The app name MUST be the brief's appName. Tone/mood must reflect the brief's mood + audience.\n` +
+            `7. Add navigate actions on buttons/tabs to connect screens; use the brief's navigation items if provided.\n` +
+            `8. Include at least 1 chart element and 1 hero element with an image "prompt" string for media auto-fill.\n` +
+            `9. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow); set a page transition on each screen.\n` +
+            `10. If a brief field conflicts with an agent output, the brief wins. No exceptions.\n\n` +
+            `Generate the COMPLETE app JSON now matching the approved brief precisely.`
+          : // ─── Original agent-led prompt (no approved brief) ───
+            `Build a premium mobile app based on the following specifications.\n\n` +
+            `## App Idea\n${project.prompt}\n\n` +
+            (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
+            (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
+            `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
+            designBrief +
+            screensChecklist + `\n\n` +
+            `## CRITICAL INSTRUCTIONS\n` +
+            `1. Follow the Screen Build Checklist EXACTLY — same id, title, layout, icon, and element types per screen. Element types in the checklist MUST be emitted as real elements (e.g. {"type":"split-hero",...}), NEVER as a "text" element whose content is "[split-hero]".\n` +
+            `2. Use the Designer's EXACT color palette (already in theme.palette). Do not invent new colors.\n` +
+            `3. Map typography.headingFont and typography.bodyFont from the brief.\n` +
+            `4. Include ALL screens from the checklist, in the same order.\n` +
+            `5. Add navigate actions on buttons/tabs to connect screens.\n` +
+            `6. Include reusable components in the components map when the Frontend Developer identified them.\n` +
+            `7. Add skeleton loading states and empty-state elements where appropriate.\n` +
+            `8. Every screen MUST have 6-10 real elements. No placeholder text elements. No screen under 6 elements.\n` +
+            `9. Use at least 3 premium elements across the app (glass-card, parallax-hero, stat-card-xl, feature-showcase, split-hero, bento-grid).\n` +
+            `10. Include at least 1 chart element and 1 hero element with an image "prompt" string for media auto-fill.\n` +
+            `11. Add entrance animations (pop, fade-up, scale-in, blur-in) and gesture hints (tap-scale, press-glow).\n` +
+            `12. Set a page transition (slide, fade, zoom) on each screen.\n` +
+            `13. Use screen backgrounds (gradient or image) on at least 1 immersive screen.\n\n` +
+            `Generate the COMPLETE app JSON now. Make it PREMIUM — Dribbble-featured quality.`;
 
         const result = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
 
