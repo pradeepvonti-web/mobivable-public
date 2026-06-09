@@ -21,6 +21,7 @@ const sectionLinks = [
 const SECTION_IDS = sectionLinks.map((s) => s.id);
 
 const pageLinks = [
+  { to: "/architecture", label: "Architecture" },
   { to: "/docs", label: "Docs" },
   { to: "/pricing", label: "Pricing" },
   { to: "/gallery", label: "Gallery" },

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200">
+<title>Mobivable Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #070B14;
+  font-family: 'Inter', sans-serif;
+  color: #E2E8F0;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 100vh;
+}
+.diagram {
+  width: 1100px;
+  position: relative;
+}
+.title {
+  text-align: center;
+  margin-bottom: 8px;
+}
+.title h1 {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.title p {
+  color: #64748B;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.layer {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.layer-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+.label-blue { background: rgba(59,130,246,0.15); color: #60A5FA; }
+.label-purple { background: rgba(139,92,246,0.15); color: #A78BFA; }
+.label-green { background: rgba(16,185,129,0.15); color: #34D399; }
+.label-amber { background: rgba(245,158,11,0.15); color: #FBBF24; }
+
+.row { display: flex; gap: 12px; margin-bottom: 12px; }
+.row:last-child { margin-bottom: 0; }
+
+.box {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.box:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); }
+.box-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.box-sub { font-size: 11px; color: #64748B; margin-top: 4px; }
+
+.box-wide {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.box-wide .title-text { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.tools { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.tool-chip {
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.25);
+  color: #C4B5FD;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bottom-row { display: flex; gap: 16px; }
+.bottom-row .layer { flex: 1; margin-bottom: 0; }
+
+.connector {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+}
+.connector svg { width: 24px; height: 24px; }
+.connector-arrow { color: #334155; }
+
+.glow-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent);
+  margin: 8px 0;
+}
+
+.flow-section {
+  margin-top: 20px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.flow-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #64748B;
+  margin-bottom: 12px;
+}
+.flow-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.flow-step {
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2);
+  color: #A5B4FC;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.flow-arrow { color: #334155; font-size: 16px; }
+
+.badge-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(16,185,129,0.1);
+  color: #34D399;
+  border: 1px solid rgba(16,185,129,0.2);
+}
+</style>
+</head>
+<body>
+<div class="diagram">
+  <div class="title">
+    <h1>⚡ Mobivable Architecture</h1>
+    <p>AI-Powered Mobile App Studio — Built on Google Cloud</p>
+  </div>
+
+  <div class="glow-line"></div>
+
+  <!-- User Interface Layer -->
+  <div class="layer">
+    <span class="layer-label label-blue">👤 User Interface</span>
+    <div class="row">
+      <div class="box">
+        <span class="box-icon">📊</span>
+        Dashboard
+        <div class="box-sub">Project management & creation</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">💬</span>
+        AI Chat Agent
+        <div class="box-sub">Conversational design & iteration</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">📱</span>
+        Mobile Preview
+        <div class="box-sub">Real-time schema renderer</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">✏️</span>
+        Code Editor
+        <div class="box-sub">Monaco JSON/code editor</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+
+  <!-- Application Server Layer -->
+  <div class="layer">
+    <span class="layer-label label-purple">⚙️ Application Server — Cloud Run</span>
+    <div class="row">
+      <div class="box" style="flex:2">
+        <span class="box-icon">🔄</span>
+        TanStack Start
+        <div class="box-sub">React SSR + Streaming Server Functions</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="box">
+        <span class="box-icon">🎨</span>
+        Studio Agent
+        <div class="box-sub">Plan-first design workflow per project</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">🤖</span>
+        MCP Agent
+        <div class="box-sub">Cross-project tool orchestration</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">🔍</span>
+        Schema Validator
+        <div class="box-sub">Auto-verify after every write</div>
+      </div>
+    </div>
+    <div class="box-wide">
+      <div class="title-text">🔧 MCP Server — 25+ Tools</div>
+      <div class="tools">
+        <span class="tool-chip">research_and_plan</span>
+        <span class="tool-chip">generate_app</span>
+        <span class="tool-chip">update_screen</span>
+        <span class="tool-chip">add_element</span>
+        <span class="tool-chip">update_theme</span>
+        <span class="tool-chip">verify_schema</span>
+        <span class="tool-chip">generate_code</span>
+        <span class="tool-chip">export_project</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+
+  <!-- Bottom: Google Cloud + Data Layer -->
+  <div class="bottom-row">
+    <div class="layer">
+      <span class="layer-label label-green">☁️ Google Cloud</span>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">✨</span>
+        Gemini 2.5 Flash / Pro
+        <div class="box-sub">Primary LLM — design briefs & schema gen</div>
+      </div>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">🖼️</span>
+        Gemini Flash Image
+        <div class="box-sub">Mockups & in-app asset generation</div>
+      </div>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">🔁</span>
+        Vertex AI (Fallback)
+        <div class="box-sub">JWT auth + Imagen 4.0</div>
+      </div>
+      <div class="row">
+        <div class="box">
+          <span class="box-icon">🚀</span>
+          Cloud Run
+        </div>
+        <div class="box">
+          <span class="box-icon">🔨</span>
+          Cloud Build
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <span class="layer-label label-amber">💾 Data Layer</span>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">🐘</span>
+        Supabase PostgreSQL
+        <div class="box-sub">Schemas, chat history, credits, threads</div>
+      </div>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">🔐</span>
+        Supabase Auth
+        <div class="box-sub">Google OAuth + email + RLS</div>
+      </div>
+      <div class="box" style="margin-bottom:8px">
+        <span class="box-icon">📦</span>
+        Supabase Storage
+        <div class="box-sub">AI-generated image assets</div>
+      </div>
+      <div class="box">
+        <span class="box-icon">🔤</span>
+        Google Fonts API
+        <div class="box-sub">30 curated font families</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agentic Flow -->
+  <div class="flow-section">
+    <div class="flow-title">🔄 Plan-First Agentic Workflow</div>
+    <div class="flow-steps">
+      <span class="flow-step">User Prompt</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">🔬 research_and_plan</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">📋 Design Brief + Mockup</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">✅ User Approval</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">🤖 generate_app</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">🔍 verify_schema</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">🖼️ Generate Images</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">📱 Live Preview</span>
+    </div>
+  </div>
+
+  <div class="badge-row">
+    <span class="badge">Gemini-Powered</span>
+    <span class="badge">MCP Protocol</span>
+    <span class="badge">Multi-Agent</span>
+    <span class="badge">Plan-First</span>
+    <span class="badge">Vertex AI Fallback</span>
+    <span class="badge">Real-Time Streaming</span>
+  </div>
+</div>
+</body>
+</html>

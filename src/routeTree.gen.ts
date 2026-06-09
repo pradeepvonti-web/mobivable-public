@@ -24,6 +24,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as BlogRouteImport } from './routes/blog'
+import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -114,6 +115,11 @@ const BlogRoute = BlogRouteImport.update({
   path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArchitectureRoute = ArchitectureRouteImport.update({
+  id: '/architecture',
+  path: '/architecture',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentRoute = AgentRouteImport.update({
   id: '/agent',
   path: '/agent',
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent': typeof AgentRoute
+  '/architecture': typeof ArchitectureRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent': typeof AgentRoute
+  '/architecture': typeof ArchitectureRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent': typeof AgentRoute
+  '/architecture': typeof ArchitectureRoute
   '/blog': typeof BlogRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/community': typeof CommunityRoute
@@ -287,6 +296,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/agent'
+    | '/architecture'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/agent'
+    | '/architecture'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/agent'
+    | '/architecture'
     | '/blog'
     | '/checkout'
     | '/community'
@@ -381,6 +393,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AgentRoute: typeof AgentRoute
+  ArchitectureRoute: typeof ArchitectureRoute
   BlogRoute: typeof BlogRoute
   CheckoutRoute: typeof CheckoutRouteWithChildren
   CommunityRoute: typeof CommunityRoute
@@ -514,6 +527,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/architecture': {
+      id: '/architecture'
+      path: '/architecture'
+      fullPath: '/architecture'
+      preLoaderRoute: typeof ArchitectureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agent': {
       id: '/agent'
       path: '/agent'
@@ -641,6 +661,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AgentRoute: AgentRoute,
+  ArchitectureRoute: ArchitectureRoute,
   BlogRoute: BlogRoute,
   CheckoutRoute: CheckoutRouteWithChildren,
   CommunityRoute: CommunityRoute,
