@@ -73,6 +73,18 @@ async function authenticate(
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
   const token = match[1].trim();
+
+  // ── Internal service token (ADK agent → MCP bridge) ──
+  // When the ADK Cloud Run service calls this endpoint, it sends the
+  // MCP_INTERNAL_TOKEN as a Bearer token. We validate it against the
+  // server-side env var. This avoids needing a user-scoped PAT for
+  // service-to-service calls.
+  const internalToken = process.env.MCP_INTERNAL_TOKEN;
+  if (internalToken && token === internalToken) {
+    return { userId: "adk-service", patHash: "internal" };
+  }
+
+  // ── User PAT auth (mvbl_pat_…) ──
   if (!token.startsWith("mvbl_pat_")) return null;
 
   const patHash = await sha256Hex(token);

@@ -148,9 +148,152 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     });
 
     // ─────────────────────────────────────────────────────────────────
-    // SINGLE AGENT: One agent with all tools, decides what to do
+    // ADK ROUTING: When ADK_AGENT_URL is set, delegate to the ADK
+    // agent service (Google ADK on Vertex AI) instead of the local
+    // TypeScript tool-use loop.
+    // ─────────────────────────────────────────────────────────────────
+    const adkUrl = process.env.ADK_AGENT_URL;
+    if (adkUrl) {
+      yield { type: 'agent_start' as const, role: 'developer' as AgentRole, name: 'Studio Agent', phase: 'working' };
+
+      // Build a context-rich prompt for ADK
+      const hasSchema = !!(project.result && project.result.length > 50);
+      const recentHistory = (history ?? []).slice(-6);
+      const contextLines = [
+        `[PROJECT CONTEXT]`,
+        `project_id: ${project.id}`,
+        `App name/idea: ${project.prompt}`,
+        hasSchema
+          ? `The app HAS a schema with screens. Prefer surgical tools for edits.`
+          : `The app has NO schema yet. Call research_and_plan FIRST.`,
+        ``,
+        `[RECENT CONVERSATION]`,
+        ...recentHistory.map(h => `${h.role}: ${h.content?.slice(0, 500)}`),
+        ``,
+        `[USER MESSAGE]`,
+        data.content,
+      ];
+      const fullPrompt = contextLines.join("\n");
+
+      // Fetch Cloud Run identity token for service-to-service auth
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      try {
+        const metadataUrl =
+          `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${adkUrl}`;
+        const tokenRes = await fetch(metadataUrl, { headers: { "Metadata-Flavor": "Google" } });
+        if (tokenRes.ok) {
+          headers["Authorization"] = `Bearer ${await tokenRes.text()}`;
+        }
+      } catch {
+        // Not on Cloud Run (local dev) — skip auth
+      }
+
+      try {
+        const adkRes = await fetch(`${adkUrl}/run/stream`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            prompt: fullPrompt,
+            session_id: `studio-${project.id}`,
+            user_id: userId,
+          }),
+        });
+
+        if (!adkRes.ok) {
+          const errText = await adkRes.text().catch(() => "ADK service error");
+          yield { type: 'agent_error' as const, role: 'developer' as AgentRole, error: `ADK error (${adkRes.status}): ${errText}` };
+          yield { type: "done" as const };
+          return;
+        }
+
+        const body = adkRes.body;
+        if (!body) {
+          yield { type: 'agent_error' as const, role: 'developer' as AgentRole, error: "ADK returned empty body" };
+          yield { type: "done" as const };
+          return;
+        }
+
+        // Parse SSE stream from ADK and translate to Studio events
+        const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+        let buf = "";
+        let fullResponse = "";
+
+        while (true) {
+          const { value, done: streamDone } = await reader.read();
+          if (streamDone) break;
+          buf += value;
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr) continue;
+
+            let evt: { type?: string; text?: string; name?: string; args?: Record<string, unknown>; result?: string; error?: string; session_id?: string };
+            try { evt = JSON.parse(jsonStr); } catch { continue; }
+
+            if (evt.type === "delta" && evt.text) {
+              fullResponse += evt.text;
+            } else if (evt.type === "tool_start" && evt.name) {
+              yield { type: 'tool_call' as const, name: evt.name, argsJson: JSON.stringify(evt.args ?? {}) };
+            } else if (evt.type === "tool_result" && evt.name) {
+              // Check if this tool modifies the project
+              const WRITE_TOOLS_ADK = new Set([
+                "update_screen", "add_element", "update_element", "remove_element",
+                "update_theme", "update_navigation", "generate_app", "create_project",
+              ]);
+              yield { type: 'tool_done' as const, toolName: evt.name, success: true };
+              if (WRITE_TOOLS_ADK.has(evt.name)) {
+                yield { type: "project_updated" as const };
+              }
+              // Detect research_and_plan completion → emit design_brief
+              if (evt.name === "research_and_plan" && evt.result) {
+                try {
+                  const parsed = JSON.parse(evt.result);
+                  if (parsed.ok && parsed.awaiting_approval) {
+                    yield {
+                      type: 'design_brief' as const,
+                      planSteps: (parsed.plan_steps as string[]) ?? [],
+                      briefJson: JSON.stringify(parsed.brief ?? {}),
+                      mockupUrl: (parsed.mockup_url as string) ?? "",
+                      appName: (parsed.brief as Record<string, string>)?.appName ?? "App",
+                    };
+                  }
+                } catch { /* result wasn't JSON — skip */ }
+              }
+            } else if (evt.type === "error") {
+              yield { type: 'agent_error' as const, role: 'developer' as AgentRole, error: evt.error ?? "Unknown ADK error" };
+            } else if (evt.type === "done") {
+              // Stream complete
+            }
+          }
+        }
+
+        // Save assistant response to project_messages
+        if (fullResponse.trim()) {
+          await supabase.from("project_messages").insert({
+            project_id: project.id, user_id: userId, role: "assistant",
+            content: fullResponse.trim(),
+          });
+        }
+
+        yield { type: 'agent_complete' as const, role: 'developer' as AgentRole, name: 'Studio Agent', content: fullResponse.trim() || "Done." };
+        yield { type: "done" as const };
+        return;
+
+      } catch (adkErr) {
+        // ADK call failed — fall through to TypeScript fallback
+        console.error("[ADK] Studio routing failed, falling back to TypeScript loop:", adkErr);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // FALLBACK: TypeScript tool-use loop (used when ADK is unavailable)
     // ─────────────────────────────────────────────────────────────────
     yield { type: 'agent_start' as const, role: 'developer' as AgentRole, name: 'Studio Agent', phase: 'working' };
+
 
     // Load knowledge for richer context
     const knowledgeBlock = await loadKnowledgeForUser(supabase, userId);

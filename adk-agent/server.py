@@ -12,6 +12,9 @@ configured, routing agent orchestration through ADK instead of the
 custom TypeScript tool-use loop.
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import json
 import uuid

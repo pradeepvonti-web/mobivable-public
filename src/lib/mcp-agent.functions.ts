@@ -492,9 +492,25 @@ export const sendAgentTurn = createServerFn({ method: "POST" })
     const adkUrl = process.env.ADK_AGENT_URL;
     if (adkUrl) {
       try {
+        // Cloud Run service-to-service auth: fetch an ID token from the
+        // metadata server so we can call the ADK service which has
+        // --no-allow-unauthenticated. In local dev this silently skips.
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        try {
+          const metadataUrl = `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${adkUrl}`;
+          const tokenRes = await fetch(metadataUrl, {
+            headers: { "Metadata-Flavor": "Google" },
+          });
+          if (tokenRes.ok) {
+            headers["Authorization"] = `Bearer ${await tokenRes.text()}`;
+          }
+        } catch {
+          // Not on Cloud Run (local dev) — skip auth
+        }
+
         const adkRes = await fetch(`${adkUrl}/run/stream`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             prompt: data.content,
             session_id: thread.id,
