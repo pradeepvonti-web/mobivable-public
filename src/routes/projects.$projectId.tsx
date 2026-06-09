@@ -1376,6 +1376,13 @@ function ProjectPage() {
             };
             return updated;
           });
+
+          // Auto-generate images after generate_app completes successfully
+          if (ev.toolName === "generate_app" && ev.success) {
+            generateImagesFn({ data: { projectId } })
+              .then(() => reloadProject())
+              .catch((e) => console.error("[appImages] auto-gen:", e));
+          }
         }
       }
       if (!errored && !cancelRef.current) {

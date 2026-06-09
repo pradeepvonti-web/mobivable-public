@@ -55,29 +55,44 @@ async function hashKey(input: string): Promise<string> {
 }
 
 async function generateOne(prompt: string, paletteHint: string): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
-  const key = typeof process !== "undefined" ? process.env?.LOVABLE_API_KEY : undefined;
-  if (!key) return { ok: false, error: "LOVABLE_API_KEY missing" };
   const finalPrompt = `${prompt}\n\nColor palette to harmonize with: ${paletteHint}. Photographic / illustrative quality, high detail, no text, no watermarks.`;
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: finalPrompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { ok: false, error: `Gateway ${res.status}: ${body.slice(0, 160)}` };
+  const key = typeof process !== "undefined" ? process.env?.LOVABLE_API_KEY : undefined;
+
+  // Prefer Lovable gateway if key is available
+  if (key) {
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: finalPrompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+        };
+        const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (url && url.startsWith("data:image/")) {
+          const b64 = url.split(",")[1] ?? "";
+          return { ok: true, b64 };
+        }
+      }
+    } catch {
+      // Fall through to callAIImage
     }
-    const json = (await res.json()) as {
-      choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
-    };
-    const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!url || !url.startsWith("data:image/")) return { ok: false, error: "No image returned" };
-    const b64 = url.split(",")[1] ?? "";
+  }
+
+  // Fallback: use the multi-provider callAIImage (supports Gemini, OpenAI, Vertex, etc.)
+  try {
+    const { callAIImage } = await import("./ai-provider");
+    const result = await callAIImage(finalPrompt);
+    if (!result.ok) return { ok: false, error: result.error };
+    // result.dataUrl is "data:image/png;base64,..."
+    const b64 = result.dataUrl.split(",")[1] ?? "";
+    if (!b64) return { ok: false, error: "Empty image data" };
     return { ok: true, b64 };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "image fetch failed" };
@@ -136,26 +151,44 @@ export const generateAppImages = createServerFn({ method: "POST" })
       const key = await hashKey(`${site.prompt}|${palette}`);
       const path = `${data.projectId}/${key}.png`;
 
-      // Cache check
-      const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(data.projectId, { search: `${key}.png` });
-      if (existing && existing.some((f) => f.name === `${key}.png`)) {
-        const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-        site.apply(pub.publicUrl);
-        cached++;
-        return;
+      // Try storage cache first (only works with supabaseAdmin)
+      let hasStorage = false;
+      try {
+        const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(data.projectId, { search: `${key}.png` });
+        if (existing && existing.some((f) => f.name === `${key}.png`)) {
+          const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+          site.apply(pub.publicUrl);
+          cached++;
+          return;
+        }
+        hasStorage = true;
+      } catch {
+        // supabaseAdmin unavailable — skip cache, generate fresh and embed as data URL
       }
 
       const r = await generateOne(site.prompt, palette);
       if (!r.ok) { failed++; console.error("[appImages] gen fail:", r.error); return; }
 
-      const bytes = b64ToBytes(r.b64);
-      const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
-        contentType: "image/png", upsert: true,
-      });
-      if (up.error) { failed++; console.error("[appImages] upload fail:", up.error.message); return; }
+      if (hasStorage) {
+        // Upload to storage and use public URL
+        try {
+          const bytes = b64ToBytes(r.b64);
+          const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
+            contentType: "image/png", upsert: true,
+          });
+          if (!up.error) {
+            const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+            site.apply(pub.publicUrl);
+            generated++;
+            return;
+          }
+        } catch {
+          // Fall through to data URL
+        }
+      }
 
-      const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-      site.apply(pub.publicUrl);
+      // Fallback: embed as data URL directly in the schema
+      site.apply(`data:image/png;base64,${r.b64}`);
       generated++;
     };
 
