@@ -345,9 +345,9 @@ function summarizeCandidate(c: AssembledCandidate): string {
 async function judgeBestCandidate(
   candidates: AssembledCandidate[],
   mockupHttpsUrl: string,
-): Promise<{ winnerIndex: number; rationale: string }> {
+): Promise<{ winnerIndex: number; rationale: string; scores: number[] }> {
   if (candidates.length <= 1) {
-    return { winnerIndex: 0, rationale: "single candidate" };
+    return { winnerIndex: 0, rationale: "single candidate", scores: [100] };
   }
 
   const labelled = candidates
@@ -367,14 +367,22 @@ RESPOND WITH ONLY VALID JSON: { "winnerIndex": <int>, "scores": [<int>,...], "ra
   const user = `Pick the closest match to the attached mockup.\n\n${labelled}`;
 
   const r = await callAIVision(system, user, [mockupHttpsUrl]);
-  if (!r.ok) return { winnerIndex: 0, rationale: `judge failed (${r.error}); priority order` };
-  const parsed = safeParse<{ winnerIndex?: number; rationale?: string }>(r.text);
+  const fallbackScores = candidates.map(() => 0);
+  if (!r.ok) return { winnerIndex: 0, rationale: `judge failed (${r.error}); priority order`, scores: fallbackScores };
+  const parsed = safeParse<{ winnerIndex?: number; rationale?: string; scores?: number[] }>(r.text);
   const idx = typeof parsed?.winnerIndex === "number" ? parsed!.winnerIndex : 0;
+  const scores = Array.isArray(parsed?.scores)
+    ? parsed!.scores!.map((n) => (typeof n === "number" ? Math.max(0, Math.min(100, Math.round(n))) : 0))
+    : fallbackScores;
+  // Pad/truncate to candidate count
+  while (scores.length < candidates.length) scores.push(0);
+  scores.length = candidates.length;
   if (idx < 0 || idx >= candidates.length) {
-    return { winnerIndex: 0, rationale: "judge returned out-of-range index; priority order" };
+    return { winnerIndex: 0, rationale: "judge returned out-of-range index; priority order", scores };
   }
-  return { winnerIndex: idx, rationale: parsed?.rationale ?? "" };
+  return { winnerIndex: idx, rationale: parsed?.rationale ?? "", scores };
 }
+
 
 // ─── Public entry ───────────────────────────────────────────────────
 
