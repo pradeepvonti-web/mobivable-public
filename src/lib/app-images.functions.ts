@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { resolveTheme } from "@/lib/mobile-theme";
 import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 const MAX_IMAGES = 8;
 const CONCURRENCY = 3;
@@ -58,30 +60,33 @@ async function generateOne(prompt: string, paletteHint: string): Promise<{ ok: t
   const finalPrompt = `${prompt}\n\nColor palette to harmonize with: ${paletteHint}. Photographic / illustrative quality, high detail, no text, no watermarks.`;
   const key = typeof process !== "undefined" ? process.env?.LOVABLE_API_KEY : undefined;
 
-  // Prefer Lovable gateway if key is available
+  // Prefer Lovable AI Gateway. Try Nano Banana 2 first, fall back to 2.5-flash-image.
   if (key) {
-    try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [{ role: "user", content: finalPrompt }],
-          modalities: ["image", "text"],
-        }),
-      });
-      if (res.ok) {
-        const json = (await res.json()) as {
-          choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
-        };
-        const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (url && url.startsWith("data:image/")) {
-          const b64 = url.split(",")[1] ?? "";
-          return { ok: true, b64 };
+    const models = ["google/gemini-3.1-flash-image-preview", "google/gemini-2.5-flash-image"];
+    for (const model of models) {
+      try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: finalPrompt }],
+            modalities: ["image", "text"],
+          }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as {
+            choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+          };
+          const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (url && url.startsWith("data:image/")) {
+            const b64 = url.split(",")[1] ?? "";
+            if (b64) return { ok: true, b64 };
+          }
         }
+      } catch {
+        // try next model / fall through to callAIImage
       }
-    } catch {
-      // Fall through to callAIImage
     }
   }
 
@@ -106,104 +111,121 @@ function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
+type AppImagesResult =
+  | { ok: true; generated: number; cached: number; failed: number; skipped: number }
+  | { ok: false; error: string };
+
+/**
+ * Internal helper — walks the project's schema, fills in every `prompt` slot
+ * with a Lovable-AI-generated image, and persists the updated schema.
+ *
+ * Used both by the public `generateAppImages` server function AND by
+ * `finalizeAgentRun` so every agent run ends with real pictures wired up.
+ */
+export async function runAppImagesInternal(args: {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  projectId: string;
+}): Promise<AppImagesResult> {
+  const { supabase, userId, projectId } = args;
+
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id, result, user_id")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!project || project.user_id !== userId) return { ok: false, error: "Forbidden" };
+  if (!project.result) return { ok: false, error: "No schema yet" };
+
+  let schema: MobileAppSchema;
+  try {
+    schema = JSON.parse(project.result) as MobileAppSchema;
+  } catch {
+    return { ok: false, error: "Schema not valid JSON" };
+  }
+
+  const sites: PromptSite[] = [];
+  walkPrompts(schema, sites);
+  const queue = sites.slice(0, MAX_IMAGES);
+  if (queue.length === 0) return { ok: true, generated: 0, cached: 0, failed: 0, skipped: 0 };
+
+  try {
+    await consumeOrThrow(userId, CREDIT_COSTS.image * queue.length, "app_images", project.id);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+
+  const theme = resolveTheme(schema.theme);
+  const palette = [theme.primary, theme.accent, theme.background].join(", ");
+
+  let generated = 0, cached = 0, failed = 0;
+
+  const run = async (site: PromptSite) => {
+    const key = await hashKey(`${site.prompt}|${palette}`);
+    const path = `${projectId}/${key}.png`;
+
+    let hasStorage = false;
+    try {
+      const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(projectId, { search: `${key}.png` });
+      if (existing && existing.some((f) => f.name === `${key}.png`)) {
+        const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+        site.apply(pub.publicUrl);
+        cached++;
+        return;
+      }
+      hasStorage = true;
+    } catch {
+      // supabaseAdmin unavailable — skip cache, embed as data URL
+    }
+
+    const r = await generateOne(site.prompt, palette);
+    if (!r.ok) { failed++; console.error("[appImages] gen fail:", r.error); return; }
+
+    if (hasStorage) {
+      try {
+        const bytes = b64ToBytes(r.b64);
+        const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
+          contentType: "image/png", upsert: true,
+        });
+        if (!up.error) {
+          const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+          site.apply(pub.publicUrl);
+          generated++;
+          return;
+        }
+      } catch {
+        // fall through to data URL
+      }
+    }
+
+    site.apply(`data:image/png;base64,${r.b64}`);
+    generated++;
+  };
+
+  for (let i = 0; i < queue.length; i += CONCURRENCY) {
+    await Promise.all(queue.slice(i, i + CONCURRENCY).map(run));
+  }
+
+  const skipped = sites.length - queue.length;
+
+  await supabase
+    .from("projects")
+    .update({ result: JSON.stringify(schema) })
+    .eq("id", project.id);
+
+  return { ok: true, generated, cached, failed, skipped };
+}
+
 export const generateAppImages = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ projectId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-
-    const { data: project, error } = await supabase
-      .from("projects")
-      .select("id, result, user_id")
-      .eq("id", data.projectId)
-      .maybeSingle();
-
-    if (error) return { ok: false as const, error: error.message };
-    if (!project || project.user_id !== userId) return { ok: false as const, error: "Forbidden" };
-    if (!project.result) return { ok: false as const, error: "No schema yet" };
-
-    let schema: MobileAppSchema;
-    try {
-      schema = JSON.parse(project.result) as MobileAppSchema;
-    } catch {
-      return { ok: false as const, error: "Schema not valid JSON" };
-    }
-
-    const sites: PromptSite[] = [];
-    walkPrompts(schema, sites);
-    const queue = sites.slice(0, MAX_IMAGES);
-    if (queue.length === 0) return { ok: true as const, generated: 0, cached: 0, failed: 0, skipped: 0 };
-
-    // Charge image credits upfront for the queued generations (uncached ones).
-    // We pre-check cache count by listing once to avoid overcharging — best-effort.
-    try {
-      await consumeOrThrow(userId, CREDIT_COSTS.image * queue.length, "app_images", project.id);
-    } catch (e) {
-      return { ok: false as const, error: (e as Error).message };
-    }
-
-    const theme = resolveTheme(schema.theme);
-    const palette = [theme.primary, theme.accent, theme.background].join(", ");
-
-    let generated = 0, cached = 0, failed = 0;
-
-    const run = async (site: PromptSite) => {
-      const key = await hashKey(`${site.prompt}|${palette}`);
-      const path = `${data.projectId}/${key}.png`;
-
-      // Try storage cache first (only works with supabaseAdmin)
-      let hasStorage = false;
-      try {
-        const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(data.projectId, { search: `${key}.png` });
-        if (existing && existing.some((f) => f.name === `${key}.png`)) {
-          const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-          site.apply(pub.publicUrl);
-          cached++;
-          return;
-        }
-        hasStorage = true;
-      } catch {
-        // supabaseAdmin unavailable — skip cache, generate fresh and embed as data URL
-      }
-
-      const r = await generateOne(site.prompt, palette);
-      if (!r.ok) { failed++; console.error("[appImages] gen fail:", r.error); return; }
-
-      if (hasStorage) {
-        // Upload to storage and use public URL
-        try {
-          const bytes = b64ToBytes(r.b64);
-          const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
-            contentType: "image/png", upsert: true,
-          });
-          if (!up.error) {
-            const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-            site.apply(pub.publicUrl);
-            generated++;
-            return;
-          }
-        } catch {
-          // Fall through to data URL
-        }
-      }
-
-      // Fallback: embed as data URL directly in the schema
-      site.apply(`data:image/png;base64,${r.b64}`);
-      generated++;
-    };
-
-    // Process in batches of CONCURRENCY
-    for (let i = 0; i < queue.length; i += CONCURRENCY) {
-      await Promise.all(queue.slice(i, i + CONCURRENCY).map(run));
-    }
-
-    const skipped = sites.length - queue.length;
-
-    // Persist updated schema
-    await supabase
-      .from("projects")
-      .update({ result: JSON.stringify(schema) })
-      .eq("id", project.id);
-
-    return { ok: true as const, generated, cached, failed, skipped };
+    return runAppImagesInternal({
+      supabase: context.supabase,
+      userId: context.userId,
+      projectId: data.projectId,
+    });
   });
+

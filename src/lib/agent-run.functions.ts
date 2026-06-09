@@ -585,6 +585,38 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               elements: elementCount,
               jsonLength: finalJson.length,
             });
+
+            // ─── Auto-generate media: fill every `prompt` slot with a real
+            // Lovable-AI image so the preview ships with real pictures, not
+            // placeholders. Best-effort — failures do NOT fail the run.
+            try {
+              const { runAppImagesInternal } = await import("./app-images.functions");
+              const imgRes = await runAppImagesInternal({
+                supabase,
+                userId,
+                projectId: project.id,
+              });
+              if (imgRes.ok) {
+                const msgParts: string[] = [];
+                if (imgRes.generated) msgParts.push(`${imgRes.generated} generated`);
+                if (imgRes.cached) msgParts.push(`${imgRes.cached} cached`);
+                if (imgRes.failed) msgParts.push(`${imgRes.failed} failed`);
+                if (imgRes.skipped) msgParts.push(`${imgRes.skipped} skipped`);
+                if (msgParts.length > 0) {
+                  await supabase.from("agent_messages").insert({
+                    run_id: data.runId,
+                    project_id: project.id,
+                    user_id: userId,
+                    role: "summary_agent",
+                    content: `🖼️ **Media generated via Lovable AI:** ${msgParts.join(", ")}.`,
+                  });
+                }
+              } else {
+                console.warn("[finalizeAgentRun] image fill skipped:", imgRes.error);
+              }
+            } catch (e) {
+              console.error("[finalizeAgentRun] image fill error:", e);
+            }
           } else {
             await supabase
               .from("projects")
