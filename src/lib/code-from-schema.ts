@@ -127,9 +127,17 @@ ${pad}</div>`;
     }
     case "glass-card":
     case "hero-banner":
-      return `${pad}<div className="mx-5 my-2 rounded-3xl p-5 bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)] text-white">
-${pad}  <h3 className="text-lg font-bold">${jsx(e.title ?? "Welcome")}</h3>
-${pad}  ${e.subtitle ? `<p className="text-sm opacity-90 mt-1">${jsx(e.subtitle)}</p>` : ""}
+    case "parallax-hero":
+    case "hero":
+    case "banner":
+    case "onboarding-slide":
+    case "slide":
+    case "feature-card":
+    case "promo-card":
+      return `${pad}<div className="mx-5 my-3 rounded-3xl p-6 bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)] text-white shadow-lg">
+${pad}  ${e.eyebrow ? `<p className="text-[10px] uppercase tracking-widest opacity-80 mb-2">${jsx(e.eyebrow)}</p>` : ""}
+${pad}  <h3 className="text-2xl font-bold leading-tight">${jsx(e.title ?? e.heading ?? "Welcome")}</h3>
+${pad}  ${e.subtitle || e.description ? `<p className="text-sm opacity-90 mt-2 leading-relaxed">${jsx(e.subtitle ?? e.description)}</p>` : ""}
 ${pad}</div>`;
     case "image":
       return `${pad}<img src=${JSON.stringify(String(e.src ?? e.url ?? ""))} alt=${JSON.stringify(String(e.alt ?? ""))} className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] object-cover" />`;
