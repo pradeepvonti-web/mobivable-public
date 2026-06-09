@@ -404,12 +404,44 @@ export interface BuildFromMockupResult {
   stages?: { vision?: boolean; planner?: boolean; assembler?: boolean };
   /** Which assembler model produced the chosen schema. */
   winnerModel?: string;
+  /** Confidence score (0–100) the judge assigned to the winning candidate. */
+  winnerScore?: number;
   /** Models that returned parseable candidates (in priority order). */
   candidateModels?: string[];
+  /** Per-candidate confidence scores aligned with `candidateModels`. */
+  candidateScores?: number[];
   /** Models that errored or failed to parse. */
   failedModels?: { model: string; error: string }[];
   /** Judge's one-line rationale for picking the winner. */
   judgeRationale?: string;
+  /** Public URL to a JSON comparison artifact (mockup + candidate summaries + scores). */
+  comparisonReportUrl?: string;
+}
+
+/**
+ * Uploads a JSON comparison report to the project-attachments bucket so the
+ * UI can link out to it. Failure is non-fatal — we still return the build.
+ */
+async function uploadComparisonReport(
+  projectId: string,
+  payload: Record<string, unknown>,
+): Promise<string | undefined> {
+  try {
+    const key = `${projectId}/build-match-${Date.now()}.json`;
+    const body = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const { error } = await supabaseAdmin.storage
+      .from(ATTACHMENT_BUCKET)
+      .upload(key, body, { contentType: "application/json", upsert: true });
+    if (error) {
+      console.warn("[buildFromMockup] comparison report upload failed:", error.message);
+      return undefined;
+    }
+    const { data } = supabaseAdmin.storage.from(ATTACHMENT_BUCKET).getPublicUrl(key);
+    return data.publicUrl;
+  } catch (e) {
+    console.warn("[buildFromMockup] comparison report upload threw:", e);
+    return undefined;
+  }
 }
 
 export async function buildFromMockup(
@@ -453,11 +485,34 @@ export async function buildFromMockup(
   const winner = candidates[judged.winnerIndex];
   stages.assembler = true;
 
+  const candidateModels = candidates.map((c) => c.model);
+  const candidateScores = judged.scores;
+  const winnerScore = candidateScores[judged.winnerIndex] ?? 0;
+
+  // Build the comparison artifact: mockup URL + per-candidate summary + scores.
+  const reportUrl = await uploadComparisonReport(input.projectId, {
+    generatedAt: new Date().toISOString(),
+    mockupUrl: httpsUrl,
+    reconciledSpec: s1.spec,
+    winner: { model: winner.model, score: winnerScore, rationale: judged.rationale },
+    candidates: candidates.map((c, i) => ({
+      model: c.model,
+      score: candidateScores[i] ?? 0,
+      isWinner: i === judged.winnerIndex,
+      summary: summarizeCandidate(c),
+      schema: c.schema,
+    })),
+    failed: errors,
+  });
+
   console.log("[buildFromMockup] assembler picked", {
     winner: winner.model,
+    score: winnerScore,
     rationale: judged.rationale,
-    candidates: candidates.map((c) => c.model),
+    candidates: candidateModels,
+    scores: candidateScores,
     failed: errors,
+    reportUrl,
   });
 
   return {
@@ -465,8 +520,12 @@ export async function buildFromMockup(
     schemaJson: winner.json,
     stages,
     winnerModel: winner.model,
-    candidateModels: candidates.map((c) => c.model),
+    winnerScore,
+    candidateModels,
+    candidateScores,
     failedModels: errors,
     judgeRationale: judged.rationale,
+    comparisonReportUrl: reportUrl,
   };
 }
+
