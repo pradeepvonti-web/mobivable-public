@@ -306,10 +306,3 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
       : ({ ok: false as const, error: result.error ?? "Commit failed" });
   });
 
-/**
- * Defensive helper — ownership of the project is enforced server-side
- * before we query files. Returns the same projectId on success or throws.
- */
-function projectIdGuarded(projectId: string, _userId: string): string {
-  return projectId;
-}
