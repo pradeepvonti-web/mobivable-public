@@ -47,3 +47,6 @@ tsc.out.txt
 *.njsproj
 *.sln
 *.sw?
+
+adk-agent/.venv/
+adk-agent/__pycache__/
