@@ -477,7 +477,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
             : undefined;
 
         if (savedBrief) {
-          designBrief = `\n\n## Approved Design Brief (user-confirmed — build exactly this)\n${JSON.stringify(savedBrief, null, 2)}`;
+          designBrief = `\n\n## APPROVED DESIGN BRIEF — SOURCE OF TRUTH (the user reviewed the mockup derived from this brief and approved it; build EXACTLY this — palette, typography, screens, layout)\n${JSON.stringify(savedBrief, null, 2)}`;
         } else {
           try {
             await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
