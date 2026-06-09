@@ -19,11 +19,24 @@
  */
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { callAIStrong, callAIVision } from "./ai-provider";
+import { callAI, callAIStrong, callAIVision } from "./ai-provider";
 import { parseAppSchema } from "./code-gen";
 import { validateAndFixSchema } from "./schema-validator";
+import type { MobileAppSchema } from "./mobile-app-schema";
 
 const ATTACHMENT_BUCKET = "project-attachments";
+
+/**
+ * Assembler candidate models. Tried in parallel; a vision-based judge picks
+ * the one whose output best matches the mockup. Slugs target Lovable AI
+ * Gateway — order is priority/quality. If a model errors or the workspace
+ * lacks credits for it, that candidate is simply dropped (others still race).
+ */
+const ASSEMBLER_CANDIDATES = [
+  "google/gemini-2.5-pro",
+  "openai/gpt-5",
+  "openai/gpt-5-mini",
+] as const;
 
 // ─── Types ──────────────────────────────────────────────────────────
 
