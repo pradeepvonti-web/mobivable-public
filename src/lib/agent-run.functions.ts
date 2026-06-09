@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "./agents";
-import { callAI } from "./ai-provider";
+import { callAI, callAIStrong } from "./ai-provider";
 import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 
 /** Recommend a set of agent roles based on the project's prompt. */
