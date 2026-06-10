@@ -106,7 +106,8 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     id: "anthropic",
     name: "Anthropic Claude",
     baseUrl: "https://api.anthropic.com/v1/messages",
-    defaultModel: "claude-sonnet-4-6",
+    // Opus 4.8 is the first-preference model for the build brain.
+    defaultModel: "claude-opus-4-8",
     models: [
       { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
@@ -211,11 +212,11 @@ export function detectProvider(): ProviderConfig | null {
   }
 
   // Auto-detect by checking which keys are available.
-  // Vertex AI is checked before Google AI Studio ("gemini") so that
-  // production deployments route through Vertex AI — the required
-  // intelligence path for Google Cloud Agent Platform compliance.
-  // Google AI Studio remains available as a fallback for local dev.
-  const priority: AIProvider[] = ["lovable", "vertex", "gemini", "openai", "anthropic", "groq", "openrouter", "ollama"];
+  // Anthropic (Claude Opus 4.8) is the FIRST preference for the build brain when
+  // ANTHROPIC_API_KEY is present; image generation stays decoupled on Lovable/
+  // OpenAI/Gemini via detectImageProvider(), so mockups still work. Vertex AI is
+  // checked before Google AI Studio so GCP deployments route through Vertex.
+  const priority: AIProvider[] = ["anthropic", "lovable", "vertex", "gemini", "openai", "groq", "openrouter", "ollama"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;

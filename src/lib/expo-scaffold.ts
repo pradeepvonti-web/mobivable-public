@@ -18,14 +18,23 @@ export const SCAFFOLD_MARKER = ".mobivable-scaffold";
 
 // Bump on any scaffold change so the workspace manager rescaffolds existing
 // sandboxes (the marker mismatch triggers a clean reseed + reinstall).
-export const EXPO_SCAFFOLD_VERSION = "2";
+export const EXPO_SCAFFOLD_VERSION = "3";
+
+/** Backend wiring injected into the scaffold (Supabase URL + anon/publishable key). */
+export interface ScaffoldBackend {
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+}
 
 /**
  * Returns the scaffold file map for a project. `appName` only affects display
  * strings (app.json `name`/`slug`, the home heading) — the agent overwrites
- * the actual screens.
+ * the actual screens. `backend` wires the generated app to Supabase: a typed
+ * client (`lib/supabase.ts`) is always included, and an `.env` with the
+ * EXPO_PUBLIC_ credentials is added when they're provided so persistence/auth
+ * work in the live preview.
  */
-export function expoScaffold(appName: string): FileMap {
+export function expoScaffold(appName: string, backend: ScaffoldBackend = {}): FileMap {
   const slug =
     (appName || "mobivable-app")
       .toLowerCase()
@@ -68,6 +77,8 @@ export function expoScaffold(appName: string): FileMap {
           "react-native-svg": "15.11.2", // charts/icons/QR via SVG primitives
           "expo-linear-gradient": "~14.1.0", // gradient hero/card surfaces
           "react-native-qrcode-svg": "~6.3.2", // QR codes (uses react-native-svg)
+          // Backend: every generated app is wired to Supabase (auth + Postgres).
+          "@supabase/supabase-js": "^2.45.0",
           // Required for `expo export -p web` (the live preview build).
           "react-native-web": "~0.20.0",
           "@expo/metro-runtime": "~5.0.4",
@@ -189,5 +200,27 @@ const styles = StyleSheet.create({
   subtitle: { color: "#9CA3AF", fontSize: 15, marginTop: 8 },
 });
 `,
+
+    // ── Backend: Supabase client ─────────────────────────────────────
+    // Every generated app is wired to Supabase. Credentials come from
+    // EXPO_PUBLIC_ env vars (baked in at \`expo export\` time via the .env the
+    // build injects). Import \`supabase\` for auth + Postgres; guard data calls
+    // with \`isSupabaseConfigured\` so screens degrade gracefully if unset.
+    "lib/supabase.ts": `import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+/** True when backend credentials are present (preview/runtime). */
+export const isSupabaseConfigured = Boolean(url && anonKey);
+
+export const supabase = createClient(url, anonKey, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+});
+`,
+
+    // EXPO_PUBLIC_ vars are read by \`expo export\`. Populated from the project's
+    // backend at build time; empty placeholders when not injected.
+    ".env": `EXPO_PUBLIC_SUPABASE_URL=${backend.supabaseUrl ?? ""}\nEXPO_PUBLIC_SUPABASE_ANON_KEY=${backend.supabaseAnonKey ?? ""}\n`,
   };
 }

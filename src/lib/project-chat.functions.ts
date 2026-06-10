@@ -97,6 +97,10 @@ const UNIFIED_AGENT_PROMPT =
   `- The scaffold pre-installs visual primitives — USE them, never flatten the design: \`react-native-svg\` for charts (donut/pie/line/bars — draw with Svg Circle/Path, stroke-dasharray for donuts), \`expo-linear-gradient\` for gradient heros/cards, \`react-native-qrcode-svg\` for QR codes.\n` +
   `- Build ALL screens in the mockup, not a simplified subset. Keep the mockup's exact app name, palette (hex), typography, card/surface treatment (incl. glassmorphism/frosted look), and the bottom tab bar.\n` +
   `- A clean-but-plain interpretation is a FAILURE here. Reproduce the mockup's actual visual identity.\n` +
+  `## BACKEND (Supabase — already wired)\n` +
+  `- The scaffold ships a ready Supabase client at \`lib/supabase.ts\` (\`@supabase/supabase-js\`, credentials baked in via .env). For ANY persistence, auth, or shared data, import it: \`import { supabase, isSupabaseConfigured } from "@/lib/supabase"\`. Do NOT hand-roll fetch calls or hardcode a second client.\n` +
+  `- Use it for sign-up/login (\`supabase.auth\`), and CRUD (\`supabase.from("table").select()/insert()/update()/delete()\`). Guard data fetches with \`isSupabaseConfigured\` and keep the mockup's seed/sample data as the fallback so the preview always renders.\n` +
+  `- Local-only UI state (a counter, form inputs, toggles) stays in React state — only reach for Supabase when data must persist or sync.\n` +
   `Narrate each step briefly ("Now let's build the Dashboard screen:") before its tool calls. The mockup (via read_mockup / designs/mockup.md) outranks the text brief for palette, typography, and screen list.\n\n` +
 
   `## PREVIEW LIMITATIONS (IMPORTANT)\n` +

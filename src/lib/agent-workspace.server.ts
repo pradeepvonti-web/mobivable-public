@@ -529,7 +529,13 @@ async function scaffoldInto(
 ): Promise<boolean> {
   if (stack !== "expo") return false; // web stack uses the legacy schema path
   await ensureWorkdirOwned(sandbox);
-  const files = expoScaffold(project.name || project.prompt || "Mobivable App");
+  // Wire the generated app to Supabase using the deployment's backend creds
+  // (anon/publishable key is public by design). Baked into the app's .env so
+  // auth + Postgres work in the live preview.
+  const files = expoScaffold(project.name || project.prompt || "Mobivable App", {
+    supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL,
+    supabaseAnonKey: process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  });
   for (const [rel, content] of Object.entries(files)) {
     await sandbox.files.write(`${WORKDIR}/${rel}`, content);
   }

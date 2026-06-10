@@ -105,4 +105,33 @@ describe("expoScaffold", () => {
     expect(slug.startsWith("-")).toBe(false);
     expect(slug.endsWith("-")).toBe(false);
   });
+
+  it("wires every generated app to Supabase (client + dependency)", () => {
+    const map = expoScaffold("Budgeteye");
+    // The dependency is present…
+    const deps = json(map, "package.json").dependencies as Record<string, string>;
+    expect(deps["@supabase/supabase-js"]).toBeTruthy();
+    // …and a typed client that reads EXPO_PUBLIC_ creds.
+    const client = map["lib/supabase.ts"];
+    expect(client, "lib/supabase.ts should exist").toBeTruthy();
+    expect(client).toContain("createClient");
+    expect(client).toContain("EXPO_PUBLIC_SUPABASE_URL");
+    expect(client).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+    expect(client).toContain("isSupabaseConfigured");
+  });
+
+  it("bakes provided backend credentials into .env for the preview build", () => {
+    const map = expoScaffold("Budgeteye", {
+      supabaseUrl: "https://proj.supabase.co",
+      supabaseAnonKey: "anon-123",
+    });
+    expect(map[".env"]).toContain("EXPO_PUBLIC_SUPABASE_URL=https://proj.supabase.co");
+    expect(map[".env"]).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY=anon-123");
+  });
+
+  it("emits empty .env placeholders when no backend creds are given", () => {
+    const map = expoScaffold("Budgeteye");
+    expect(map[".env"]).toContain("EXPO_PUBLIC_SUPABASE_URL=");
+    expect(map[".env"]).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY=");
+  });
 });
