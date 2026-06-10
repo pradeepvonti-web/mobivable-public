@@ -435,7 +435,7 @@ export interface Workspace {
 export async function getOrCreateWorkspace(
   projectId: string,
   ctx: WorkspaceCtx,
-  opts: { stack?: TargetStack } = {},
+  opts: { stack?: TargetStack; forceNew?: boolean } = {},
 ): Promise<Workspace> {
   const apiKey = process.env.E2B_API_KEY;
   if (!apiKey) throw new Error("E2B_API_KEY is not configured — the agent workspace cannot run.");
@@ -445,8 +445,8 @@ export async function getOrCreateWorkspace(
   const stack: TargetStack = opts.stack ?? meta?.stack ?? "expo";
   const f = factory();
 
-  // 1. Try to reconnect to an existing sandbox.
-  if (meta?.sandboxId) {
+  // 1. Try to reconnect to an existing sandbox (skip when caller forces a fresh one).
+  if (meta?.sandboxId && !opts.forceNew) {
     try {
       const sandbox = await f.connect(meta.sandboxId, { apiKey });
       await sandbox.setTimeout(SANDBOX_TIMEOUT_MS);
@@ -465,7 +465,15 @@ export async function getOrCreateWorkspace(
       });
       return { sandbox, project, stack, freshlyScaffolded: fresh };
     } catch {
-      // Connect failed (sandbox GC'd / expired) — fall through to create.
+      // Connect failed (sandbox GC'd / expired) — clear stale meta and fall
+      // through to create. Wiping previewUrl/sandboxId here means the UI never
+      // re-iframes a dead host while the rebuild is in flight.
+      await mergeWorkspaceMeta(projectId, ctx, {
+        sandboxId: undefined as unknown as string,
+        previewUrl: undefined,
+        previewStarted: false,
+        depsInstalled: false,
+      }).catch(() => undefined);
     }
   }
 
