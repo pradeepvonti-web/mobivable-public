@@ -1086,6 +1086,22 @@ function ProjectPage() {
 
   const generateImagesFn = useServerFn(generateAppImages);
 
+  // Per-screen lazy image gen: dedupe screens we've already kicked off this session.
+  const imageGenScreensRef = useRef<Set<string>>(new Set());
+
+  const triggerScreenImages = useCallback((screenId?: string) => {
+    if (!screenId) return;
+    if (imageGenScreensRef.current.has(screenId)) return;
+    imageGenScreensRef.current.add(screenId);
+    generateImagesFn({ data: { projectId, screenId } })
+      .then((res) => {
+        if (res && "ok" in res && res.ok && (res.generated > 0 || res.cached > 0)) {
+          reloadProject();
+        }
+      })
+      .catch((e) => console.error("[appImages]", e));
+  }, [generateImagesFn, projectId, reloadProject]);
+
   async function runGeneration() {
     if (generating) return;
     setGenerating(true);
@@ -1097,10 +1113,12 @@ function ProjectPage() {
     } finally {
       setGenerating(false);
       await reloadProject();
-      // Kick off image generation in the background; reload when done.
-      generateImagesFn({ data: { projectId } })
-        .then(() => reloadProject())
-        .catch((e) => console.error("[appImages]", e));
+      // Lazy: kick off image gen for the first screen only. Other screens
+      // generate on demand when the user navigates to them (see effect below).
+      imageGenScreensRef.current.clear();
+      const schema = project?.result ? parseAppSchema(project.result) : null;
+      const firstScreenId = schema?.screens?.[0]?.id;
+      if (firstScreenId) triggerScreenImages(firstScreenId);
     }
   }
 
