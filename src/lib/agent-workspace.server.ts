@@ -435,7 +435,7 @@ export interface Workspace {
 export async function getOrCreateWorkspace(
   projectId: string,
   ctx: WorkspaceCtx,
-  opts: { stack?: TargetStack } = {},
+  opts: { stack?: TargetStack; forceNew?: boolean } = {},
 ): Promise<Workspace> {
   const apiKey = process.env.E2B_API_KEY;
   if (!apiKey) throw new Error("E2B_API_KEY is not configured — the agent workspace cannot run.");
@@ -445,8 +445,8 @@ export async function getOrCreateWorkspace(
   const stack: TargetStack = opts.stack ?? meta?.stack ?? "expo";
   const f = factory();
 
-  // 1. Try to reconnect to an existing sandbox.
-  if (meta?.sandboxId) {
+  // 1. Try to reconnect to an existing sandbox (skip when caller forces a fresh one).
+  if (meta?.sandboxId && !opts.forceNew) {
     try {
       const sandbox = await f.connect(meta.sandboxId, { apiKey });
       await sandbox.setTimeout(SANDBOX_TIMEOUT_MS);
@@ -465,7 +465,15 @@ export async function getOrCreateWorkspace(
       });
       return { sandbox, project, stack, freshlyScaffolded: fresh };
     } catch {
-      // Connect failed (sandbox GC'd / expired) — fall through to create.
+      // Connect failed (sandbox GC'd / expired) — clear stale meta and fall
+      // through to create. Wiping previewUrl/sandboxId here means the UI never
+      // re-iframes a dead host while the rebuild is in flight.
+      await mergeWorkspaceMeta(projectId, ctx, {
+        sandboxId: undefined as unknown as string,
+        previewUrl: undefined,
+        previewStarted: false,
+        depsInstalled: false,
+      }).catch(() => undefined);
     }
   }
 
@@ -766,9 +774,12 @@ export interface ExpoPreviewResult {
 export async function ensureExpoWebPreview(
   projectId: string,
   ctx: WorkspaceCtx,
-  opts: { rebuild?: boolean } = {},
+  opts: { rebuild?: boolean; forceNew?: boolean } = {},
 ): Promise<ExpoPreviewResult> {
-  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, {
+    stack: "expo",
+    forceNew: opts.forceNew,
+  });
   if (stack !== "expo") {
     return {
       ok: false,
@@ -778,13 +789,23 @@ export async function ensureExpoWebPreview(
   }
 
   // Guard: the Expo build needs `bun`, which only exists in the custom
-  // `mobivable-expo` E2B template. If the environment is missing E2B_TEMPLATE the
-  // sandbox boots E2B's default image (no bun/expo) and the build dies silently
-  // with a "closed port" — surface the real cause instead. Cheap one-shot check.
+  // `mobivable-expo` E2B template. If the reconnected sandbox is wedged (bun
+  // missing or the runtime is broken), force-provision a fresh sandbox once
+  // — this is the auto-recovery path when an old sandbox has decayed but
+  // E2B's connect() still succeeded against it.
   const bunCheck = await sandbox.commands
     .run("bun --version", { cwd: WORKDIR, timeoutMs: 15_000 })
     .catch(() => null);
   if (!bunCheck || bunCheck.exitCode !== 0) {
+    if (!opts.forceNew) {
+      await mergeWorkspaceMeta(projectId, ctx, {
+        sandboxId: undefined as unknown as string,
+        previewUrl: undefined,
+        previewStarted: false,
+        depsInstalled: false,
+      }).catch(() => undefined);
+      return ensureExpoWebPreview(projectId, ctx, { ...opts, forceNew: true });
+    }
     return {
       ok: false,
       rebuilt: false,
@@ -885,8 +906,14 @@ export async function ensureExpoPreviewLive(
   if (existing && (await probePreviewServing(existing))) {
     return { ok: true, url: existing, status: "live" };
   }
-  // Dead, expired, or never built → re-provision + rebuild (self-healing serve).
-  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
+  // Dead, expired, or never built. Clear the stale URL so the iframe doesn't
+  // try to load a host that returns "Sandbox Not Found" while we rebuild, then
+  // re-provision a fresh sandbox (forceNew skips the doomed reconnect attempt
+  // when the previous host is gone) and rebuild the preview.
+  if (existing) {
+    await mergeWorkspaceMeta(projectId, ctx, { previewUrl: undefined }).catch(() => undefined);
+  }
+  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true, forceNew: !!existing });
   if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
   return { ok: true, url: r.url, status: "building", jobId: r.jobId };
 }
