@@ -1529,17 +1529,24 @@ export default function RootLayout() {
       const name = str(args, "name").trim().toLowerCase();
       if (!name) throw new Error("`name` is required.");
       // 1. The caller's own saved skill wins (lets users override built-ins).
-      // mcp_agent_skills isn't in the generated types — use the loose-cast
-      // client pattern (same as skills.functions.ts).
-      const adm = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-      const { data } = (await adm
-        .from("mcp_agent_skills")
-        .select("name, body")
-        .eq("user_id", ctx.userId)
-        .eq("name", name)
-        .maybeSingle()) as { data: { name: string; body: string } | null };
-      if (data?.body) {
-        return { name: data.name, source: "user", body: data.body };
+      //    Best-effort: if no DB client is usable (e.g. no service-role key in
+      //    local dev, where supabaseAdmin throws), skip straight to the
+      //    built-in skills below instead of failing the whole tool — otherwise
+      //    a real Expo build can't load `frontend-design` and skips the design
+      //    system entirely.
+      try {
+        const db = getDb(ctx);
+        const { data } = (await db
+          .from("mcp_agent_skills")
+          .select("name, body")
+          .eq("user_id", ctx.userId)
+          .eq("name", name)
+          .maybeSingle()) as { data: { name: string; body: string } | null };
+        if (data?.body) {
+          return { name: data.name, source: "user", body: data.body };
+        }
+      } catch {
+        /* no DB / no user skills — fall through to built-ins */
       }
       // 2. Fall back to a built-in skill.
       const builtin = getBuiltinSkill(name);
@@ -1589,7 +1596,13 @@ export default function RootLayout() {
       }
 
       const { ensureHttpsImageUrl } = await import("./build-from-mockup.server");
-      const httpsUrl = await ensureHttpsImageUrl(rawUrl, projectId);
+      // Pass the caller's authed client so the data-URI→storage upload works
+      // even without the service-role key (local dev).
+      const httpsUrl = await ensureHttpsImageUrl(
+        rawUrl,
+        projectId,
+        ctx.supabase as unknown as { storage: unknown },
+      );
       if (!httpsUrl) throw new Error("Could not resolve the mockup to an https URL for the vision model.");
 
       const visionSystem =
