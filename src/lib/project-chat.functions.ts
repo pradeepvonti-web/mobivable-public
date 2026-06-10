@@ -436,6 +436,9 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     // unavailable (no E2B key / kill-switch) so builds never flail on dead ws_* tools.
     const targetStackFallback = resolveBuildStack(project.attachments as Record<string, unknown> | null);
     const isExpoBuild = targetStackFallback === "expo" && planApprovedInSession && !hasSchema;
+    console.log(
+      `[chat] stack=${targetStackFallback} planApproved=${planApprovedInSession} hasSchema=${hasSchema} -> isExpoBuild=${isExpoBuild}`,
+    );
 
     const msgs: AgentMsg[] = [
       { role: "system", content: UNIFIED_AGENT_PROMPT },
@@ -468,12 +471,23 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     }
     msgs.push({ role: "user", content: data.content });
 
-    // Filter tools to agent-relevant ones
-    // PLAN-FIRST GATE: When no schema and no approved plan, REMOVE generate_app from tools
-    // so the model is FORCED to call research_and_plan first.
-    const allowedTools = !hasSchema && !planApprovedInSession
-      ? AGENT_TOOLS.filter(t => t !== "generate_app")
-      : AGENT_TOOLS;
+    // Filter tools to agent-relevant ones.
+    // - EXPO BUILD: remove every schema-path tool so the model can't take the
+    //   generate_app shortcut and MUST build a real app with the ws_* tools.
+    //   (It was getting "do a real Expo build, do NOT call generate_app" while
+    //   generate_app was still callable, and the model called it anyway.)
+    // - PLAN-FIRST GATE: when no schema and no approved plan, remove generate_app
+    //   so the model is forced to call research_and_plan first.
+    const SCHEMA_PATH_TOOLS = new Set([
+      "generate_app", "generate_code", "export_project_code", "verify_schema",
+      "update_screen", "add_element", "update_element", "remove_element",
+      "update_theme", "update_navigation",
+    ]);
+    const allowedTools = isExpoBuild
+      ? AGENT_TOOLS.filter(t => !SCHEMA_PATH_TOOLS.has(t))
+      : !hasSchema && !planApprovedInSession
+        ? AGENT_TOOLS.filter(t => t !== "generate_app")
+        : AGENT_TOOLS;
 
     const agentTools = {
       anthropic: mcpToolsAsAnthropic().filter(t => allowedTools.includes(t.name)),
