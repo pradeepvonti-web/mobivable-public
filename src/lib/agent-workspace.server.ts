@@ -833,9 +833,12 @@ export async function ensureExpoWebPreview(
   // The `serve` step only runs if install + export both succeed (&&-chained), so
   // a failed build leaves a non-zero code in <jobId>.exit for the caller to
   // surface — rather than silently returning a dead port.
+  // `expo install --fix` aligns every expo-managed dep to the installed SDK's
+  // expected version (e.g. react-native 0.81.4 -> 0.81.5), preventing the
+  // JS/native version mismatches that red-screen the app on a real device.
   const script =
     `mkdir -p ${JOBS_DIR} && ` +
-    `{ bun install && bunx expo export -p web && ${ensureServe} ; } ` +
+    `{ bun install && (bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
 
@@ -870,14 +873,15 @@ export interface ExpoGoResult {
 }
 
 /**
- * Start the Metro dev server in the sandbox and return a connection URL for
- * Expo Go on a real phone — so camera/location/notifications and true native
- * behaviour can be tested (the web preview can't exercise those).
+ * Start Metro with a TUNNEL for Expo Go on a real phone. A plain hosted Metro
+ * over the sandbox's e2b host fails ("could not connect to development server")
+ * because `exp://host` defaults to http/port-80 while e2b only serves https/443.
+ * `expo start --tunnel` (ngrok) produces a public `*.exp.direct` URL Expo Go can
+ * reach from any network. @expo/ngrok is in devDeps so no interactive prompt.
  *
- * The Metro port is exposed via the sandbox's public host, and
- * REACT_NATIVE_PACKAGER_HOSTNAME is set to that host so the served manifest
- * advertises the public URL (not an unreachable LAN IP). Best-effort: some
- * networks need a dev build / tunnel; the studio shows the URL + QR either way.
+ * The tunnel URL only appears in the log AFTER install + Metro + ngrok boot, so
+ * this returns immediately with status "starting"; the client polls
+ * getExpoTunnelUrl() until the exp:// URL is ready, then renders the QR.
  */
 export async function startExpoGoServer(
   projectId: string,
@@ -887,24 +891,73 @@ export async function startExpoGoServer(
   if (stack !== "expo") {
     return { ok: false, error: "Device preview is only available for the Expo stack." };
   }
-  const host = sandbox.getHost(EXPO_GO_PORT); // e.g. 8081-<id>.e2b.app
-  const devServerUrl = `https://${host}`;
-  const expUrl = `exp://${host}`;
   const jobId = newJobId();
 
-  // Advertise the public host so the device can reach the bundler, then start
-  // Metro. Idempotent: only (re)launch if nothing is already listening on 8081.
+  // Idempotent: only (re)launch Metro if nothing is already listening on 8081.
   const start =
     `( bun -e "fetch('http://localhost:${EXPO_GO_PORT}').then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1 ` +
-    `|| (REACT_NATIVE_PACKAGER_HOSTNAME='${host}' EXPO_NO_TELEMETRY=1 CI=1 ` +
-    `nohup bunx expo start --port ${EXPO_GO_PORT} > ${JOBS_DIR}/expo-go.log 2>&1 &) )`;
+    `|| (EXPO_NO_TELEMETRY=1 CI=1 ` +
+    `nohup bunx expo start --tunnel --port ${EXPO_GO_PORT} > ${JOBS_DIR}/expo-go.log 2>&1 &) )`;
+  // `expo install --fix` first so the bundle matches Expo Go's native SDK 54
+  // runtime (e.g. react-native 0.81.5) — a version skew red-screens on device.
   const script =
     `mkdir -p ${JOBS_DIR} && ` +
-    `{ bun install && ${start} ; } > ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
+    `{ bun install && (bunx expo install --fix || true) && ${start} ; } > ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
 
   await mergeWorkspaceMeta(projectId, ctx, { depsInstalled: true });
-  return { ok: true, expUrl, devServerUrl, jobId, status: "starting" };
+  return { ok: true, jobId, status: "starting" };
+}
+
+export interface ExpoTunnelResult {
+  ok: boolean;
+  /** exp://…exp.direct URL (encode as the QR) once the tunnel is up. */
+  url: string | null;
+  ready: boolean;
+  /** A fatal line from the log, if the dev server failed to start. */
+  error?: string;
+}
+
+/**
+ * Poll target: read the Expo dev-server log and return the tunnel URL once it
+ * appears. Called repeatedly by the client while the QR modal shows "starting".
+ */
+export async function getExpoTunnelUrl(
+  projectId: string,
+  ctx: WorkspaceCtx,
+): Promise<ExpoTunnelResult> {
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") return { ok: false, url: null, ready: false, error: "Expo stack only." };
+
+  // The tunnel host (`*.exp.direct`) is NOT printed to the log in CI mode, so
+  // ask the dev server for its manifest — it advertises the tunnel host, and the
+  // `expo-platform` header makes Metro return JSON (not the web HTML). Verified:
+  // yields e.g. `sintbi0-anonymous-8081.exp.direct` (publicly reachable, 200).
+  const extract = await sandbox.commands
+    .run(
+      `( grep -ohE "[a-z0-9.-]+\\.exp\\.direct" ${JOBS_DIR}/expo-go.log 2>/dev/null | head -1 ; ` +
+        `curl -s -m 8 -H "expo-platform: ios" -H "expo-dev-client-id: studio" http://localhost:${EXPO_GO_PORT} ` +
+        `| tr ',' '\\n' | grep -ohE "[a-z0-9.-]+\\.exp\\.direct" | head -1 ) | grep -m1 .`,
+      { cwd: WORKDIR },
+    )
+    .catch(() => null);
+  const tunnelHost = (extract?.stdout || "").trim();
+  if (tunnelHost) return { ok: true, url: `exp://${tunnelHost}`, ready: true };
+
+  let log = "";
+  try {
+    log = await sandbox.files.read(`${JOBS_DIR}/expo-go.log`);
+  } catch {
+    return { ok: true, url: null, ready: false }; // not started yet
+  }
+  // Strip ANSI so the URL match is clean.
+  const clean = log.replace(/\[[0-9;]*m/g, "");
+  const m = clean.match(/exp:\/\/[^\s"']+\.exp\.direct[^\s"']*/);
+  if (m) return { ok: true, url: m[0], ready: true };
+
+  // Surface a fatal error so the UI can stop spinning.
+  const fatal = clean.match(/^.*(error|failed|cannot|EADDRINUSE|ngrok).*$/im);
+  return { ok: true, url: null, ready: false, error: fatal ? fatal[0].slice(0, 200) : undefined };
 }
 
 // ─── EAS native build (feature: ship real IPA/APK/AAB) ──────────────

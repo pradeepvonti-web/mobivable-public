@@ -15,6 +15,7 @@ import {
   getExpoPreviewUrl,
   probePreviewServing,
   startExpoGoServer,
+  getExpoTunnelUrl,
   triggerEasBuild,
   isEasConfigured,
   type WorkspaceCtx,
@@ -95,6 +96,22 @@ export const startExpoGo = createServerFn({ method: "POST" })
       return await startExpoGoServer(data.projectId, ctx);
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+/**
+ * Poll for the Expo Go tunnel URL after startExpoGo. Returns { ready, url }
+ * once the *.exp.direct tunnel is up (the client polls until ready).
+ */
+export const getExpoGoTunnel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Input.parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await getExpoTunnelUrl(data.projectId, ctx);
+    } catch (e) {
+      return { ok: false as const, url: null, ready: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
 

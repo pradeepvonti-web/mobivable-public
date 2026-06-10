@@ -86,7 +86,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
-import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo } from "@/lib/expo-preview.functions";
+import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo, getExpoGoTunnel } from "@/lib/expo-preview.functions";
 import { QRCodeSVG } from "qrcode.react";
 import { createPortal } from "react-dom";
 import { generateAppImages } from "@/lib/app-images.functions";
@@ -598,6 +598,7 @@ function ProjectPage() {
   // Expo Go real-device preview (QR → open on a phone).
   const [deviceModal, setDeviceModal] = useState<{ expUrl?: string; devServerUrl?: string; error?: string } | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(false);
+  const devicePollRef = useRef(false); // true while polling for the tunnel URL
   const [restartingExpo, setRestartingExpo] = useState(false);
   // Phase B: per-screen PNG capture from the preview toolbar. Single handler
   // for both render modes — React uses captureSimple on previewRootRef,
@@ -3983,13 +3984,36 @@ function ProjectPage() {
               onClick={async () => {
                 setDeviceLoading(true);
                 setDeviceModal({});
+                devicePollRef.current = true;
                 try {
                   const r = await startExpoGo({ data: { projectId } });
-                  if (r.ok) setDeviceModal({ expUrl: r.expUrl, devServerUrl: r.devServerUrl });
-                  else setDeviceModal({ error: r.error ?? "Couldn't start the device server." });
+                  if (!r.ok) {
+                    setDeviceModal({ error: r.error ?? "Couldn't start the device server." });
+                    setDeviceLoading(false);
+                    return;
+                  }
+                  // The tunnel URL appears after install + Metro + ngrok boot —
+                  // poll until it's ready (up to ~2 min on a cold sandbox).
+                  let tries = 0;
+                  const poll = async () => {
+                    if (!devicePollRef.current) return; // modal closed
+                    tries++;
+                    try {
+                      const t = await getExpoGoTunnel({ data: { projectId } });
+                      if (!devicePollRef.current) return;
+                      if (t.ready && t.url) { setDeviceModal({ expUrl: t.url }); setDeviceLoading(false); return; }
+                      if (t.error && tries > 6) { setDeviceModal({ error: t.error }); setDeviceLoading(false); return; }
+                    } catch { /* keep polling */ }
+                    if (tries > 40) {
+                      setDeviceModal({ error: "The tunnel is taking too long to start. Try again in a moment." });
+                      setDeviceLoading(false);
+                      return;
+                    }
+                    setTimeout(poll, 3000);
+                  };
+                  setTimeout(poll, 3000);
                 } catch (e) {
                   setDeviceModal({ error: e instanceof Error ? e.message : "Couldn't start the device server." });
-                } finally {
                   setDeviceLoading(false);
                 }
               }}
@@ -4005,7 +4029,7 @@ function ProjectPage() {
         {deviceModal && typeof document !== "undefined" && createPortal(
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={() => setDeviceModal(null)}
+            onClick={() => { devicePollRef.current = false; setDeviceModal(null); }}
           >
             <div
               className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-2xl"
@@ -4013,7 +4037,7 @@ function ProjectPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold text-foreground">Open on your phone</h3>
-                <button type="button" onClick={() => setDeviceModal(null)} className="text-muted-foreground hover:text-foreground">✕</button>
+                <button type="button" onClick={() => { devicePollRef.current = false; setDeviceModal(null); }} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
               {deviceModal.error ? (
                 <p className="text-sm text-destructive">{deviceModal.error}</p>
@@ -4035,12 +4059,13 @@ function ProjectPage() {
                   >
                     {deviceModal.expUrl}
                   </button>
-                  <p className="text-[10px] text-muted-foreground">The dev server may take ~30s to finish bundling on first open.</p>
+                  <p className="text-[10px] text-muted-foreground">First open bundles on the device — give it ~30s after scanning.</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">Starting the device server…</p>
+                  <p className="text-sm text-muted-foreground">Building a secure tunnel…</p>
+                  <p className="text-[11px] text-muted-foreground text-center">Installing deps + starting Metro over a public tunnel so any phone can reach it. ~30–90s on a cold sandbox.</p>
                 </div>
               )}
             </div>

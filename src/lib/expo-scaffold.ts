@@ -19,7 +19,7 @@ export const SCAFFOLD_MARKER = ".mobivable-scaffold";
 
 // Bump on any scaffold change so the workspace manager rescaffolds existing
 // sandboxes (the marker mismatch triggers a clean reseed + reinstall).
-export const EXPO_SCAFFOLD_VERSION = "5";
+export const EXPO_SCAFFOLD_VERSION = "7";
 
 /** Backend wiring injected into the scaffold (Supabase URL + anon/publishable key). */
 export interface ScaffoldBackend {
@@ -69,7 +69,7 @@ export function expoScaffold(appName: string, backend: ScaffoldBackend = {}): Fi
           "expo-linking": "~8.0.12",
           react: "19.1.0",
           "react-dom": "19.1.0",
-          "react-native": "0.81.4",
+          "react-native": "0.81.5",
           "react-native-safe-area-context": "~5.6.0",
           "react-native-screens": "~4.16.0",
           "@expo/vector-icons": "^15.0.3",
@@ -101,6 +101,10 @@ export function expoScaffold(appName: string, backend: ScaffoldBackend = {}): Fi
           eslint: "^9.0.0",
           "eslint-config-expo": "~10.0.0",
           typescript: "~5.9.2",
+          // Enables `expo start --tunnel` (the real-device preview) without an
+          // interactive install prompt — a public *.exp.direct URL Expo Go can
+          // reach from any network.
+          "@expo/ngrok": "^4.1.0",
         },
         private: true,
       },
@@ -263,18 +267,26 @@ import { Platform } from "react-native";
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-/** True when backend credentials are present (preview/runtime). */
+/** True only when real backend credentials are present. Guard data/auth calls. */
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
-export const supabase = createClient(url, anonKey, {
-  auth: {
-    // AsyncStorage on device; web uses its default (localStorage).
-    storage: Platform.OS === "web" ? undefined : AsyncStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
+// IMPORTANT: createClient throws ("supabaseUrl is required") on an empty URL or
+// key, which crashes the app on load before any screen renders (a red screen in
+// Expo Go). Fall back to a harmless placeholder so the app always boots; real
+// network calls are gated behind isSupabaseConfigured.
+export const supabase = createClient(
+  url || "https://placeholder.supabase.co",
+  anonKey || "public-anon-placeholder",
+  {
+    auth: {
+      // AsyncStorage on device; web uses its default (localStorage).
+      storage: Platform.OS === "web" ? undefined : AsyncStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
   },
-});
+);
 `,
 
     // ── Shared types ─────────────────────────────────────────────────
