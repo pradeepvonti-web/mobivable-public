@@ -1122,6 +1122,15 @@ function ProjectPage() {
     }
   }
 
+  // Lazy per-screen image generation: when the active screen changes (or first
+  // load), kick off image gen for that screen if not already done.
+  useEffect(() => {
+    if (!project?.result || !activeScreenId) return;
+    triggerScreenImages(activeScreenId);
+  }, [activeScreenId, project?.result, triggerScreenImages]);
+
+
+
   /**
    * Capture the current preview screen as a PNG and download it. Works for
    * both renderModes — for `react`, captures previewRootRef via SVG
