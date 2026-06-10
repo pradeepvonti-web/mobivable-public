@@ -774,9 +774,12 @@ export interface ExpoPreviewResult {
 export async function ensureExpoWebPreview(
   projectId: string,
   ctx: WorkspaceCtx,
-  opts: { rebuild?: boolean } = {},
+  opts: { rebuild?: boolean; forceNew?: boolean } = {},
 ): Promise<ExpoPreviewResult> {
-  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, {
+    stack: "expo",
+    forceNew: opts.forceNew,
+  });
   if (stack !== "expo") {
     return {
       ok: false,
@@ -786,13 +789,23 @@ export async function ensureExpoWebPreview(
   }
 
   // Guard: the Expo build needs `bun`, which only exists in the custom
-  // `mobivable-expo` E2B template. If the environment is missing E2B_TEMPLATE the
-  // sandbox boots E2B's default image (no bun/expo) and the build dies silently
-  // with a "closed port" — surface the real cause instead. Cheap one-shot check.
+  // `mobivable-expo` E2B template. If the reconnected sandbox is wedged (bun
+  // missing or the runtime is broken), force-provision a fresh sandbox once
+  // — this is the auto-recovery path when an old sandbox has decayed but
+  // E2B's connect() still succeeded against it.
   const bunCheck = await sandbox.commands
     .run("bun --version", { cwd: WORKDIR, timeoutMs: 15_000 })
     .catch(() => null);
   if (!bunCheck || bunCheck.exitCode !== 0) {
+    if (!opts.forceNew) {
+      await mergeWorkspaceMeta(projectId, ctx, {
+        sandboxId: undefined as unknown as string,
+        previewUrl: undefined,
+        previewStarted: false,
+        depsInstalled: false,
+      }).catch(() => undefined);
+      return ensureExpoWebPreview(projectId, ctx, { ...opts, forceNew: true });
+    }
     return {
       ok: false,
       rebuilt: false,
