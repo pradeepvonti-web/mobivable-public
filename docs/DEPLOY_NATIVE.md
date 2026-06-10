@@ -50,12 +50,26 @@ Both run inside the per-project E2B sandbox; this doc covers what they need.
 | **`EXPO_TOKEN`** | Expo access token — authenticates `eas-cli`. Without it, `triggerEasBuild` returns `ok:false` with guidance and the UI keeps the action disabled. Create at https://expo.dev/settings/access-tokens |
 | EAS project link | First build links the project (or set `extra.eas.projectId` in `app.json`). |
 
-### Store submission (`eas submit`) — additional credentials
+### Build profiles in the Publish modal
+
+The Publish modal exposes the three `eas.json` profiles:
+- **Preview** → installable **APK** (internal testing).
+- **Production** → store-ready **AAB** (Android) / **IPA** (iOS).
+- **Dev Client** → a development build for apps that use native modules **not**
+  bundled in Expo Go (the scaffold's modules — camera/location/etc. — already
+  work in Expo Go, so this is only for custom native code).
+
+### Store submission (`eas submit`) — automated, additional credentials
+
+Once a build exists, the Publish modal shows **Submit to Google Play / App
+Store** → `startEasSubmit` → `eas submit --platform <p> --latest`. It needs
+store credentials in `eas.json`'s `submit` profile; without them the job exits
+non-zero and the UI surfaces a clear "store credentials needed" message.
 
 - **iOS**: Apple Developer account, App Store Connect API key, bundle id.
 - **Android**: Google Play service-account JSON, package name.
-- These are **not** auto-provisioned — submission is intentionally a deliberate,
-  credentialed step. Configure under `submit.production` in `eas.json`.
+- These are **not** auto-provisioned — submission is a deliberate, credentialed
+  step. Configure under `submit.production` in `eas.json`.
 
 ### Gating
 

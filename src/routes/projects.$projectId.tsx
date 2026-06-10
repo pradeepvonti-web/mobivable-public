@@ -87,7 +87,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
-import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo, getExpoGoTunnel, startEasBuild, easAvailable, easBuildStatus } from "@/lib/expo-preview.functions";
+import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo, getExpoGoTunnel, startEasBuild, easAvailable, easBuildStatus, startEasSubmit, easSubmitStatus } from "@/lib/expo-preview.functions";
 import { QRCodeSVG } from "qrcode.react";
 import { createPortal } from "react-dom";
 import { generateAppImages } from "@/lib/app-images.functions";
@@ -589,10 +589,41 @@ function ProjectPage() {
   // EAS native build (Publish modal).
   const [easReady, setEasReady] = useState<boolean | null>(null); // null = not checked
   const [easTarget, setEasTarget] = useState<"android" | "ios" | "all">("android");
+  const [easProfile, setEasProfile] = useState<"preview" | "production" | "development">("preview");
   const [easBuilding, setEasBuilding] = useState(false);
   const [easBuildUrl, setEasBuildUrl] = useState<string | null>(null);
   const [easErr, setEasErr] = useState<string | null>(null);
   const easPollRef = useRef(false);
+  // EAS store submission (after a build).
+  const [easSubmitting, setEasSubmitting] = useState(false);
+  const [easSubmitDone, setEasSubmitDone] = useState(false);
+  const [easSubmitErr, setEasSubmitErr] = useState<string | null>(null);
+  const submitPollRef = useRef(false);
+  const startStoreSubmit = useCallback(async () => {
+    if (easTarget === "all") { setEasSubmitErr("Pick a single platform (Android or iOS) to submit."); return; }
+    setEasSubmitting(true); setEasSubmitErr(null); setEasSubmitDone(false); submitPollRef.current = true;
+    try {
+      const r = await startEasSubmit({ data: { projectId, platform: easTarget } });
+      if (!r.ok || !("jobId" in r) || !r.jobId) { setEasSubmitErr((r as { error?: string }).error ?? "Couldn't start submission."); setEasSubmitting(false); return; }
+      const jobId = r.jobId as string;
+      let tries = 0;
+      const poll = async () => {
+        if (!submitPollRef.current) return;
+        tries++;
+        try {
+          const s = await easSubmitStatus({ data: { projectId, jobId } });
+          if (!submitPollRef.current) return;
+          if (s.ready && s.done) { setEasSubmitDone(true); setEasSubmitting(false); return; }
+          if (s.ready && !s.done) { setEasSubmitErr(s.error ?? "Submission failed."); setEasSubmitting(false); return; }
+        } catch { /* keep polling */ }
+        if (tries > 80) { setEasSubmitErr("Submission is taking longer than expected — check the Expo dashboard."); setEasSubmitting(false); return; }
+        setTimeout(poll, 3000);
+      };
+      setTimeout(poll, 3000);
+    } catch (e) {
+      setEasSubmitErr(e instanceof Error ? e.message : "Couldn't start submission."); setEasSubmitting(false);
+    }
+  }, [projectId, easTarget]);
   // Check EAS availability when the Publish modal opens.
   useEffect(() => {
     if (!publishOpen || easReady !== null) return;
@@ -603,7 +634,7 @@ function ProjectPage() {
   const startNativeBuild = useCallback(async () => {
     setEasBuilding(true); setEasErr(null); setEasBuildUrl(null); easPollRef.current = true;
     try {
-      const r = await startEasBuild({ data: { projectId, platform: easTarget, profile: easTarget === "ios" ? "production" : "preview" } });
+      const r = await startEasBuild({ data: { projectId, platform: easTarget, profile: easProfile } });
       if (!r.ok || !("jobId" in r) || !r.jobId) { setEasErr((r as { error?: string }).error ?? "Couldn't start the build."); setEasBuilding(false); return; }
       const jobId = r.jobId as string;
       let tries = 0;
@@ -623,7 +654,7 @@ function ProjectPage() {
     } catch (e) {
       setEasErr(e instanceof Error ? e.message : "Couldn't start the build."); setEasBuilding(false);
     }
-  }, [projectId, easTarget]);
+  }, [projectId, easTarget, easProfile]);
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
   const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
@@ -3808,7 +3839,7 @@ function ProjectPage() {
 
       {/* ─── Publish Modal ─── */}
       {publishOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4" onClick={() => setPublishOpen(false)}>
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm grid place-items-center p-4" onClick={() => { easPollRef.current = false; submitPollRef.current = false; setPublishOpen(false); }}>
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-emerald-500/15 grid place-items-center">
@@ -3862,6 +3893,25 @@ function ProjectPage() {
                   </button>
                 ))}
               </div>
+              <div className="flex gap-1.5 pt-1">
+                {([
+                  { id: "preview", label: "Preview", note: "APK / internal" },
+                  { id: "production", label: "Production", note: "AAB / store" },
+                  { id: "development", label: "Dev Client", note: "native modules" },
+                ] as const).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setEasProfile(p.id)}
+                    disabled={easBuilding}
+                    title={p.note}
+                    className={`flex-1 rounded-md border px-2 py-1.5 text-center transition-all disabled:opacity-50 ${easProfile === p.id ? "border-amber-500/60 bg-amber-500/10 text-amber-700" : "border-border text-muted-foreground hover:border-amber-500/30"}`}
+                  >
+                    <span className="text-[10px] font-medium block">{p.label}</span>
+                    <span className="text-[9px] opacity-70">{p.note}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* EAS build status */}
@@ -3871,17 +3921,33 @@ function ProjectPage() {
               </p>
             )}
             {easBuildUrl && (
-              <div className="text-[11px] text-emerald-600 bg-emerald-500/5 rounded-lg px-3 py-2 space-y-1">
-                <p className="font-medium">✓ Build queued on EAS — compiling your {easTarget === "ios" ? "IPA" : "APK"} in the cloud (~10–20 min).</p>
+              <div className="text-[11px] text-emerald-600 bg-emerald-500/5 rounded-lg px-3 py-2 space-y-2">
+                <p className="font-medium">✓ Build queued on EAS — compiling your {easTarget === "ios" ? "IPA" : easProfile === "production" ? "AAB" : "APK"} in the cloud (~10–20 min).</p>
                 <a href={easBuildUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline hover:no-underline break-all">
                   <ExternalLink className="h-3 w-3 shrink-0" /> Track build &amp; download
                 </a>
+                {/* Store submission (gap A) — once a build exists */}
+                {easSubmitDone ? (
+                  <p className="text-foreground">📤 Submitted to {easTarget === "ios" ? "App Store" : "Google Play"} — track review status in the store console.</p>
+                ) : easTarget !== "all" && (
+                  <button
+                    type="button"
+                    onClick={startStoreSubmit}
+                    disabled={easSubmitting}
+                    title="Submit the latest build to the store (needs store credentials in eas.json)"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1 text-emerald-700 hover:bg-emerald-500/10 transition-colors disabled:opacity-60"
+                  >
+                    {easSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {easSubmitting ? "Submitting…" : `Submit to ${easTarget === "ios" ? "App Store" : "Google Play"}`}
+                  </button>
+                )}
               </div>
             )}
+            {easSubmitErr && <p className="text-[11px] text-amber-600 bg-amber-500/5 rounded-lg px-3 py-2 break-words">{easSubmitErr}</p>}
             {easErr && <p className="text-[11px] text-destructive bg-destructive/5 rounded-lg px-3 py-2 break-words">{easErr}</p>}
 
             <div className="flex items-center justify-end gap-2 pt-1">
-              <button type="button" onClick={() => { easPollRef.current = false; setPublishOpen(false); }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
+              <button type="button" onClick={() => { easPollRef.current = false; submitPollRef.current = false; setPublishOpen(false); }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
                 {easBuildUrl ? "Done" : "Cancel"}
               </button>
               <button

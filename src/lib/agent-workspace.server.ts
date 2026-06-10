@@ -1016,6 +1016,85 @@ export async function triggerEasBuild(
   return { ok: true, jobId, status: "queued" };
 }
 
+export interface EasSubmitResult {
+  ok: boolean;
+  jobId?: string;
+  status?: string;
+  error?: string;
+}
+
+/**
+ * Submit the LATEST EAS build of a platform to its store via `eas submit`.
+ * Requires EXPO_TOKEN AND store credentials in eas.json's submit profile
+ * (Google Play service-account JSON for Android, Apple ASC API key for iOS).
+ * Without those, `eas submit --non-interactive` errors clearly — surfaced by
+ * getEasSubmitStatus. Runs in the background; poll for the result.
+ */
+export async function triggerEasSubmit(
+  projectId: string,
+  ctx: WorkspaceCtx,
+  opts: { platform?: "android" | "ios" } = {},
+): Promise<EasSubmitResult> {
+  if (!isEasConfigured()) {
+    return { ok: false, error: "EAS isn't configured. Set EXPO_TOKEN on the server. See docs/DEPLOY_NATIVE.md." };
+  }
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") return { ok: false, error: "Store submission is only available for the Expo stack." };
+
+  const platform = opts.platform ?? "android";
+  const jobId = newJobId();
+  const easEnv = `EXPO_TOKEN='${process.env.EXPO_TOKEN}' EAS_NO_VCS=1 EXPO_NO_TELEMETRY=1`;
+  const script =
+    `mkdir -p ${JOBS_DIR} && ` +
+    `{ ${easEnv} bunx eas-cli submit --platform ${platform} --latest --non-interactive ; } ` +
+    `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
+  await sandbox.commands.runBackground(script, { cwd: WORKDIR });
+
+  return { ok: true, jobId, status: "submitting" };
+}
+
+export interface EasSubmitStatusResult {
+  ok: boolean;
+  /** True once the submit job has exited. */
+  ready: boolean;
+  /** True when the submission succeeded (exit 0). */
+  done: boolean;
+  exitCode?: number;
+  error?: string;
+}
+
+/** Poll an EAS submission started by triggerEasSubmit. */
+export async function getEasSubmitStatus(
+  projectId: string,
+  ctx: WorkspaceCtx,
+  jobId: string,
+): Promise<EasSubmitStatusResult> {
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") return { ok: false, ready: false, done: false, error: "Expo stack only." };
+
+  let log = "";
+  let exitRaw: string | null = null;
+  try {
+    log = await sandbox.files.read(`${JOBS_DIR}/${jobId}.log`);
+  } catch {
+    return { ok: true, ready: false, done: false }; // not started yet
+  }
+  try {
+    exitRaw = await sandbox.files.read(`${JOBS_DIR}/${jobId}.exit`);
+  } catch {
+    return { ok: true, ready: false, done: false }; // still running
+  }
+  const code = parseInt(exitRaw.trim(), 10);
+  if (code === 0) return { ok: true, ready: true, done: true, exitCode: 0 };
+
+  const clean = log.replace(/\[[0-9;]*m/g, "");
+  const needsCreds = /credential|service account|api key|apple|google play|not configured|key.*required/i.test(clean);
+  const error = needsCreds
+    ? "Store credentials needed — add a Google Play service-account JSON (Android) or Apple ASC API key (iOS) to eas.json's submit profile. See docs/DEPLOY_NATIVE.md."
+    : (clean.match(/^.*(error|failed).*$/im)?.[0]?.slice(0, 220) ?? "Submission failed.");
+  return { ok: true, ready: true, done: false, exitCode: code, error };
+}
+
 export interface EasStatusResult {
   ok: boolean;
   /** True once the build URL is available (queued) or the job exited. */

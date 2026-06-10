@@ -18,6 +18,8 @@ import {
   getExpoTunnelUrl,
   triggerEasBuild,
   getEasBuildStatus,
+  triggerEasSubmit,
+  getEasSubmitStatus,
   isEasConfigured,
   type WorkspaceCtx,
 } from "./agent-workspace.server";
@@ -147,5 +149,31 @@ export const easBuildStatus = createServerFn({ method: "POST" })
       return await getEasBuildStatus(data.projectId, ctx, data.jobId);
     } catch (e) {
       return { ok: false as const, ready: false, buildUrl: null, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+/** Submit the latest EAS build of a platform to its store (eas submit --latest). */
+export const startEasSubmit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid(), platform: z.enum(["android", "ios"]).optional() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await triggerEasSubmit(data.projectId, ctx, { platform: data.platform });
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+/** Poll an EAS submission started by startEasSubmit. */
+export const easSubmitStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid(), jobId: z.string() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await getEasSubmitStatus(data.projectId, ctx, data.jobId);
+    } catch (e) {
+      return { ok: false as const, ready: false, done: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
