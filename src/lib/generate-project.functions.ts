@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI, callAIStrong } from "./ai-provider";
+// Note: callAIStrong forces the highest-tier model (Opus/Pro/GPT-4o) and is
+// 3-5x slower than the user's selected model. Only use it when premium=true.
 import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } from "@/lib/code-gen";
 import { validateAndFixSchema } from "./schema-validator";
@@ -15,6 +17,7 @@ export const generateProject = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         designBrief: z.string().max(40_000).optional(),
+        premium: z.boolean().optional().default(false),
       })
       .parse(input),
   )
@@ -50,15 +53,17 @@ export const generateProject = createServerFn({ method: "POST" })
         brief = briefRes.ok ? briefRes.text.trim() : "";
       }
 
-      // ── PASS 2: compose full schema with STRONG model for max quality ──
-      // Always use the strongest available model (Pro/Sonnet/GPT-4o) for
-      // schema generation, regardless of the user's selected model.
-      // This ensures every app looks professional.
+      // ── PASS 2: compose full schema ──
+      // When premium=true, use the strongest available model (Opus/Pro/GPT-4o)
+      // for max quality. Otherwise honor the user's selected model (project.model),
+      // which is 3-5x faster.
       const userPrompt = brief
         ? `USER REQUEST:\n${project.prompt}\n\nDESIGN BRIEF (follow strictly — derive theme.palette/typography/radius/spacing/motion from it; use each screen's "layout" and include its "keyPrimitives"; carry the mood into entrance + gesture choices):\n${brief}`
         : `${project.prompt}\n\nMake it PREMIUM quality — use glass-cards, parallax-heroes, gradient-mesh backgrounds, stat-card-xl with sparklines, and domain-appropriate typography. At least 4-5 screens with varied layouts (bento-grid, magazine, split-hero). Real data, not placeholders.`;
 
-      const r = await callAIStrong(SYSTEM_PROMPT, userPrompt);
+      const r = data.premium
+        ? await callAIStrong(SYSTEM_PROMPT, userPrompt)
+        : await callAI(SYSTEM_PROMPT, userPrompt, project.model);
 
       if (!r.ok) {
         await supabase
