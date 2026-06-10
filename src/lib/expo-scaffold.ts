@@ -7,8 +7,8 @@
  * file from scratch. The agent then writes/edits screens, stores, and
  * components on top, and self-verifies with `bunx tsc --noEmit` + `bun run lint`.
  *
- * Keep this lean and tsc-clean: it is the floor, not the app. Expo SDK 51 /
- * expo-router 3, file-based routing under `app/`.
+ * Keep this lean and tsc-clean: it is the floor, not the app. Expo SDK 53 /
+ * expo-router 5, file-based routing under `app/`.
  */
 
 export type FileMap = Record<string, string>;
@@ -16,7 +16,9 @@ export type FileMap = Record<string, string>;
 /** Marker file the workspace manager checks to know a scaffold was applied. */
 export const SCAFFOLD_MARKER = ".mobivable-scaffold";
 
-export const EXPO_SCAFFOLD_VERSION = "1";
+// Bump on any scaffold change so the workspace manager rescaffolds existing
+// sandboxes (the marker mismatch triggers a clean reseed + reinstall).
+export const EXPO_SCAFFOLD_VERSION = "2";
 
 /**
  * Returns the scaffold file map for a project. `appName` only affects display
