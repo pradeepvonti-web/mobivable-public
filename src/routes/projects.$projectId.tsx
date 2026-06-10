@@ -32,6 +32,7 @@ import {
   Crown,
   Share2,
   Upload,
+  ExternalLink,
   Download,
   Sun,
   Moon,
@@ -86,7 +87,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
-import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo, getExpoGoTunnel } from "@/lib/expo-preview.functions";
+import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo, getExpoGoTunnel, startEasBuild, easAvailable, easBuildStatus } from "@/lib/expo-preview.functions";
 import { QRCodeSVG } from "qrcode.react";
 import { createPortal } from "react-dom";
 import { generateAppImages } from "@/lib/app-images.functions";
@@ -585,6 +586,44 @@ function ProjectPage() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  // EAS native build (Publish modal).
+  const [easReady, setEasReady] = useState<boolean | null>(null); // null = not checked
+  const [easTarget, setEasTarget] = useState<"android" | "ios" | "all">("android");
+  const [easBuilding, setEasBuilding] = useState(false);
+  const [easBuildUrl, setEasBuildUrl] = useState<string | null>(null);
+  const [easErr, setEasErr] = useState<string | null>(null);
+  const easPollRef = useRef(false);
+  // Check EAS availability when the Publish modal opens.
+  useEffect(() => {
+    if (!publishOpen || easReady !== null) return;
+    easAvailable({ data: {} as never })
+      .then((r) => setEasReady(!!(r as { available?: boolean }).available))
+      .catch(() => setEasReady(false));
+  }, [publishOpen, easReady]);
+  const startNativeBuild = useCallback(async () => {
+    setEasBuilding(true); setEasErr(null); setEasBuildUrl(null); easPollRef.current = true;
+    try {
+      const r = await startEasBuild({ data: { projectId, platform: easTarget, profile: easTarget === "ios" ? "production" : "preview" } });
+      if (!r.ok || !("jobId" in r) || !r.jobId) { setEasErr((r as { error?: string }).error ?? "Couldn't start the build."); setEasBuilding(false); return; }
+      const jobId = r.jobId as string;
+      let tries = 0;
+      const poll = async () => {
+        if (!easPollRef.current) return;
+        tries++;
+        try {
+          const s = await easBuildStatus({ data: { projectId, jobId } });
+          if (!easPollRef.current) return;
+          if (s.ready && s.buildUrl) { setEasBuildUrl(s.buildUrl); setEasBuilding(false); return; }
+          if (s.ready && s.error) { setEasErr(s.error); setEasBuilding(false); return; }
+        } catch { /* keep polling */ }
+        if (tries > 60) { setEasErr("Build is taking longer than expected — check the Expo dashboard."); setEasBuilding(false); return; }
+        setTimeout(poll, 3000);
+      };
+      setTimeout(poll, 3000);
+    } catch (e) {
+      setEasErr(e instanceof Error ? e.message : "Couldn't start the build."); setEasBuilding(false);
+    }
+  }, [projectId, easTarget]);
   const [agentsMdOpen, setAgentsMdOpen] = useState(false);
   const [exportingExpo, setExportingExpo] = useState(false);
   const [projectIntegration, setProjectIntegration] = useState<{ supabase_url: string | null; supabase_anon_key: string | null }>({ supabase_url: null, supabase_anon_key: null });
@@ -3803,36 +3842,57 @@ function ProjectPage() {
             </div>
 
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-              <h4 className="text-xs font-semibold text-amber-600">Build Targets</h4>
+              <h4 className="text-xs font-semibold text-amber-600">Build Target</h4>
               <div className="flex gap-2">
-                {[
-                  { name: "iOS", icon: "🍎" },
-                  { name: "Android", icon: "🤖" },
-                  { name: "Both", icon: "📱" },
-                ].map(t => (
+                {([
+                  { id: "android", name: "Android", icon: "🤖", note: "APK" },
+                  { id: "ios", name: "iOS", icon: "🍎", note: "needs Apple acct" },
+                  { id: "all", name: "Both", icon: "📱", note: "" },
+                ] as const).map(t => (
                   <button
-                    key={t.name}
+                    key={t.id}
                     type="button"
-                    onClick={() => toast.info(`${t.name} build via EAS coming soon!`)}
-                    className="flex-1 rounded-lg border border-border p-3 text-center hover:border-primary/30 hover:bg-primary/5 transition-all"
+                    onClick={() => setEasTarget(t.id)}
+                    disabled={easBuilding}
+                    className={`flex-1 rounded-lg border p-3 text-center transition-all disabled:opacity-50 ${easTarget === t.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/30 hover:bg-primary/5"}`}
                   >
                     <span className="text-lg block mb-1">{t.icon}</span>
-                    <span className="text-[10px] font-medium">{t.name}</span>
+                    <span className="text-[10px] font-medium block">{t.name}</span>
+                    {t.note && <span className="text-[9px] text-muted-foreground">{t.note}</span>}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* EAS build status */}
+            {easReady === false && (
+              <p className="text-[11px] text-amber-600 bg-amber-500/5 rounded-lg px-3 py-2">
+                Native cloud builds aren&apos;t configured on this server. Set <code className="font-mono">EXPO_TOKEN</code> to enable EAS builds, or use <strong>Export</strong> to download the Expo project.
+              </p>
+            )}
+            {easBuildUrl && (
+              <div className="text-[11px] text-emerald-600 bg-emerald-500/5 rounded-lg px-3 py-2 space-y-1">
+                <p className="font-medium">✓ Build queued on EAS — compiling your {easTarget === "ios" ? "IPA" : "APK"} in the cloud (~10–20 min).</p>
+                <a href={easBuildUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline hover:no-underline break-all">
+                  <ExternalLink className="h-3 w-3 shrink-0" /> Track build &amp; download
+                </a>
+              </div>
+            )}
+            {easErr && <p className="text-[11px] text-destructive bg-destructive/5 rounded-lg px-3 py-2 break-words">{easErr}</p>}
+
             <div className="flex items-center justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setPublishOpen(false)} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
-                Cancel
+              <button type="button" onClick={() => { easPollRef.current = false; setPublishOpen(false); }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-muted/50 transition-colors">
+                {easBuildUrl ? "Done" : "Cancel"}
               </button>
               <button
                 type="button"
-                onClick={() => { toast.info("EAS Build integration coming soon! Use Export to download the Expo project for now."); setPublishOpen(false); }}
-                className="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                onClick={startNativeBuild}
+                disabled={easBuilding || easReady === false}
+                title={easReady === false ? "Set EXPO_TOKEN to enable EAS builds" : "Build a real native binary on EAS"}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60"
               >
-                Start Build
+                {easBuilding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {easBuilding ? "Building…" : easBuildUrl ? "Rebuild" : "Start Build"}
               </button>
             </div>
           </div>

@@ -17,6 +17,7 @@ import {
   startExpoGoServer,
   getExpoTunnelUrl,
   triggerEasBuild,
+  getEasBuildStatus,
   isEasConfigured,
   type WorkspaceCtx,
 } from "./agent-workspace.server";
@@ -135,3 +136,16 @@ export const startEasBuild = createServerFn({ method: "POST" })
 export const easAvailable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => ({ ok: true as const, available: isEasConfigured() }));
+
+/** Poll an EAS build started by startEasBuild — returns the build URL once queued. */
+export const easBuildStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid(), jobId: z.string() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await getEasBuildStatus(data.projectId, ctx, data.jobId);
+    } catch (e) {
+      return { ok: false as const, ready: false, buildUrl: null, error: e instanceof Error ? e.message : String(e) };
+    }
+  });

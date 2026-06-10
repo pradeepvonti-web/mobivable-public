@@ -1000,21 +1000,70 @@ export async function triggerEasBuild(
   const platform = opts.platform ?? "android"; // android first — no Apple account needed for APK
   const profile = opts.profile ?? "preview";
   const jobId = newJobId();
-  // --non-interactive + --no-wait: enqueue on Expo's cloud and return; the agent
-  // / UI polls the Expo dashboard for the artifact. EXPO_TOKEN authenticates eas.
+  // Verified pipeline: (1) eas init registers/links the project (writes the
+  // projectId to app.json), (2) EAS_NO_VCS=1 lets eas archive the dir without a
+  // git repo (the sandbox isn't one — otherwise build errors), (3) --no-wait
+  // enqueues on Expo's cloud and returns; the UI polls getEasBuildStatus for the
+  // build URL. EXPO_TOKEN authenticates eas; Android credentials auto-generate.
+  const easEnv = `EXPO_TOKEN='${process.env.EXPO_TOKEN}' EAS_NO_VCS=1 EXPO_NO_TELEMETRY=1`;
   const script =
     `mkdir -p ${JOBS_DIR} && ` +
-    `{ bun install && EXPO_TOKEN='${process.env.EXPO_TOKEN}' bunx eas-cli build ` +
-    `--platform ${platform} --profile ${profile} --non-interactive --no-wait ; } ` +
+    `{ bun install && ${easEnv} bunx eas-cli init --non-interactive --force && ` +
+    `${easEnv} bunx eas-cli build --platform ${platform} --profile ${profile} --non-interactive --no-wait ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
 
-  return {
-    ok: true,
-    jobId,
-    status: "queued",
-    dashboardUrl: "https://expo.dev/accounts/[account]/projects/[slug]/builds",
-  };
+  return { ok: true, jobId, status: "queued" };
+}
+
+export interface EasStatusResult {
+  ok: boolean;
+  /** True once the build URL is available (queued) or the job exited. */
+  ready: boolean;
+  /** The Expo dashboard build URL (logs + downloadable artifact) once queued. */
+  buildUrl: string | null;
+  exitCode?: number;
+  error?: string;
+}
+
+/**
+ * Poll target for an EAS build kicked off by triggerEasBuild: reads the job log
+ * for the expo.dev build URL (present once the build is queued, ~30-60s after
+ * the call) and surfaces a failure if the job exits non-zero first.
+ */
+export async function getEasBuildStatus(
+  projectId: string,
+  ctx: WorkspaceCtx,
+  jobId: string,
+): Promise<EasStatusResult> {
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") return { ok: false, ready: false, buildUrl: null, error: "Expo stack only." };
+
+  let log = "";
+  let exitRaw: string | null = null;
+  try {
+    log = await sandbox.files.read(`${JOBS_DIR}/${jobId}.log`);
+  } catch {
+    return { ok: true, ready: false, buildUrl: null }; // not started yet
+  }
+  try {
+    exitRaw = await sandbox.files.read(`${JOBS_DIR}/${jobId}.exit`);
+  } catch {
+    /* still running */
+  }
+  const clean = log.replace(/\[[0-9;]*m/g, "");
+  const buildUrl = (clean.match(/https:\/\/expo\.dev\/accounts\/[^\s]+\/builds\/[a-f0-9-]+/) || [])[0] || null;
+  if (buildUrl) {
+    return { ok: true, ready: true, buildUrl, exitCode: exitRaw ? parseInt(exitRaw.trim(), 10) : undefined };
+  }
+  if (exitRaw != null) {
+    const code = parseInt(exitRaw.trim(), 10);
+    if (code !== 0) {
+      const fatal = clean.match(/^.*(error|failed|not configured|requires).*$/im);
+      return { ok: true, ready: true, buildUrl: null, exitCode: code, error: fatal ? fatal[0].slice(0, 220) : "EAS build failed." };
+    }
+  }
+  return { ok: true, ready: false, buildUrl: null };
 }
 
 /**
