@@ -3073,6 +3073,42 @@ function ProjectPage() {
                 <div className="relative">
                   <button
                     type="button"
+                    onClick={() => setModelOpen((o) => !o)}
+                    title="Choose AI model"
+                    className="h-8 inline-flex items-center gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="max-w-[120px] truncate">{project?.model ?? "Model"}</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                  {modelOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setModelOpen(false)}
+                        aria-hidden
+                      />
+                      <div className="absolute bottom-full right-0 mb-2 w-56 rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg p-1.5 z-20 max-h-72 overflow-y-auto">
+                        {CHAT_MODELS.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => changeModel(m)}
+                            className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left hover:bg-accent transition-colors"
+                          >
+                            <Check
+                              className={`h-4 w-4 ${project?.model === m ? "opacity-100 text-primary" : "opacity-0"}`}
+                            />
+                            <span className="text-sm">{m}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    type="button"
                     onClick={() => setModeOpen((o) => !o)}
                     className="h-8 inline-flex items-center gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
