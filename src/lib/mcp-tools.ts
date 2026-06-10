@@ -754,6 +754,22 @@ export const MCP_TOOLS: McpTool[] = [
         .eq("user_id", ctx.userId);
       if (saveErr) throw new Error(saveErr.message);
 
+      // Regenerate the React/Sandpack source (project_file_overrides) from the
+      // freshly saved schema so the preview reflects THIS plan instead of the
+      // last "Regenerate" click. Without this, the React preview drifts from
+      // the schema (and the Flutter preview), which reads it live. Best-effort:
+      // the schema is already saved, so a failure here just means the user
+      // needs to click Regenerate.
+      let code_files: number | undefined;
+      try {
+        const { buildCodeForProjectInternal } = await import("./code-gen-build.functions");
+        const cg = await buildCodeForProjectInternal(project_id, ctx.userId, ctx.supabase);
+        if (cg.ok) code_files = cg.fileCount;
+        else console.error("[generate_app] auto code-gen failed:", cg.error);
+      } catch (e) {
+        console.error("[generate_app] auto code-gen threw:", e instanceof Error ? e.message : e);
+      }
+
       return {
         ok: true,
         screen_count: schema.screens?.length ?? 0,
@@ -761,6 +777,7 @@ export const MCP_TOOLS: McpTool[] = [
         theme_mode: (typeof schema.theme === "object" && schema.theme !== null ? (schema.theme as Record<string, unknown>).mode : undefined) ?? "dark",
         model: result.model,
         used_design_brief: !!designBrief,
+        code_files,
       };
     },
   },
