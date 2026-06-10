@@ -906,8 +906,14 @@ export async function ensureExpoPreviewLive(
   if (existing && (await probePreviewServing(existing))) {
     return { ok: true, url: existing, status: "live" };
   }
-  // Dead, expired, or never built → re-provision + rebuild (self-healing serve).
-  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
+  // Dead, expired, or never built. Clear the stale URL so the iframe doesn't
+  // try to load a host that returns "Sandbox Not Found" while we rebuild, then
+  // re-provision a fresh sandbox (forceNew skips the doomed reconnect attempt
+  // when the previous host is gone) and rebuild the preview.
+  if (existing) {
+    await mergeWorkspaceMeta(projectId, ctx, { previewUrl: undefined }).catch(() => undefined);
+  }
+  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true, forceNew: !!existing });
   if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
   return { ok: true, url: r.url, status: "building", jobId: r.jobId };
 }
