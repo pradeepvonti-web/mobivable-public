@@ -49,6 +49,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const [mockupUrl, setMockupUrl] = useState<string | null>(null);
   const [mockupLoading, setMockupLoading] = useState(false);
   const [mockupError, setMockupError] = useState<string | null>(null);
+  const [mockupMode, setMockupMode] = useState<"quick" | "full">("quick");
   const generateMockupFn = useServerFn(generateMockupImage);
   const extractThemeFn = useServerFn(extractThemeFromDesigner);
   const themeAppliedRef = useRef(false);
@@ -56,7 +57,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const time = task.updated_at || task.created_at;
   const isDesigner = task.role === "ui_ux_designer";
 
-  // Auto-generate mockup when UI/UX Designer completes
+  // Auto-generate mockup when UI/UX Designer completes — start with quick mode
   useEffect(() => {
     if (isDesigner && task.status === "completed" && task.output && projectId && projectPrompt && !mockupUrl && !mockupLoading && !mockupError) {
       setMockupLoading(true);
@@ -66,10 +67,12 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
           designerOutput: task.output,
           projectPrompt,
           projectName,
+          mode: "quick",
         },
       }).then((r) => {
         if (r.ok && r.imageUrl) {
           setMockupUrl(r.imageUrl);
+          setMockupMode("quick");
         } else {
           setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
         }
@@ -92,7 +95,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
       .catch(() => { /* non-fatal: mockup still shows */ });
   }, [isDesigner, task.status, task.output, projectName]);
 
-  const handleRegenerateMockup = () => {
+  const handleRegenerateMockup = (mode: "quick" | "full" = mockupMode) => {
     if (!projectId || !projectPrompt || !task.output) return;
     setMockupUrl(null);
     setMockupError(null);
@@ -103,14 +106,21 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
         designerOutput: task.output,
         projectPrompt,
         projectName,
+        mode,
       },
     }).then((r) => {
-      if (r.ok && r.imageUrl) setMockupUrl(r.imageUrl);
-      else setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+      if (r.ok && r.imageUrl) {
+        setMockupUrl(r.imageUrl);
+        setMockupMode(mode);
+      } else {
+        setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+      }
     }).catch((e) => {
       setMockupError(e instanceof Error ? e.message : "Failed");
     }).finally(() => setMockupLoading(false));
   };
+
+  const handleGenerateFullMockup = () => handleRegenerateMockup("full");
 
   return (
     <div className="relative flex gap-3">
@@ -174,25 +184,46 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-primary/5">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">Design Mockup</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                      {mockupMode === "quick" ? "Quick Preview" : "Design Mockup"}
+                    </span>
+                    {mockupMode === "quick" && (
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                        Fast
+                      </span>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateMockup}
-                    className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Regenerate
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {mockupMode === "quick" && (
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateFullMockup()}
+                        className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-primary hover:text-foreground transition-colors"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Full Mockup
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRegenerateMockup()}
+                      className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Regenerate
+                    </button>
+                  </div>
                 </div>
                 <img
                   src={mockupUrl}
                   alt="App Design Mockup"
                   className="w-full object-contain max-h-[400px]"
                 />
-                <div className="px-3 py-2 border-t border-border">
+                <div className="px-3 py-2 border-t border-border flex items-center justify-between">
                   <p className="text-[10px] text-muted-foreground italic">
-                    Review the mockup. Continue to implementation, or request regeneration with feedback.
+                    {mockupMode === "quick"
+                      ? "Quick single-screen preview. Generate the full mockup for a complete 4-screen view."
+                      : "Review the mockup. Continue to implementation, or request regeneration with feedback."}
                   </p>
                 </div>
               </div>
@@ -206,7 +237,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
                 <p className="text-[10px] text-muted-foreground">{mockupError}</p>
                 <button
                   type="button"
-                  onClick={handleRegenerateMockup}
+                  onClick={() => handleRegenerateMockup()}
                   className="mt-2 inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-primary hover:text-foreground transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
