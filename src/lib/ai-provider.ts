@@ -212,11 +212,13 @@ export function detectProvider(): ProviderConfig | null {
   }
 
   // Auto-detect by checking which keys are available.
-  // Anthropic (Claude Opus 4.8) is the FIRST preference for the build brain when
-  // ANTHROPIC_API_KEY is present; image generation stays decoupled on Lovable/
-  // OpenAI/Gemini via detectImageProvider(), so mockups still work. Vertex AI is
-  // checked before Google AI Studio so GCP deployments route through Vertex.
-  const priority: AIProvider[] = ["anthropic", "lovable", "vertex", "gemini", "openai", "groq", "openrouter", "ollama"];
+  // Lovable Cloud is the first preference because it covers every model the
+  // chat composer exposes; Vertex/Gemini/OpenAI follow for GCP/OpenAI-keyed
+  // deployments. Anthropic is intentionally LAST — it has no image model and
+  // an invalid ANTHROPIC_API_KEY would otherwise hijack every build with a
+  // 401, ignoring the user's selected model. To force Anthropic, set
+  // AI_PROVIDER=anthropic explicitly.
+  const priority: AIProvider[] = ["lovable", "vertex", "gemini", "openai", "groq", "openrouter", "ollama", "anthropic"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;
