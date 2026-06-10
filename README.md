@@ -109,10 +109,35 @@ Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/a
 1. User describes app idea
 2. Agent calls research_and_plan → design brief + mockup
 3. User reviews and approves (or requests changes)
-4. Agent calls generate_app → full app schema
-5. Agent calls verify_schema → auto-fix issues
-6. Live preview rendered in Studio
+4. Agent builds a REAL Expo app in a sandbox (see below)
+5. Live Expo-web preview rendered in Studio
 ```
+
+---
+
+## 🧱 Real Expo Build Engine
+
+After a mockup is approved, the Studio Agent builds a **real Expo / React Native app** in a
+per-project [E2B](https://e2b.dev) sandbox — not a templated schema. It has actual file and
+shell tools and an iterate-until-clean loop:
+
+| Tool | Purpose |
+|------|---------|
+| `ws_write_file` / `ws_read_file` / `ws_edit_file` / `ws_list_files` | Author the app's screens, stores, and components |
+| `ws_run_command` (+ async variant) | `bun install`, `bunx tsc --noEmit`, `bun run lint`, `expo export -p web` |
+| `read_mockup` | Vision-reads the approved mockup as the pixel-level source of truth |
+| `ws_start_preview` | Serves the compiled Expo-web build for the live preview |
+
+**Mockup fidelity is the headline feature.** The scaffold ships the visual primitives needed to
+*reproduce* a design rather than flatten it — `react-native-svg` (donut/line/bar charts),
+`expo-linear-gradient` (gradient surfaces), and `react-native-qrcode-svg`. The build prompt
+requires every screen, the exact app name, the bottom tab bar, and real charts/gradients; a
+mandatory **fidelity self-review pass** re-reads the mockup and fixes divergences before finishing.
+
+**Pluggable brain.** The build can run on Anthropic Claude (Opus 4.8 strong / Sonnet 4.6 fast)
+or Gemini/Lovable. Image generation (mockups) is **decoupled** from the text brain, so a brain
+without an image model (e.g. Claude) still gets mockups via an image-capable provider. AI calls
+are wrapped with transient-network retry so a dropped socket doesn't discard an in-progress build.
 
 ---
 
@@ -122,14 +147,15 @@ Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/a
 |-------|-----------|
 | **Frontend** | React, TanStack Start, TanStack Router |
 | **Backend** | Node.js, TanStack Server Functions |
-| **AI Orchestration** | Google ADK 2.2.0, Vertex AI |
-| **AI Models** | Gemini 2.5 Pro, Gemini 2.5 Flash |
+| **AI Orchestration** | Google ADK 2.2.0, Vertex AI · TypeScript tool-use loop (default brain) |
+| **AI Models** | Multi-provider brain — Anthropic Claude (Opus 4.8 / Sonnet 4.6 / Haiku 4.5), Gemini 2.5 Pro/Flash, Lovable AI |
 | **Tool Protocol** | Model Context Protocol (MCP) via JSON-RPC |
 | **Auth & DB** | Supabase (PostgreSQL, Auth, RLS, Storage) |
 | **Hosting** | Google Cloud Run (2 services) |
 | **Build** | Cloud Build, Docker |
-| **App Preview** | React Native Web renderer, Flutter bridge |
-| **Export** | Expo (React Native), Flutter |
+| **Build Engine** | Real Expo build in a per-project [E2B](https://e2b.dev) sandbox (file + bash tools, `tsc`/lint, mockup-fidelity self-review) |
+| **App Preview** | Live Expo-web build served from the project's sandbox |
+| **Export** | Expo (React Native) |
 
 ---
 
@@ -145,10 +171,12 @@ mobivable/
 │   └── requirements.txt          # google-adk, fastapi, etc.
 ├── src/
 │   ├── lib/
-│   │   ├── project-chat.functions.ts   # Studio chat → ADK routing
+│   │   ├── project-chat.functions.ts   # Studio chat → build loop (BUILD MODE prompt)
 │   │   ├── mcp-agent.functions.ts      # Agent page → ADK routing
-│   │   ├── mcp-tools.ts                # MCP tool registry (25+ tools)
-│   │   ├── ai-provider.ts              # Multi-provider AI (Anthropic/OpenAI/Gemini)
+│   │   ├── mcp-tools.ts                # MCP tool registry (incl. ws_* + read_mockup)
+│   │   ├── ai-provider.ts              # Multi-provider AI + image-gen + retry
+│   │   ├── agent-workspace.server.ts   # Per-project E2B sandbox lifecycle
+│   │   ├── expo-scaffold.ts            # Expo Router scaffold (+ viz libs)
 │   │   └── agents.ts                   # Agent role definitions
 │   ├── routes/
 │   │   ├── projects.$projectId.tsx     # Studio workspace (4500+ lines)
@@ -236,15 +264,34 @@ gcloud run services add-iam-policy-binding mobivable-adk \
 ## 🔑 Key Features
 
 - **🤖 AI Agent Studio** — Multi-agent system with plan-first workflow
-- **🎨 Live Preview** — Real-time mobile app preview with device frames
+- **🧱 Real Expo Build Engine** — An agent writes a real Expo / React Native app file-by-file in a sandbox, runs `tsc`/lint, and self-reviews against the mockup
+- **🎨 Live Preview** — Real-time preview of the actual Expo build in device frames
 - **✏️ Visual Editor** — Drag-and-drop editing with undo/redo
-- **📱 Multi-Platform Export** — Expo (React Native) and Flutter
+- **📱 Native Export** — Expo (React Native)
 - **🔧 MCP Protocol** — Connect from Cursor, Claude Code, or Claude Desktop
 - **👥 Real-Time Collaboration** — Multi-user editing with presence
 - **🗄️ Backend Provisioning** — Auto-generate Supabase schemas
 - **📊 SDLC Progress** — Track design → build → test → deploy phases
 - **🎯 15+ Agent Tools** — Surgical edits, code gen, verification
 - **🌓 Dark/Light Mode** — Premium glassmorphism UI
+
+---
+
+## 📝 Recent Updates
+
+- **Real Expo build engine** — agentic file/bash build in an E2B sandbox replaces the legacy
+  schema→template path (the old `code-from-schema` / Sandpack / Flutter renderers were removed).
+- **Mockup-fidelity engine** — scaffold ships `react-native-svg`, `expo-linear-gradient`, and
+  `react-native-qrcode-svg`; the build prompt enforces full-screen, exact-name, real-chart
+  fidelity, plus a mandatory self-review pass against the mockup.
+- **Pluggable Claude brain** — Anthropic Opus 4.8 (strong) / Sonnet 4.6 (fast) / Haiku 4.5,
+  selectable alongside Gemini and Lovable AI.
+- **Image generation decoupled** from the text brain (`detectImageProvider`), so the Claude
+  brain and mockup generation work together.
+- **Network-resilient AI calls** — streaming requests retry transient drops instead of failing
+  a long build.
+- **Expo-only preview** — the device frame now shows the live Expo build; the legacy React and
+  Flutter preview tabs were removed.
 
 ---
 
