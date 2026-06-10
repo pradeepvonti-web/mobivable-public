@@ -747,6 +747,9 @@ export async function wsCommandStatus(
 /** Port the static Expo-web build is served on inside the sandbox. */
 export const EXPO_PREVIEW_PORT = 8088;
 
+/** Port the Metro dev server runs on for the Expo Go (real-device) preview. */
+export const EXPO_GO_PORT = 8081;
+
 export interface ExpoPreviewResult {
   ok: boolean;
   /** Public URL serving the running Expo-web app (iframe this once ready). */
@@ -851,6 +854,114 @@ export async function getExpoPreviewUrl(
 ): Promise<string | null> {
   const project = await loadOwnedProject(projectId, ctx);
   return readMeta(project)?.previewUrl ?? null;
+}
+
+// ─── Expo Go real-device preview (feature: QR → Expo Go) ────────────
+
+export interface ExpoGoResult {
+  ok: boolean;
+  /** exp:// URL to open in Expo Go (encode as the QR). */
+  expUrl?: string;
+  /** https dev-server (manifest) URL the device loads the bundle from. */
+  devServerUrl?: string;
+  jobId?: string;
+  status?: string;
+  error?: string;
+}
+
+/**
+ * Start the Metro dev server in the sandbox and return a connection URL for
+ * Expo Go on a real phone — so camera/location/notifications and true native
+ * behaviour can be tested (the web preview can't exercise those).
+ *
+ * The Metro port is exposed via the sandbox's public host, and
+ * REACT_NATIVE_PACKAGER_HOSTNAME is set to that host so the served manifest
+ * advertises the public URL (not an unreachable LAN IP). Best-effort: some
+ * networks need a dev build / tunnel; the studio shows the URL + QR either way.
+ */
+export async function startExpoGoServer(
+  projectId: string,
+  ctx: WorkspaceCtx,
+): Promise<ExpoGoResult> {
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") {
+    return { ok: false, error: "Device preview is only available for the Expo stack." };
+  }
+  const host = sandbox.getHost(EXPO_GO_PORT); // e.g. 8081-<id>.e2b.app
+  const devServerUrl = `https://${host}`;
+  const expUrl = `exp://${host}`;
+  const jobId = newJobId();
+
+  // Advertise the public host so the device can reach the bundler, then start
+  // Metro. Idempotent: only (re)launch if nothing is already listening on 8081.
+  const start =
+    `( bun -e "fetch('http://localhost:${EXPO_GO_PORT}').then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1 ` +
+    `|| (REACT_NATIVE_PACKAGER_HOSTNAME='${host}' EXPO_NO_TELEMETRY=1 CI=1 ` +
+    `nohup bunx expo start --port ${EXPO_GO_PORT} > ${JOBS_DIR}/expo-go.log 2>&1 &) )`;
+  const script =
+    `mkdir -p ${JOBS_DIR} && ` +
+    `{ bun install && ${start} ; } > ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
+  await sandbox.commands.runBackground(script, { cwd: WORKDIR });
+
+  await mergeWorkspaceMeta(projectId, ctx, { depsInstalled: true });
+  return { ok: true, expUrl, devServerUrl, jobId, status: "starting" };
+}
+
+// ─── EAS native build (feature: ship real IPA/APK/AAB) ──────────────
+
+export interface EasBuildResult {
+  ok: boolean;
+  jobId?: string;
+  status?: string;
+  /** Hint where to watch the cloud build (Expo dashboard). */
+  dashboardUrl?: string;
+  error?: string;
+}
+
+/** True when EAS cloud builds are configured on this server. */
+export function isEasConfigured(): boolean {
+  return Boolean(process.env.EXPO_TOKEN);
+}
+
+/**
+ * Kick off an EAS cloud build (real native binary) from the sandbox. Requires
+ * EXPO_TOKEN (an Expo access token) on the server. Runs `eas build` non-
+ * interactively in the background; the binary builds on Expo's infra and the
+ * artifact/QR appears in the Expo dashboard. Store submission (`eas submit`)
+ * additionally needs App Store / Play credentials — see docs/DEPLOY_NATIVE.md.
+ */
+export async function triggerEasBuild(
+  projectId: string,
+  ctx: WorkspaceCtx,
+  opts: { platform?: "android" | "ios" | "all"; profile?: string } = {},
+): Promise<EasBuildResult> {
+  if (!isEasConfigured()) {
+    return {
+      ok: false,
+      error: "EAS builds aren't configured. Set EXPO_TOKEN (an Expo access token) on the server. See docs/DEPLOY_NATIVE.md.",
+    };
+  }
+  const { sandbox, stack } = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+  if (stack !== "expo") return { ok: false, error: "Native builds are only available for the Expo stack." };
+
+  const platform = opts.platform ?? "android"; // android first — no Apple account needed for APK
+  const profile = opts.profile ?? "preview";
+  const jobId = newJobId();
+  // --non-interactive + --no-wait: enqueue on Expo's cloud and return; the agent
+  // / UI polls the Expo dashboard for the artifact. EXPO_TOKEN authenticates eas.
+  const script =
+    `mkdir -p ${JOBS_DIR} && ` +
+    `{ bun install && EXPO_TOKEN='${process.env.EXPO_TOKEN}' bunx eas-cli build ` +
+    `--platform ${platform} --profile ${profile} --non-interactive --no-wait ; } ` +
+    `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
+  await sandbox.commands.runBackground(script, { cwd: WORKDIR });
+
+  return {
+    ok: true,
+    jobId,
+    status: "queued",
+    dashboardUrl: "https://expo.dev/accounts/[account]/projects/[slug]/builds",
+  };
 }
 
 /**

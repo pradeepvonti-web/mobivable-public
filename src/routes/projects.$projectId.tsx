@@ -86,7 +86,9 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
-import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing } from "@/lib/expo-preview.functions";
+import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing, startExpoGo } from "@/lib/expo-preview.functions";
+import { QRCodeSVG } from "qrcode.react";
+import { createPortal } from "react-dom";
 import { generateAppImages } from "@/lib/app-images.functions";
 
 import { generateAsset } from "@/lib/generate-asset.functions";
@@ -593,6 +595,9 @@ function ProjectPage() {
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
   const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('expo');
+  // Expo Go real-device preview (QR → open on a phone).
+  const [deviceModal, setDeviceModal] = useState<{ expUrl?: string; devServerUrl?: string; error?: string } | null>(null);
+  const [deviceLoading, setDeviceLoading] = useState(false);
   const [restartingExpo, setRestartingExpo] = useState(false);
   // Phase B: per-screen PNG capture from the preview toolbar. Single handler
   // for both render modes — React uses captureSimple on previewRootRef,
@@ -3973,19 +3978,75 @@ function ProjectPage() {
             </button>
             <button
               type="button"
-              title="Open on a real phone or tablet"
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.open(window.location.href, "_blank", "noopener,noreferrer");
+              title="Open on a real phone via Expo Go (camera, location, notifications work)"
+              disabled={deviceLoading}
+              onClick={async () => {
+                setDeviceLoading(true);
+                setDeviceModal({});
+                try {
+                  const r = await startExpoGo({ data: { projectId } });
+                  if (r.ok) setDeviceModal({ expUrl: r.expUrl, devServerUrl: r.devServerUrl });
+                  else setDeviceModal({ error: r.error ?? "Couldn't start the device server." });
+                } catch (e) {
+                  setDeviceModal({ error: e instanceof Error ? e.message : "Couldn't start the device server." });
+                } finally {
+                  setDeviceLoading(false);
                 }
               }}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-primary/60 bg-primary/10 text-xs text-primary hover:bg-primary/20 shadow-lg backdrop-blur transition-colors"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-primary/60 bg-primary/10 text-xs text-primary hover:bg-primary/20 shadow-lg backdrop-blur transition-colors disabled:opacity-60"
             >
-              <Smartphone className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Real Device</span>
+              <Smartphone className={`h-3.5 w-3.5 ${deviceLoading ? "animate-pulse" : ""}`} />
+              <span className="hidden md:inline">{deviceLoading ? "Starting…" : "Real Device"}</span>
             </button>
           </div>
         </div>
+        {/* Expo Go real-device preview modal (QR → open on a phone).
+            Portaled to <body> so pane visibility / transforms don't collapse it. */}
+        {deviceModal && typeof document !== "undefined" && createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setDeviceModal(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-foreground">Open on your phone</h3>
+                <button type="button" onClick={() => setDeviceModal(null)} className="text-muted-foreground hover:text-foreground">✕</button>
+              </div>
+              {deviceModal.error ? (
+                <p className="text-sm text-destructive">{deviceModal.error}</p>
+              ) : deviceModal.expUrl ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="rounded-xl bg-white p-3">
+                    <QRCodeSVG value={deviceModal.expUrl} size={200} />
+                  </div>
+                  <ol className="text-xs text-muted-foreground space-y-1 self-start list-decimal pl-4">
+                    <li>Install <span className="font-medium text-foreground">Expo Go</span> from the App Store / Play Store.</li>
+                    <li>Scan this QR (or paste the URL below) in Expo Go.</li>
+                    <li>Camera, location, notifications &amp; native features run here.</li>
+                  </ol>
+                  <button
+                    type="button"
+                    onClick={() => { if (deviceModal.expUrl && typeof navigator !== "undefined") navigator.clipboard?.writeText(deviceModal.expUrl); }}
+                    className="w-full truncate rounded-lg border border-border bg-muted/40 px-3 py-2 text-[11px] font-mono text-foreground/80 hover:bg-muted"
+                    title="Click to copy"
+                  >
+                    {deviceModal.expUrl}
+                  </button>
+                  <p className="text-[10px] text-muted-foreground">The dev server may take ~30s to finish bundling on first open.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-6">
+                  <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Starting the device server…</p>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
         {paneTab === "agents" && (
           <div className="absolute inset-0 top-20 lg:right-[220px] z-10">
             <AgentWorkspace projectId={projectId} />

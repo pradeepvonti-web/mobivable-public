@@ -14,10 +14,18 @@ import {
   ensureExpoPreviewLive,
   getExpoPreviewUrl,
   probePreviewServing,
+  startExpoGoServer,
+  triggerEasBuild,
+  isEasConfigured,
   type WorkspaceCtx,
 } from "./agent-workspace.server";
 
 const Input = z.object({ projectId: z.string().uuid() });
+const EasInput = z.object({
+  projectId: z.string().uuid(),
+  platform: z.enum(["android", "ios", "all"]).optional(),
+  profile: z.enum(["development", "preview", "production"]).optional(),
+});
 
 /** Read the current Expo-web preview URL for a project (null if not started). */
 export const getExpoPreview = createServerFn({ method: "POST" })
@@ -72,3 +80,41 @@ export const checkPreviewServing = createServerFn({ method: "POST" })
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
     }
   });
+
+/**
+ * Start the Metro dev server and return an Expo Go connection URL (encode as a
+ * QR) so the app can be opened on a real phone — exercising camera, location,
+ * notifications, and true native behaviour the web preview can't.
+ */
+export const startExpoGo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Input.parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await startExpoGoServer(data.projectId, ctx);
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+/**
+ * Kick off an EAS cloud build (real native IPA/APK/AAB). Gated on EXPO_TOKEN;
+ * returns ok:false with guidance when not configured.
+ */
+export const startEasBuild = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => EasInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
+    try {
+      return await triggerEasBuild(data.projectId, ctx, { platform: data.platform, profile: data.profile });
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+/** Whether native EAS builds are available (EXPO_TOKEN set) — for UI gating. */
+export const easAvailable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => ({ ok: true as const, available: isEasConfigured() }));

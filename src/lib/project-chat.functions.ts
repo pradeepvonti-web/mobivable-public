@@ -101,6 +101,12 @@ const UNIFIED_AGENT_PROMPT =
   `- The scaffold ships a ready Supabase client at \`lib/supabase.ts\` (\`@supabase/supabase-js\`, credentials baked in via .env). For ANY persistence, auth, or shared data, import it: \`import { supabase, isSupabaseConfigured } from "@/lib/supabase"\`. Do NOT hand-roll fetch calls or hardcode a second client.\n` +
   `- Use it for sign-up/login (\`supabase.auth\`), and CRUD (\`supabase.from("table").select()/insert()/update()/delete()\`). Guard data fetches with \`isSupabaseConfigured\` and keep the mockup's seed/sample data as the fallback so the preview always renders.\n` +
   `- Local-only UI state (a counter, form inputs, toggles) stays in React state — only reach for Supabase when data must persist or sync.\n` +
+  `## PROJECT STRUCTURE (follow these conventions)\n` +
+  `- \`app/\` file-based routes (screens), \`constants/theme.ts\` (design tokens), \`types.ts\` (shared domain types — extend it), \`hooks/\` (custom hooks; \`useAuth\` is pre-built), \`lib/\` (clients/utils). Put shared types in types.ts and reusable logic in hooks/ — don't inline everything in screens.\n` +
+  `- \`eas.json\` (build profiles) and the native config in \`app.json\` are pre-set — do NOT remove them; they make the app store-buildable.\n` +
+  `## NATIVE MODULES (wire in ONLY what the described features need)\n` +
+  `- Pre-installed: \`expo-camera\`, \`expo-location\`, \`expo-notifications\`, \`expo-image-picker\`, \`expo-secure-store\`. Use them when the app calls for it (a photo step → expo-image-picker/expo-camera; a map/nearby feature → expo-location; reminders → expo-notifications; tokens/secrets → expo-secure-store).\n` +
+  `- These run on a REAL DEVICE (Expo Go / dev build), not the web preview. Always render a graceful web fallback (e.g. a placeholder + "available on device") so \`expo export -p web\` and the live preview never crash. Import a native module only in the screen that uses it.\n` +
   `Narrate each step briefly ("Now let's build the Dashboard screen:") before its tool calls. The mockup (via read_mockup / designs/mockup.md) outranks the text brief for palette, typography, and screen list.\n\n` +
 
   `## PREVIEW LIMITATIONS (IMPORTANT)\n` +
