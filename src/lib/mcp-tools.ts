@@ -1561,7 +1561,7 @@ export default function RootLayout() {
   {
     name: "read_mockup",
     description:
-      "Look at the project's APPROVED design mockup image with a vision model and return a pixel-level description (exact colors, fonts, per-screen layout, components, spacing, charts, data). Call this FIRST in an Expo build — the mockup is the source of truth above the text brief. Also saves the analysis to designs/mockup.md in the workspace.",
+      "Look at the project's APPROVED design mockup image with a vision model and return a pixel-level description (exact colors, fonts, per-screen layout, components, spacing, charts, data). Call this FIRST in an Expo build — the mockup is the source of truth above the text brief. Reproduce its charts/gradients/QR with the pre-installed react-native-svg / expo-linear-gradient / react-native-qrcode-svg rather than flattening them. Also saves the analysis to designs/mockup.md in the workspace.",
     inputSchema: {
       type: "object",
       properties: {

@@ -59,6 +59,13 @@ export function expoScaffold(appName: string): FileMap {
           "react-native-safe-area-context": "4.10.5",
           "react-native-screens": "3.31.1",
           "@expo/vector-icons": "^14.0.0",
+          // Visual primitives so the build can REPRODUCE the mockup faithfully
+          // (donut/line charts, gradient heros, styled QR) instead of flattening
+          // it into plain cards. All are react-native-web / expo-export safe.
+          // SDK 51-pinned versions.
+          "react-native-svg": "15.2.0", // charts/icons/QR via SVG primitives
+          "expo-linear-gradient": "~13.0.2", // gradient hero/card surfaces
+          "react-native-qrcode-svg": "^6.3.2", // QR codes (uses react-native-svg)
           // Required for `expo export -p web` (the live preview build).
           "react-native-web": "~0.19.10",
           "@expo/metro-runtime": "~3.2.3",

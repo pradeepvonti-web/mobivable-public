@@ -15,6 +15,7 @@
  *   VERTEX_AI_PROJECT           — GCP project ID (auto-detected from service account)
  *   VERTEX_AI_LOCATION          — GCP region (default: "us-central1")
  *   AI_PROVIDER                 — Override: "openai" | "gemini" | "anthropic" | "groq" | "openrouter" | "ollama" | "vertex"
+ *   AI_IMAGE_PROVIDER           — Override the IMAGE provider independently of AI_PROVIDER: "lovable" | "openai" | "gemini"
  *   AI_MODEL                    — Override the default model for the selected provider
  *   AI_BASE_URL                 — Custom OpenAI-compatible endpoint URL
  */
@@ -105,11 +106,11 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     id: "anthropic",
     name: "Anthropic Claude",
     baseUrl: "https://api.anthropic.com/v1/messages",
-    defaultModel: "claude-sonnet-4-20250514",
+    defaultModel: "claude-sonnet-4-6",
     models: [
-      { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
-      { id: "claude-opus-4-20250514", label: "Claude Opus 4" },
-      { id: "claude-haiku-4-20250514", label: "Claude Haiku 4" },
+      { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
     ],
     authHeader: (key) => ({
       "x-api-key": key,
@@ -229,6 +230,44 @@ export function detectProvider(): ProviderConfig | null {
   return null;
 }
 
+/** Providers that can generate images, in fallback priority order. */
+const IMAGE_CAPABLE_PROVIDERS: AIProvider[] = ["lovable", "openai", "gemini"];
+
+/**
+ * Pick the provider for IMAGE generation, decoupled from the text/build brain.
+ *
+ * Image generation must NOT be tied to AI_PROVIDER: Anthropic (and Groq,
+ * OpenRouter, Ollama) have no image model, so a text brain of "anthropic"
+ * would otherwise silently disable mockups (research_and_plan). This selects an
+ * image-capable provider independently:
+ *   1. AI_IMAGE_PROVIDER override (if image-capable and keyed)
+ *   2. the active text provider, if it happens to be image-capable
+ *   3. the first image-capable provider that has a key (lovable → openai → gemini)
+ * Vertex AI Imagen remains a separate fallback inside callAIImage().
+ */
+export function detectImageProvider(): ProviderConfig | null {
+  const explicit = process.env.AI_IMAGE_PROVIDER as AIProvider | undefined;
+  if (explicit && IMAGE_CAPABLE_PROVIDERS.includes(explicit)) {
+    const cfg = PROVIDERS[explicit];
+    if (cfg?.getKey()) return cfg;
+  }
+
+  // Prefer the active text provider when it can also do images, so a single
+  // configured provider (lovable/openai/gemini) keeps using one key.
+  const active = detectProvider();
+  if (active && IMAGE_CAPABLE_PROVIDERS.includes(active.id) && active.getKey()) {
+    return active;
+  }
+
+  // Otherwise fall back to the first image-capable provider that has a key.
+  for (const id of IMAGE_CAPABLE_PROVIDERS) {
+    const cfg = PROVIDERS[id];
+    if (cfg.getKey()) return cfg;
+  }
+
+  return null;
+}
+
 /** Get the active provider name for display */
 export function getActiveProviderName(): string {
   return detectProvider()?.name ?? "Not configured";
@@ -266,12 +305,12 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "GPT-4o Mini": "gemini-2.5-flash",
   },
   anthropic: {
-    "Gemini 2.5 Flash": "claude-haiku-4-20250514",
-    "Gemini 2.5 Pro": "claude-sonnet-4-20250514",
-    "Gemini 3 Flash": "claude-sonnet-4-20250514",
-    "GPT-4o": "claude-sonnet-4-20250514",
-    "Claude Sonnet 4": "claude-sonnet-4-20250514",
-    "Claude Opus 4": "claude-opus-4-20250514",
+    "Gemini 2.5 Flash": "claude-haiku-4-5",
+    "Gemini 2.5 Pro": "claude-sonnet-4-6",
+    "Gemini 3 Flash": "claude-sonnet-4-6",
+    "GPT-4o": "claude-sonnet-4-6",
+    "Claude Sonnet 4": "claude-sonnet-4-6",
+    "Claude Opus 4": "claude-opus-4-8",
   },
   groq: {
     "Gemini 2.5 Flash": "llama-3.3-70b-versatile",
@@ -770,7 +809,7 @@ const FAST_MODELS: Record<AIProvider, string> = {
   openai: "gpt-4o-mini",
   gemini: "gemini-2.5-flash",
   // Execution tier for the agentic build — Sonnet (not Haiku) for code quality.
-  anthropic: "claude-sonnet-4-20250514",
+  anthropic: "claude-sonnet-4-6",
   groq: "llama-3.1-8b-instant",
   openrouter: "google/gemini-2.5-flash",
   ollama: "llama3.1",
@@ -784,7 +823,7 @@ const STRONG_MODELS: Record<AIProvider, string> = {
   openai: "gpt-4o",
   gemini: "gemini-2.5-pro",
   // Planning/reasoning tier for the agentic build — Opus.
-  anthropic: "claude-opus-4-20250514",
+  anthropic: "claude-opus-4-8",
   groq: "llama-3.3-70b-versatile",
   openrouter: "google/gemini-2.5-pro",
   ollama: "llama3.1:70b",
@@ -1171,6 +1210,34 @@ export async function callAIToolsStreaming(args: {
   );
 }
 
+/**
+ * fetch() that retries on transient network-level throws — undici "fetch
+ * failed" (ECONNRESET, DNS blips, header/body timeouts). It does NOT retry HTTP
+ * error statuses (429/4xx/5xx); those are returned to the caller to handle. The
+ * agentic build brain makes many sequential streaming calls, so a single
+ * network blip shouldn't discard a long in-progress build. On exhaustion it
+ * surfaces the underlying `cause` so "fetch failed" isn't a dead end.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (e) {
+      lastErr = e;
+      const cause = (e as { cause?: unknown })?.cause;
+      const detail = cause instanceof Error ? cause.message : cause ? String(cause) : "";
+      console.warn(
+        `[ai-fetch] attempt ${i + 1}/${attempts} network error: ${(e as Error)?.message ?? String(e)}${detail ? ` (cause: ${detail})` : ""}`,
+      );
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 600 * (i + 1) ** 2)); // 600ms, 2.4s
+    }
+  }
+  const cause = (lastErr as { cause?: unknown })?.cause;
+  const detail = cause instanceof Error ? cause.message : cause ? String(cause) : "";
+  throw new Error(`network request failed after ${attempts} attempts${detail ? `: ${detail}` : ` (${(lastErr as Error)?.message ?? "fetch failed"})`}`);
+}
+
 async function _callAIToolsStreamingCore(args: {
   system: string;
   messages: ProviderNeutralMsg;
@@ -1198,14 +1265,19 @@ async function _callAIToolsStreamingCore(args: {
       tools: args.tools.anthropic,
       stream: true,
     };
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        ...provider.authHeader(key),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetchWithRetry(url, {
+        method: "POST",
+        headers: {
+          ...provider.authHeader(key),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      return { ok: false, error: `Anthropic request failed: ${(e as Error)?.message ?? String(e)}` };
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       return { ok: false, error: `Anthropic error (${res.status}): ${text.slice(0, 200)}` };
@@ -1224,14 +1296,19 @@ async function _callAIToolsStreamingCore(args: {
     tool_choice: "auto" as const,
     stream: true,
   };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      ...provider.authHeader(key),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithRetry(url, {
+      method: "POST",
+      headers: {
+        ...provider.authHeader(key),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return { ok: false, error: `${provider.name} request failed: ${(e as Error)?.message ?? String(e)}` };
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     return {
@@ -1268,9 +1345,15 @@ export async function callAIImage(
 async function _callAIImageCore(
   prompt: string,
 ): Promise<{ ok: true; dataUrl: string } | { ok: false; error: string }> {
-  const provider = detectProvider();
+  // Image gen is decoupled from the text/build brain (AI_PROVIDER) so a brain
+  // without an image model (e.g. anthropic) doesn't silently kill mockups.
+  const provider = detectImageProvider();
   if (!provider) {
-    return { ok: false, error: "No AI provider configured." };
+    return {
+      ok: false,
+      error:
+        "No image-capable provider configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, or GOOGLE_AI_API_KEY (or AI_IMAGE_PROVIDER), or configure Vertex AI Imagen.",
+    };
   }
 
   const key = provider.getKey();

@@ -594,7 +594,7 @@ function ProjectPage() {
   const [monetizationConfig, setMonetizationConfig] = useState<{ provider: string | null; keys: Record<string, string> }>({ provider: null, keys: {} });
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
-  const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('react');
+  const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('expo');
   const [restartingExpo, setRestartingExpo] = useState(false);
   // Phase B: per-screen PNG capture from the preview toolbar. Single handler
   // for both render modes — React uses captureSimple on previewRootRef,
@@ -3709,42 +3709,16 @@ function ProjectPage() {
               landscape={landscape}
               onLandscapeToggle={() => setLandscape((l) => !l)}
             />
-            {/* Render Mode Toggle */}
+            {/* Preview engine: Expo is the live generated React Native build —
+                the only real preview. React/Flutter (legacy schema renderers)
+                were removed; they can't render Expo-built apps. */}
             <div className="inline-flex items-center gap-0.5 h-9 p-0.5 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setRenderMode('react')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
-                  renderMode === 'react'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                React
-              </button>
-              <button
-                type="button"
-                onClick={() => setRenderMode('flutter')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
-                  renderMode === 'flutter'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Flutter
-              </button>
-              <button
-                type="button"
-                onClick={() => setRenderMode('expo')}
+              <span
                 title="Live Expo app (the real generated React Native build)"
-                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
-                  renderMode === 'expo'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className="px-3 py-1.5 rounded-full font-medium bg-primary text-primary-foreground shadow-sm"
               >
                 Expo
-              </button>
+              </span>
             </div>
             {/* Restart / rebuild the live Expo preview */}
             {renderMode === 'expo' && (
