@@ -38,8 +38,12 @@ RUN npm install -g bun \
 RUN npm install -g serve \
     && npm cache clean --force
 
-# The workspace root the ws_* tools operate in.
-RUN mkdir -p /workspace
+# The workspace root the ws_* tools operate in. Must be owned by the non-root
+# runtime `user` (uid 1000): E2B runs `commands.run` as `user`, so a root-owned
+# /workspace makes `bun install` fail with EACCES creating node_modules. The
+# file API writes as root (files land fine), but directory creation by `user`
+# does not — hence the chown.
+RUN mkdir -p /workspace && chown -R user:user /workspace
 WORKDIR /workspace
 
 # Sanity check at build time — fail the image build if a tool is missing.

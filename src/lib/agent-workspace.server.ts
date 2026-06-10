@@ -450,6 +450,7 @@ export async function getOrCreateWorkspace(
     try {
       const sandbox = await f.connect(meta.sandboxId, { apiKey });
       await sandbox.setTimeout(SANDBOX_TIMEOUT_MS);
+      if (stack === "expo") await ensureWorkdirOwned(sandbox);
       // Already scaffolded at the current version → reuse as-is.
       if (meta.scaffoldVersion === EXPO_SCAFFOLD_VERSION || stack === "web") {
         return { sandbox, project, stack, freshlyScaffolded: false };
@@ -478,10 +479,10 @@ export async function getOrCreateWorkspace(
     timeoutMs: SANDBOX_TIMEOUT_MS,
     template: process.env.E2B_TEMPLATE || undefined,
   });
+  if (stack === "expo") await ensureWorkdirOwned(sandbox);
   const prior = stack === "expo" ? await loadMirroredFiles(projectId, ctx) : {};
   let freshlyScaffolded: boolean;
   if (Object.keys(prior).length > 0) {
-    await sandbox.commands.run(`mkdir -p ${WORKDIR}`, { timeoutMs: 15_000 }).catch(() => undefined);
     for (const [rel, content] of Object.entries(prior)) {
       await sandbox.files.write(`${WORKDIR}/${rel}`, content);
     }
@@ -502,6 +503,22 @@ export async function getOrCreateWorkspace(
   return { sandbox, project, stack, freshlyScaffolded };
 }
 
+/**
+ * Make the workspace root writable by the non-root sandbox `user`. The template
+ * creates /workspace as root (Dockerfile `mkdir`), but E2B runs `commands.run`
+ * as `user`, so without this `bun install` fails with EACCES creating
+ * node_modules. Idempotent + best-effort; `user` has passwordless sudo in the
+ * E2B base image. Belt-and-suspenders alongside the Dockerfile chown so it works
+ * even against sandboxes from an older template build.
+ */
+async function ensureWorkdirOwned(sandbox: WorkspaceSandbox): Promise<void> {
+  await sandbox.commands
+    .run(`sudo mkdir -p ${WORKDIR} && sudo chown -R "$(id -un):$(id -gn)" ${WORKDIR}`, {
+      timeoutMs: 20_000,
+    })
+    .catch(() => undefined);
+}
+
 /** Seed the scaffold into a sandbox + mirror it to the DB. Returns true. */
 async function scaffoldInto(
   sandbox: WorkspaceSandbox,
@@ -511,7 +528,7 @@ async function scaffoldInto(
   stack: TargetStack,
 ): Promise<boolean> {
   if (stack !== "expo") return false; // web stack uses the legacy schema path
-  await sandbox.commands.run(`mkdir -p ${WORKDIR}`, { timeoutMs: 15_000 }).catch(() => undefined);
+  await ensureWorkdirOwned(sandbox);
   const files = expoScaffold(project.name || project.prompt || "Mobivable App");
   for (const [rel, content] of Object.entries(files)) {
     await sandbox.files.write(`${WORKDIR}/${rel}`, content);
@@ -839,7 +856,7 @@ export async function probeWorkspaceRuntime(): Promise<WorkspaceProbeResult> {
 
   const probePath = `${WORKDIR}/.probe.txt`;
   try {
-    await sandbox.commands.run(`mkdir -p ${WORKDIR}`, { timeoutMs: 15_000 });
+    await ensureWorkdirOwned(sandbox);
     await sandbox.files.write(probePath, "mobivable-probe");
     steps.push({ name: "files.write", ok: true });
   } catch (e) {

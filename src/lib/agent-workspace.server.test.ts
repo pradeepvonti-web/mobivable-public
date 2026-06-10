@@ -29,11 +29,15 @@ import {
 import { SCAFFOLD_MARKER } from "./expo-scaffold";
 
 // ── Fake E2B sandbox ────────────────────────────────────────────────
-function makeFakeSandbox(id = "sbx_test"): WorkspaceSandbox & { _files: Map<string, string> } {
+function makeFakeSandbox(
+  id = "sbx_test",
+): WorkspaceSandbox & { _files: Map<string, string>; _cmds: string[] } {
   const files = new Map<string, string>();
+  const cmds: string[] = [];
   return {
     sandboxId: id,
     _files: files,
+    _cmds: cmds,
     files: {
       async write(path: string, data: string) {
         files.set(path, data);
@@ -59,6 +63,7 @@ function makeFakeSandbox(id = "sbx_test"): WorkspaceSandbox & { _files: Map<stri
     },
     commands: {
       async run(cmd: string) {
+        cmds.push(cmd);
         // Pretend every command (tsc, lint, install, export) succeeds.
         return { stdout: `ran: ${cmd}`, stderr: "", exitCode: 0 };
       },
@@ -225,6 +230,12 @@ describe("workspace lifecycle", () => {
     expect(sandbox._files.has(`${WORKDIR}/${SCAFFOLD_MARKER}`)).toBe(true);
     expect(sandbox._files.has(`${WORKDIR}/app/(tabs)/_layout.tsx`)).toBe(true);
     expect(supabase._overrides.some((o) => o.file_path === "app/(tabs)/_layout.tsx")).toBe(true);
+    // Workspace root is chowned to the runtime user so `bun install` can create
+    // node_modules (the template seeds /workspace as root → EACCES otherwise).
+    expect(
+      sandbox._cmds.some((c) => /chown.*-R.*\/workspace/.test(c)),
+      "expected a chown of /workspace during scaffold",
+    ).toBe(true);
   });
 
   it("writes, reads, and surgically edits a file", async () => {
