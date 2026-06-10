@@ -17,6 +17,7 @@ export const generateProject = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         designBrief: z.string().max(40_000).optional(),
+        premium: z.boolean().optional().default(false),
       })
       .parse(input),
   )
