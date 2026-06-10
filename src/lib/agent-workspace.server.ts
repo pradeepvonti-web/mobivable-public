@@ -27,7 +27,7 @@ import type { Sandbox as E2BSandbox } from "@e2b/code-interpreter";
 /** Root of the project tree inside the sandbox. */
 export const WORKDIR = "/workspace";
 /** Keep-alive window for the sandbox between agent turns (ms). */
-const SANDBOX_TIMEOUT_MS = 15 * 60 * 1000; // 15 min
+const SANDBOX_TIMEOUT_MS = 45 * 60 * 1000; // 45 min — longer window so the live preview expires less often
 /** Per-command wall-clock cap. */
 const DEFAULT_CMD_TIMEOUT_MS = 120_000;
 /** Max bytes of command output we return to the agent (keeps tokens sane). */
