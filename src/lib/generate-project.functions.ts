@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI, callAIStrong } from "./ai-provider";
+// Note: callAIStrong forces the highest-tier model (Opus/Pro/GPT-4o) and is
+// 3-5x slower than the user's selected model. Only use it when premium=true.
 import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } from "@/lib/code-gen";
 import { validateAndFixSchema } from "./schema-validator";
