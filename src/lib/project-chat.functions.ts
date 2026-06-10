@@ -101,6 +101,7 @@ const UNIFIED_AGENT_PROMPT =
   `- The scaffold ships a ready Supabase client at \`lib/supabase.ts\` (\`@supabase/supabase-js\`, credentials baked in via .env). For ANY persistence, auth, or shared data, import it: \`import { supabase, isSupabaseConfigured } from "@/lib/supabase"\`. Do NOT hand-roll fetch calls or hardcode a second client.\n` +
   `- Use it for sign-up/login (\`supabase.auth\`), and CRUD (\`supabase.from("table").select()/insert()/update()/delete()\`). Guard data fetches with \`isSupabaseConfigured\` and keep the mockup's seed/sample data as the fallback so the preview always renders.\n` +
   `- Local-only UI state (a counter, form inputs, toggles) stays in React state — only reach for Supabase when data must persist or sync.\n` +
+  `- If the app persists data, call \`declare_backend\` with the tables/columns/RLS your screens read & write (e.g. a \`transactions\` table) so the database SCHEMA MATCHES your code — otherwise the app queries tables that don't exist. Do NOT include id/user_id/created_at/updated_at (auto-added). The user applies the staged schema from the Backend panel.\n` +
   `## PROJECT STRUCTURE (follow these conventions)\n` +
   `- \`app/\` file-based routes (screens), \`constants/theme.ts\` (design tokens), \`types.ts\` (shared domain types — extend it), \`hooks/\` (custom hooks; \`useAuth\` is pre-built), \`lib/\` (clients/utils). Put shared types in types.ts and reusable logic in hooks/ — don't inline everything in screens.\n` +
   `- \`eas.json\` (build profiles) and the native config in \`app.json\` are pre-set — do NOT remove them; they make the app store-buildable.\n` +
@@ -140,6 +141,8 @@ const AGENT_TOOLS = [
   "invoke_skill",
   // Vision-read the approved mockup so the build matches it pixel-wise.
   "read_mockup",
+  // Declare the app's Supabase data model (tables/RLS) so the DB matches the code.
+  "declare_backend",
 ];
 
 export const sendProjectMessage = createServerFn({ method: "POST" })
@@ -514,7 +517,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
       "update_theme", "update_navigation", "generate_app", "create_project",
-      "ws_write_file", "ws_edit_file", "ws_start_preview",
+      "ws_write_file", "ws_edit_file", "ws_start_preview", "declare_backend",
     ]);
 
     // ── Token-budget guard ──────────────────────────────────────────

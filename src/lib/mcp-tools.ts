@@ -35,6 +35,7 @@ import {
   type WorkspaceCtx,
 } from "./agent-workspace.server";
 import { getBuiltinSkill, builtinSkillNames } from "./builtin-skills";
+import type { MBackend, MTable } from "./mobile-app-schema";
 
 export interface McpToolContext {
   userId: string;
@@ -1631,6 +1632,100 @@ export default function RootLayout() {
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     async run() {
       return probeWorkspaceRuntime();
+    },
+  },
+  {
+    name: "declare_backend",
+    description:
+      "Declare the Postgres data model your generated app persists to Supabase (the tables/columns/RLS your screens read & write via lib/supabase.ts). Call this during an Expo build whenever the app stores data, so the database schema MATCHES your code instead of referencing tables that don't exist. Saves a validated spec to the project; the user applies it from the Backend panel (one click, with their Supabase management token) to create the tables. Column rules: do NOT include id/user_id/created_at/updated_at (added automatically); rls defaults to 'owner'; for FK columns add a `references` block to another table in this spec.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        tables: {
+          type: "array",
+          description: "The app's tables. Max 8 tables, 12 columns each.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "snake_case, plural — e.g. transactions" },
+              rls: { type: "string", enum: ["owner", "public_read", "none"] },
+              columns: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    type: { type: "string", enum: ["text", "int", "float", "bool", "timestamp", "jsonb", "uuid"] },
+                    nullable: { type: "boolean" },
+                    default: {},
+                    unique: { type: "boolean" },
+                    references: {
+                      type: "object",
+                      properties: {
+                        table: { type: "string" },
+                        column: { type: "string" },
+                        onDelete: { type: "string", enum: ["cascade", "restrict", "set null", "no action"] },
+                      },
+                      required: ["table"],
+                    },
+                  },
+                  required: ["name", "type"],
+                },
+              },
+              indexes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { columns: { type: "array", items: { type: "string" } }, unique: { type: "boolean" } },
+                  required: ["columns"],
+                },
+              },
+            },
+            required: ["name", "columns"],
+          },
+        },
+      },
+      required: ["project_id", "tables"],
+      additionalProperties: false,
+    },
+    async run(args, ctx) {
+      const projectId = str(args, "project_id");
+      if (!projectId) throw new Error("`project_id` is required.");
+      const tables = (args.tables ?? []) as MTable[];
+      if (!Array.isArray(tables) || tables.length === 0) {
+        throw new Error("`tables` must be a non-empty array of { name, columns, rls? }.");
+      }
+
+      const { generateBackendSQL, validateBackendSpec, mergeBackendSpec } = await import("./backend-provision.functions");
+      const incoming: MBackend = { tables };
+      const v = validateBackendSpec(incoming);
+      if (!v.ok) throw new Error(`Invalid data model — fix and retry: ${v.error}`);
+
+      const db = getDb(ctx);
+      const { data: proj } = await db
+        .from("projects")
+        .select("backend_spec")
+        .eq("id", projectId)
+        .maybeSingle();
+      const existing = (proj?.backend_spec ?? {}) as MBackend;
+      // New tables win; keep any existing auth/storage/edge config.
+      const merged = mergeBackendSpec(incoming, existing);
+      await db
+        .from("projects")
+        .update({ backend_spec: merged, updated_at: new Date().toISOString() })
+        .eq("id", projectId)
+        .eq("user_id", ctx.userId);
+
+      const sql = generateBackendSQL(merged);
+      const names = tables.map((t) => t.name);
+      return {
+        ok: true,
+        tables_count: tables.length,
+        tables: names,
+        sql_preview: sql.slice(0, 1200),
+        message: `Staged ${tables.length} table(s) [${names.join(", ")}] as the app's data model (matches lib/supabase.ts usage). Saved to the project's backend spec — apply from the Backend panel (needs your Supabase management token) to create the tables.`,
+      };
     },
   },
 ];
