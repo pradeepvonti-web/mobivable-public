@@ -329,6 +329,31 @@ describe("workspace lifecycle", () => {
     expect(persisted).toBe(res.url);
   });
 
+  it("surfaces a clear error when bun is missing (E2B_TEMPLATE not set)", async () => {
+    const sandbox = makeFakeSandbox("sbx_nobun");
+    // Simulate E2B's default image: `bun --version` is not found.
+    const origRun = sandbox.commands.run.bind(sandbox.commands);
+    sandbox.commands.run = async (cmd: string) => {
+      if (cmd.includes("bun --version")) {
+        return { stdout: "", stderr: "bun: not found", exitCode: 127 };
+      }
+      return origRun(cmd);
+    };
+    setSandboxFactoryForTests(fakeFactory(sandbox));
+    const supabase = makeFakeSupabase({
+      id: PROJECT_ID,
+      name: "App",
+      prompt: "x",
+      user_id: CTX_USER,
+      attachments: {},
+    });
+    const ctx = { userId: CTX_USER, supabase };
+
+    const res = await ensureExpoWebPreview(PROJECT_ID, ctx);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/E2B_TEMPLATE/);
+  });
+
   it("runs a long command in the background and reports running → done", async () => {
     const sandbox = makeFakeSandbox("sbx_job");
     setSandboxFactoryForTests(fakeFactory(sandbox));

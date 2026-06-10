@@ -771,19 +771,41 @@ export async function ensureExpoWebPreview(
     };
   }
 
-  const project = await loadOwnedProject(projectId, ctx);
-  const meta = readMeta(project);
+  // Guard: the Expo build needs `bun`, which only exists in the custom
+  // `mobivable-expo` E2B template. If the environment is missing E2B_TEMPLATE the
+  // sandbox boots E2B's default image (no bun/expo) and the build dies silently
+  // with a "closed port" — surface the real cause instead. Cheap one-shot check.
+  const bunCheck = await sandbox.commands
+    .run("bun --version", { cwd: WORKDIR, timeoutMs: 15_000 })
+    .catch(() => null);
+  if (!bunCheck || bunCheck.exitCode !== 0) {
+    return {
+      ok: false,
+      rebuilt: false,
+      error:
+        "Expo build runtime is missing `bun` — the sandbox booted the default E2B image. Set E2B_TEMPLATE=mobivable-expo in this environment (Cloudflare Worker / Cloud Run secret) and rebuild.",
+    };
+  }
+
   const url = `https://${sandbox.getHost(EXPO_PREVIEW_PORT)}`;
   const jobId = newJobId();
 
-  // Launch the static server only once per sandbox (avoid EADDRINUSE on rebuild).
-  const launchServe = meta?.previewStarted
-    ? ""
-    : ` && (nohup bunx serve dist -s -l ${EXPO_PREVIEW_PORT} > ${JOBS_DIR}/serve.log 2>&1 &)`;
+  // Idempotently (re)launch the static server after a successful export: start
+  // `serve` only when nothing is already listening on the port. This makes the
+  // preview self-healing — a Restart relaunches the server if an earlier build
+  // failed before it ever came up, instead of being permanently wedged by an
+  // optimistic previewStarted flag. The port check uses `bun -e` (bun is in the
+  // template) so it needs no extra tooling. EADDRINUSE is avoided by the guard.
+  const ensureServe =
+    `( bun -e "fetch('http://localhost:${EXPO_PREVIEW_PORT}').then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1 ` +
+    `|| (nohup bunx serve dist -s -l ${EXPO_PREVIEW_PORT} > ${JOBS_DIR}/serve.log 2>&1 &) )`;
 
+  // The `serve` step only runs if install + export both succeed (&&-chained), so
+  // a failed build leaves a non-zero code in <jobId>.exit for the caller to
+  // surface — rather than silently returning a dead port.
   const script =
     `mkdir -p ${JOBS_DIR} && ` +
-    `{ bun install && bunx expo export -p web${launchServe} ; } ` +
+    `{ bun install && bunx expo export -p web && ${ensureServe} ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
 
