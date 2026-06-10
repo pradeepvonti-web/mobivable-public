@@ -734,6 +734,32 @@ function ProjectPage() {
   const [sending, setSending] = useState(false);
   const [mode, setMode] = useState<"build" | "plan">("build");
   const [modeOpen, setModeOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const CHAT_MODELS = [
+    "Gemini 3 Flash",
+    "Gemini 2.5 Pro",
+    "Gemini 2.5 Flash",
+    "GPT-5",
+    "GPT-5 Mini",
+    "GPT-5.2",
+    "Opus 4.7",
+    "Sonnet 4.7",
+    "Haiku 4.7",
+  ];
+  async function changeModel(m: string) {
+    setModelOpen(false);
+    if (!project || project.model === m) return;
+    const { error: updErr } = await supabase
+      .from("projects")
+      .update({ model: m })
+      .eq("id", projectId);
+    if (updErr) {
+      toast.error("Failed to change model", { description: updErr.message });
+      return;
+    }
+    setProject((p) => (p ? { ...p, model: m } : p));
+    toast.success(`Model set to ${m}`);
+  }
   const [visualEdit, setVisualEdit] = useState(false);
   const [selectedEl, setSelectedEl] = useState<
     { tag: string; text: string; classes: string; path: number[] } | null
