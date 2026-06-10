@@ -761,6 +761,7 @@ function ProjectPage() {
     toast.success(`Model set to ${m}`);
   }
   const [visualEdit, setVisualEdit] = useState(false);
+  const [premium, setPremium] = useState(false);
   const [selectedEl, setSelectedEl] = useState<
     { tag: string; text: string; classes: string; path: number[] } | null
   >(null);
