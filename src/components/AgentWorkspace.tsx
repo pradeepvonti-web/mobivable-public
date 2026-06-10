@@ -49,6 +49,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const [mockupUrl, setMockupUrl] = useState<string | null>(null);
   const [mockupLoading, setMockupLoading] = useState(false);
   const [mockupError, setMockupError] = useState<string | null>(null);
+  const [mockupMode, setMockupMode] = useState<"quick" | "full">("quick");
   const generateMockupFn = useServerFn(generateMockupImage);
   const extractThemeFn = useServerFn(extractThemeFromDesigner);
   const themeAppliedRef = useRef(false);
@@ -56,7 +57,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
   const time = task.updated_at || task.created_at;
   const isDesigner = task.role === "ui_ux_designer";
 
-  // Auto-generate mockup when UI/UX Designer completes
+  // Auto-generate mockup when UI/UX Designer completes — start with quick mode
   useEffect(() => {
     if (isDesigner && task.status === "completed" && task.output && projectId && projectPrompt && !mockupUrl && !mockupLoading && !mockupError) {
       setMockupLoading(true);
@@ -66,10 +67,12 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
           designerOutput: task.output,
           projectPrompt,
           projectName,
+          mode: "quick",
         },
       }).then((r) => {
         if (r.ok && r.imageUrl) {
           setMockupUrl(r.imageUrl);
+          setMockupMode("quick");
         } else {
           setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
         }
@@ -92,7 +95,7 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
       .catch(() => { /* non-fatal: mockup still shows */ });
   }, [isDesigner, task.status, task.output, projectName]);
 
-  const handleRegenerateMockup = () => {
+  const handleRegenerateMockup = (mode: "quick" | "full" = mockupMode) => {
     if (!projectId || !projectPrompt || !task.output) return;
     setMockupUrl(null);
     setMockupError(null);
@@ -103,14 +106,21 @@ function TimelineItem({ task, isLast, projectId, projectPrompt, projectName }: {
         designerOutput: task.output,
         projectPrompt,
         projectName,
+        mode,
       },
     }).then((r) => {
-      if (r.ok && r.imageUrl) setMockupUrl(r.imageUrl);
-      else setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+      if (r.ok && r.imageUrl) {
+        setMockupUrl(r.imageUrl);
+        setMockupMode(mode);
+      } else {
+        setMockupError(r.ok ? (r.error ?? "Image generation not available") : r.error);
+      }
     }).catch((e) => {
       setMockupError(e instanceof Error ? e.message : "Failed");
     }).finally(() => setMockupLoading(false));
   };
+
+  const handleGenerateFullMockup = () => handleRegenerateMockup("full");
 
   return (
     <div className="relative flex gap-3">
