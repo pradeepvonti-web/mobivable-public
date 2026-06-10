@@ -80,9 +80,19 @@ function actionHandler(a: MAction | undefined): string {
 
 function renderElement(el: MElement, depth = 0): string {
   const pad = "  ".repeat(depth + 4);
-  const t = (el as { type?: string }).type ?? "text";
-  const e = el as Record<string, unknown>;
-  const action = actionHandler(e.action as MAction | undefined);
+  const raw = el as Record<string, unknown>;
+  const t = (raw.type as string) ?? "text";
+  // The canonical schema nests ALL content under `props` (see MElement and
+  // MobileAppRenderer, which reads el.props.* everywhere). Flatten props over
+  // the base element so the field reads below resolve, keeping base-level
+  // fields (action, style) as a fallback. Without this every generated element
+  // renders empty/placeholder because the real content was never read.
+  const props =
+    raw.props && typeof raw.props === "object" && !Array.isArray(raw.props)
+      ? (raw.props as Record<string, unknown>)
+      : {};
+  const e: Record<string, unknown> = { ...raw, ...props };
+  const action = actionHandler((props.action ?? raw.action) as MAction | undefined);
 
   switch (t) {
     case "header":
@@ -125,24 +135,88 @@ ${pad}  ${e.subtitle ? `<p className="text-sm text-[var(--c-muted)] mb-2">${jsx(
 ${inner}
 ${pad}</div>`;
     }
-    case "glass-card":
     case "hero-banner":
     case "parallax-hero":
     case "hero":
     case "banner":
     case "onboarding-slide":
-    case "slide":
-    case "feature-card":
-    case "promo-card":
-      return `${pad}<div className="mx-5 my-3 rounded-3xl p-6 bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)] text-white shadow-lg">
-${pad}  ${e.eyebrow ? `<p className="text-[10px] uppercase tracking-widest opacity-80 mb-2">${jsx(e.eyebrow)}</p>` : ""}
-${pad}  <h3 className="text-2xl font-bold leading-tight">${jsx(e.title ?? e.heading ?? "Welcome")}</h3>
-${pad}  ${e.subtitle || e.description ? `<p className="text-sm opacity-90 mt-2 leading-relaxed">${jsx(e.subtitle ?? e.description)}</p>` : ""}
+    case "slide": {
+      // Large editorial hero. Uses the element image as a full-bleed background
+      // with a dark scrim so the text stays legible; falls back to a gradient.
+      const heroImg = e.image ?? e.src ?? e.background;
+      const cta = e.buttonLabel ?? e.cta;
+      return `${pad}<div className="relative mx-5 my-3 rounded-3xl overflow-hidden shadow-lg min-h-[200px] flex items-end ${heroImg ? "" : "bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)]"}">
+${heroImg ? `${pad}  <img src=${JSON.stringify(String(heroImg))} alt="" className="absolute inset-0 h-full w-full object-cover" />\n${pad}  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />` : ""}
+${pad}  <div className="relative p-6 text-white w-full">
+${pad}    ${e.eyebrow ? `<p className="text-[10px] uppercase tracking-widest opacity-80 mb-2">${jsx(e.eyebrow)}</p>` : ""}
+${pad}    <h3 className="text-2xl font-bold leading-tight">${jsx(e.title ?? e.heading ?? "Welcome")}</h3>
+${pad}    ${e.subtitle || e.description || e.body ? `<p className="text-sm opacity-90 mt-2 leading-relaxed">${jsx(e.subtitle ?? e.description ?? e.body)}</p>` : ""}
+${pad}    ${cta ? `<button${action} className="mt-4 rounded-full bg-white text-black text-sm font-semibold px-4 py-2 active:scale-[0.98] transition-transform">${jsx(cta)}</button>` : ""}
+${pad}  </div>
 ${pad}</div>`;
+    }
+    case "glass-card":
+    case "feature-card":
+    case "feature-showcase":
+    case "promo-card": {
+      // Compact content card with an optional image.
+      const img = e.image ?? e.src;
+      return `${pad}<div${action} className="mx-5 my-2 rounded-2xl overflow-hidden bg-[var(--c-card)] border border-[var(--c-border)]">
+${img ? `${pad}  <img src=${JSON.stringify(String(img))} alt="" className="w-full h-36 object-cover" />` : ""}
+${pad}  <div className="p-4">
+${pad}    ${e.eyebrow ? `<p className="text-[10px] uppercase tracking-widest text-[var(--c-muted)] mb-1">${jsx(e.eyebrow)}</p>` : ""}
+${pad}    ${e.title ? `<h4 className="font-semibold text-[var(--c-text)]">${jsx(e.title)}</h4>` : ""}
+${pad}    ${e.subtitle || e.description || e.body ? `<p className="text-sm text-[var(--c-muted)] mt-1">${jsx(e.subtitle ?? e.description ?? e.body)}</p>` : ""}
+${pad}  </div>
+${pad}</div>`;
+    }
+    case "gradient-mesh-bg":
+    case "section-wrapper": {
+      // Layout wrapper — render its children (props.children / elements).
+      const kids = Array.isArray(e.children)
+        ? (e.children as MElement[])
+        : Array.isArray(e.elements)
+          ? (e.elements as MElement[])
+          : [];
+      return kids.map((c) => renderElement(c, depth)).join("\n");
+    }
+    case "grid-cards":
+    case "card-grid":
+    case "bento-grid": {
+      const cards = Array.isArray(e.cards)
+        ? (e.cards as Array<Record<string, unknown>>)
+        : Array.isArray(e.items)
+          ? (e.items as Array<Record<string, unknown>>)
+          : [];
+      const cells = cards
+        .map((c, i) => {
+          const ca = actionHandler(c.action as MAction | undefined);
+          const img = c.image ?? c.src;
+          return `${pad}    <button${ca} key={${i}} className="text-left rounded-2xl overflow-hidden bg-[var(--c-card)] border border-[var(--c-border)] active:scale-[0.98] transition-transform">${img ? `<img src=${JSON.stringify(String(img))} alt="" className="w-full h-24 object-cover" />` : ""}<div className="p-3">${c.badge ? `<span className="inline-block rounded-full bg-[var(--c-primary)]/15 text-[var(--c-primary)] px-2 py-0.5 text-[10px] font-medium mb-1">${jsx(c.badge)}</span>` : ""}<p className="text-sm font-semibold text-[var(--c-text)] truncate">${jsx(c.title ?? c.label ?? c.name)}</p>${c.subtitle ? `<p className="text-xs text-[var(--c-muted)] truncate">${jsx(c.subtitle)}</p>` : ""}</div></button>`;
+        })
+        .join("\n");
+      return `${pad}<div className="px-5 py-2 grid grid-cols-2 gap-3">
+${cells}
+${pad}</div>`;
+    }
+    case "stat-card-xl":
+    case "kpi-card":
+    case "gauge-chart": {
+      const delta = e.delta ?? e.change;
+      return `${pad}<div className="mx-5 my-2 rounded-2xl bg-[var(--c-card)] border border-[var(--c-border)] p-5">
+${pad}  ${e.label ? `<p className="text-xs uppercase tracking-widest text-[var(--c-muted)]">${jsx(e.label)}</p>` : ""}
+${pad}  <p className="text-4xl font-bold text-[var(--c-text)] mt-1">${jsx(e.value ?? e.title ?? "—")}</p>
+${pad}  ${delta ? `<p className="text-sm text-[var(--c-muted)] mt-1">${jsx(delta)}</p>` : ""}
+${pad}</div>`;
+    }
     case "image":
       return `${pad}<img src=${JSON.stringify(String(e.src ?? e.url ?? ""))} alt=${JSON.stringify(String(e.alt ?? ""))} className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] object-cover" />`;
     case "avatar":
-      return `${pad}<div className="px-5 py-2"><div className="h-12 w-12 rounded-full bg-[var(--c-card)] border border-[var(--c-border)] grid place-items-center text-[var(--c-text)] font-semibold">${jsx(String(e.initials ?? e.name ?? "U").toString().slice(0, 2))}</div></div>`;
+      return `${pad}<div className="px-5 py-2"><div className="h-12 w-12 rounded-full bg-[var(--c-card)] border border-[var(--c-border)] grid place-items-center text-[var(--c-text)] font-semibold">${jsx(
+        String(e.initials ?? e.name ?? "U")
+          .toString()
+          .slice(0, 2),
+      )}</div></div>`;
     case "badge":
       return `${pad}<span className="inline-flex items-center rounded-full bg-[var(--c-primary)]/15 text-[var(--c-primary)] px-2.5 py-0.5 text-xs font-medium mx-5 my-1">${jsx(e.text ?? e.label)}</span>`;
     case "divider":
@@ -162,7 +236,13 @@ ${itemJsx}
 ${pad}</ul>`;
     }
     case "stat-row": {
-      const stats = Array.isArray(e.stats) ? (e.stats as Array<Record<string, unknown>>) : [];
+      // Canonical field is `stats`; some generations put the data in `items`.
+      const stats =
+        Array.isArray(e.stats) && (e.stats as unknown[]).length
+          ? (e.stats as Array<Record<string, unknown>>)
+          : Array.isArray(e.items)
+            ? (e.items as Array<Record<string, unknown>>)
+            : [];
       const cells = stats
         .map(
           (s, i) =>
@@ -177,7 +257,9 @@ ${pad}</div>`;
     case "progress-ring":
       return `${pad}<div className="px-5 py-2"><div className="h-2 rounded-full bg-[var(--c-border)] overflow-hidden"><div className="h-full bg-[var(--c-primary)] rounded-full" style={{ width: ${JSON.stringify(`${Math.max(0, Math.min(100, Number(e.value ?? e.progress ?? 0)))}%`)} }} /></div>${e.label ? `<p className="text-xs text-[var(--c-muted)] mt-1.5">${jsx(e.label)}</p>` : ""}</div>`;
     case "chip-group": {
-      const chips = Array.isArray(e.chips) ? (e.chips as Array<string | Record<string, unknown>>) : [];
+      const chips = Array.isArray(e.chips)
+        ? (e.chips as Array<string | Record<string, unknown>>)
+        : [];
       const items = chips
         .map((c, i) => {
           const label = typeof c === "string" ? c : (c.label ?? c.text);
@@ -203,9 +285,11 @@ ${pad}</div>`;
         ? (e.items as Array<Record<string, unknown>>)
         : Array.isArray(e.slides)
           ? (e.slides as Array<Record<string, unknown>>)
-          : Array.isArray(e.options)
-            ? (e.options as Array<Record<string, unknown>>)
-            : [];
+          : Array.isArray(e.cards)
+            ? (e.cards as Array<Record<string, unknown>>)
+            : Array.isArray(e.options)
+              ? (e.options as Array<Record<string, unknown>>)
+              : [];
       const itemsJsx = items
         .map(
           (it, i) =>
@@ -449,7 +533,8 @@ export function generateProjectFromSchema(schema: MobileAppSchema): GeneratedPro
     files[`src/screens/${screenFileName(s)}.tsx`] = renderScreenFile(s);
   }
 
-  files["README.md"] = `# ${schema.name ?? "Generated App"}\n\nGenerated by Mobivable from the approved design mockup.\n\nRun:\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
+  files["README.md"] =
+    `# ${schema.name ?? "Generated App"}\n\nGenerated by Mobivable from the approved design mockup.\n\nRun:\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
 
   return {
     files,
