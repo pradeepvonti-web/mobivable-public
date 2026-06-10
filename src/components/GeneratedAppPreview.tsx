@@ -197,8 +197,9 @@ export function GeneratedAppPreview({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {/* Sandpack */}
-      <div className="flex-1 min-h-0">
+      {/* Sandpack — force its internal layout to fill the device frame
+          (the preset defaults to a fixed ~300px height otherwise). */}
+      <div className="flex-1 min-h-0 [&_.sp-wrapper]:!h-full [&_.sp-layout]:!h-full [&_.sp-stack]:!h-full [&_.sp-preview-container]:!h-full [&_.sp-preview-iframe]:!h-full">
         <Sandpack
           key={`sp-${files.length}-${view}`}
           template="react-ts"
@@ -214,6 +215,11 @@ export function GeneratedAppPreview({ projectId }: { projectId: string }) {
             visibleFiles: files.slice(0, 12).map((f) => `/${f.file_path}`),
             recompileMode: "delayed",
             recompileDelay: 400,
+            // Sandpack's in-browser bundler doesn't run PostCSS/Tailwind, so the
+            // `@tailwind` directives in index.css yield no utilities. Inject the
+            // Tailwind Play CDN into the preview iframe (the per-template host
+            // HTML ignores our index.html <script>), so utility classes apply.
+            externalResources: ["https://cdn.tailwindcss.com"],
           }}
           customSetup={{
             dependencies: {

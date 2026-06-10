@@ -389,17 +389,15 @@ ${switchCases}
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-neutral-950">
-      <div className="relative h-[844px] w-[390px] rounded-[40px] overflow-hidden shadow-2xl border border-neutral-800 bg-[var(--c-bg)] flex flex-col">
-        <div className="flex-1 overflow-y-auto">{renderScreen()}</div>
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--c-bg)]">
+      <div className="flex-1 overflow-y-auto">{renderScreen()}</div>
 ${
   tabsJsx
-    ? `        <nav className="absolute bottom-0 inset-x-0 flex border-t border-[var(--c-border)] bg-[var(--c-card)]/95 backdrop-blur">
+    ? `      <nav className="flex shrink-0 border-t border-[var(--c-border)] bg-[var(--c-card)]/95 backdrop-blur">
 ${tabsJsx}
-        </nav>`
+      </nav>`
     : ""
 }
-      </div>
     </div>
   );
 }
