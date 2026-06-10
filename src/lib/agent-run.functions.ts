@@ -8,9 +8,7 @@ import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
 /** Recommend a set of agent roles based on the project's prompt. */
 export const recommendAgents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ projectId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ projectId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: project, error } = await supabase
@@ -25,9 +23,12 @@ export const recommendAgents = createServerFn({ method: "POST" })
     const sys =
       'You are a senior software studio lead. Given a mobile app idea, choose which specialist agents are required. Reply with ONLY a JSON object: {"complexity":"simple|standard|ai_powered|enterprise","roles":["product_manager", ...]}. Allowed roles: ' +
       ALL_ROLES.join(", ") +
-      '. No prose, no code fences.';
-    try { await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id); }
-    catch (e) { return { ok: false as const, error: (e as Error).message }; }
+      ". No prose, no code fences.";
+    try {
+      await consumeOrThrow(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id);
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message };
+    }
     const r = await callAI(sys, project.prompt);
 
     let complexity: keyof typeof COMPLEXITY_PRESETS = "standard";
@@ -66,11 +67,8 @@ export const startAgentRun = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const roles = data.roles.filter((r): r is AgentRole =>
-      ALL_ROLES.includes(r as AgentRole),
-    );
-    if (roles.length === 0)
-      return { ok: false as const, error: "No valid roles" };
+    const roles = data.roles.filter((r): r is AgentRole => ALL_ROLES.includes(r as AgentRole));
+    if (roles.length === 0) return { ok: false as const, error: "No valid roles" };
 
     const { data: project } = await supabase
       .from("projects")
@@ -90,8 +88,7 @@ export const startAgentRun = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (runErr || !run)
-      return { ok: false as const, error: runErr?.message ?? "Run failed" };
+    if (runErr || !run) return { ok: false as const, error: runErr?.message ?? "Run failed" };
 
     const tasks = roles.map((role, i) => ({
       run_id: run.id,
@@ -110,9 +107,7 @@ export const startAgentRun = createServerFn({ method: "POST" })
 /** Execute one agent task; uses the project prompt + earlier completed tasks as context. */
 export const runAgentTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ taskId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ taskId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -121,19 +116,14 @@ export const runAgentTask = createServerFn({ method: "POST" })
       .select("id, run_id, project_id, role, ordinal, status, user_id")
       .eq("id", data.taskId)
       .maybeSingle();
-    if (!task || task.user_id !== userId)
-      return { ok: false as const, error: "Task not found" };
-    if (task.status === "completed")
-      return { ok: true as const, cached: true };
+    if (!task || task.user_id !== userId) return { ok: false as const, error: "Task not found" };
+    if (task.status === "completed") return { ok: true as const, cached: true };
 
     const role = task.role as AgentRole;
     const def = AGENTS[role];
     if (!def) return { ok: false as const, error: "Unknown role" };
 
-    await supabase
-      .from("agent_tasks")
-      .update({ status: "working" })
-      .eq("id", task.id);
+    await supabase.from("agent_tasks").update({ status: "working" }).eq("id", task.id);
 
     const { data: project } = await supabase
       .from("projects")
@@ -152,10 +142,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
     const priorBlock =
       (prior ?? [])
         .filter((p) => p.output)
-        .map(
-          (p) =>
-            `### From ${AGENTS[p.role as AgentRole]?.name ?? p.role}\n${p.output}`,
-        )
+        .map((p) => `### From ${AGENTS[p.role as AgentRole]?.name ?? p.role}\n${p.output}`)
         .join("\n\n") || "(no prior agent output)";
 
     // ─── SPECIAL: error_detector — validate schema locally ───
@@ -170,34 +157,39 @@ export const runAgentTask = createServerFn({ method: "POST" })
 
       let output = "";
       if (!proj?.result) {
-        output = "⚠️ No app schema found in project result. Nothing to validate.\n\nWaiting for code generation to complete before error detection can run.";
+        output =
+          "⚠️ No app schema found in project result. Nothing to validate.\n\nWaiting for code generation to complete before error detection can run.";
       } else {
         const parsed = parseAppSchema(proj.result);
         if (!parsed) {
-          output = "❌ **Critical**: Failed to parse app schema from project result.\n\nThe generated JSON is malformed or empty. A full regeneration is recommended.";
+          output =
+            "❌ **Critical**: Failed to parse app schema from project result.\n\nThe generated JSON is malformed or empty. A full regeneration is recommended.";
         } else {
           const { schema: fixed, issues } = validateAndFixSchema(parsed);
           const summary = formatIssuesSummary(issues);
-          const errors = issues.filter(i => i.severity === "error");
-          const warnings = issues.filter(i => i.severity === "warning");
-          const autoFixed = issues.filter(i => i.autoFixed);
+          const errors = issues.filter((i) => i.severity === "error");
+          const warnings = issues.filter((i) => i.severity === "warning");
+          const autoFixed = issues.filter((i) => i.autoFixed);
 
           output = `## Schema Validation Report\n\n${summary}\n\n`;
           if (issues.length === 0) {
             output += "✅ All elements are valid. No issues detected.\n";
           } else {
             if (errors.length > 0) {
-              output += `### ❌ Errors (${errors.length})\n${errors.map(e => `- \`${e.path}\`: ${e.message}`).join("\n")}\n\n`;
+              output += `### ❌ Errors (${errors.length})\n${errors.map((e) => `- \`${e.path}\`: ${e.message}`).join("\n")}\n\n`;
             }
             if (warnings.length > 0) {
-              output += `### ⚠️ Warnings (${warnings.length})\n${warnings.map(w => `- \`${w.path}\`: ${w.message}${w.autoFixed ? " *(auto-fixed)*" : ""}`).join("\n")}\n\n`;
+              output += `### ⚠️ Warnings (${warnings.length})\n${warnings.map((w) => `- \`${w.path}\`: ${w.message}${w.autoFixed ? " *(auto-fixed)*" : ""}`).join("\n")}\n\n`;
             }
             if (autoFixed.length > 0) {
-              output += `### 🔧 Auto-Fixed (${autoFixed.length})\nThe following issues were automatically repaired and the schema was updated:\n${autoFixed.map(f => `- \`${f.path}\`: ${f.message}`).join("\n")}\n`;
+              output += `### 🔧 Auto-Fixed (${autoFixed.length})\nThe following issues were automatically repaired and the schema was updated:\n${autoFixed.map((f) => `- \`${f.path}\`: ${f.message}`).join("\n")}\n`;
 
               // Persist the fixed schema back
               if (fixed) {
-                await supabase.from("projects").update({ result: JSON.stringify(fixed) }).eq("id", task.project_id);
+                await supabase
+                  .from("projects")
+                  .update({ result: JSON.stringify(fixed) })
+                  .eq("id", task.project_id);
                 output += "\n\n✅ Fixed schema has been saved to the project.";
               }
             }
@@ -210,15 +202,18 @@ export const runAgentTask = createServerFn({ method: "POST" })
         .update({ status: "completed", output, error_text: null })
         .eq("id", task.id);
       await supabase.from("agent_messages").insert({
-        run_id: task.run_id, project_id: task.project_id, user_id: userId,
-        role, content: `${def.name} completed schema validation.`,
+        run_id: task.run_id,
+        project_id: task.project_id,
+        user_id: userId,
+        role,
+        content: `${def.name} completed schema validation.`,
       });
       return { ok: true as const, output };
     }
 
     // ─── SPECIAL: summary_agent — summarize prior outputs locally ───
     if (role === "summary_agent") {
-      const completedTasks = (prior ?? []).filter(p => p.output);
+      const completedTasks = (prior ?? []).filter((p) => p.output);
       let output = `## Build Summary\n\n`;
       output += `**${completedTasks.length} agents** completed their tasks.\n\n`;
       for (const p of completedTasks) {
@@ -233,36 +228,48 @@ export const runAgentTask = createServerFn({ method: "POST" })
         .update({ status: "completed", output, error_text: null })
         .eq("id", task.id);
       await supabase.from("agent_messages").insert({
-        run_id: task.run_id, project_id: task.project_id, user_id: userId,
-        role, content: `${def.name} compiled the build summary.`,
+        run_id: task.run_id,
+        project_id: task.project_id,
+        user_id: userId,
+        role,
+        content: `${def.name} compiled the build summary.`,
       });
       return { ok: true as const, output };
     }
 
     // ─── DEFAULT: Call AI gateway ───
     const priorRoles = (prior ?? [])
-      .filter(p => p.output)
-      .map(p => AGENTS[p.role as AgentRole]?.name ?? p.role);
-    const teamInstruction = priorRoles.length > 0
-      ? `You are working as part of a team. The following agents have already completed their work: ${priorRoles.join(", ")}. ` +
-        `You MUST reference their specific decisions and build upon them — do NOT contradict or duplicate their work. ` +
-        `Cite specific details from their outputs (colors, features, screens, etc.) in yours.\n` +
-        `If you are the UI/UX Designer, you MUST specify exact element types from the catalog (parallax-hero, glass-card, stat-card-xl, line-chart, bank-card, etc.) with their props. Generic descriptions like 'card component' are NOT acceptable.`
-      : `You are the first agent on this project. Set the foundation for the team.`;
+      .filter((p) => p.output)
+      .map((p) => AGENTS[p.role as AgentRole]?.name ?? p.role);
+    const teamInstruction =
+      priorRoles.length > 0
+        ? `You are working as part of a team. The following agents have already completed their work: ${priorRoles.join(", ")}. ` +
+          `You MUST reference their specific decisions and build upon them — do NOT contradict or duplicate their work. ` +
+          `Cite specific details from their outputs (colors, features, screens, etc.) in yours.\n` +
+          `If you are the UI/UX Designer, you MUST specify exact element types from the catalog (parallax-hero, glass-card, stat-card-xl, line-chart, bank-card, etc.) with their props. Generic descriptions like 'card component' are NOT acceptable.`
+        : `You are the first agent on this project. Set the foundation for the team.`;
 
     let figmaContext = "";
     if (project?.figma_tokens) {
       try {
-        const tokens = typeof project.figma_tokens === "string" 
-          ? JSON.parse(project.figma_tokens) 
-          : project.figma_tokens;
+        const tokens =
+          typeof project.figma_tokens === "string"
+            ? JSON.parse(project.figma_tokens)
+            : project.figma_tokens;
         if (tokens.colors?.length || tokens.typography?.length || tokens.components?.length) {
-          figmaContext = `## Figma Design Tokens (Imported by User)\n` +
+          figmaContext =
+            `## Figma Design Tokens (Imported by User)\n` +
             `Use the following exact tokens for colors, fonts, layouts, and components:\n` +
             (tokens.colors?.length ? `- Colors: ${tokens.colors.join(", ")}\n` : "") +
-            (tokens.typography?.length ? `- Typography: ${tokens.typography.map((t: any) => `${t.fontFamily} (${t.fontSize}px w${t.fontWeight})`).join(", ")}\n` : "") +
-            (tokens.components?.length ? `- Figma Components: ${tokens.components.map((c: any) => c.name).join(", ")}\n` : "") +
-            (tokens.layout?.length ? `- Layout Spacing Gaps: ${tokens.layout.map((l: any) => `${l.name} (${l.layoutMode} gap ${l.gap})`).join(", ")}\n` : "") +
+            (tokens.typography?.length
+              ? `- Typography: ${tokens.typography.map((t: any) => `${t.fontFamily} (${t.fontSize}px w${t.fontWeight})`).join(", ")}\n`
+              : "") +
+            (tokens.components?.length
+              ? `- Figma Components: ${tokens.components.map((c: any) => c.name).join(", ")}\n`
+              : "") +
+            (tokens.layout?.length
+              ? `- Layout Spacing Gaps: ${tokens.layout.map((l: any) => `${l.name} (${l.layoutMode} gap ${l.gap})`).join(", ")}\n`
+              : "") +
             `\n`;
         }
       } catch (e) {
@@ -278,9 +285,13 @@ export const runAgentTask = createServerFn({ method: "POST" })
       `Previous agents' outputs:\n${priorBlock}\n\n` +
       `Now produce YOUR specialized output for this app. Be specific, actionable, and reference prior agents' decisions.`;
 
-    try { await consumeOrThrow(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id); }
-    catch (e) {
-      await supabase.from("agent_tasks").update({ status: "failed", error_text: (e as Error).message }).eq("id", task.id);
+    try {
+      await consumeOrThrow(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id);
+    } catch (e) {
+      await supabase
+        .from("agent_tasks")
+        .update({ status: "failed", error_text: (e as Error).message })
+        .eq("id", task.id);
       return { ok: false as const, error: (e as Error).message };
     }
     const r = await callAI(def.system, userPrompt);
@@ -307,7 +318,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
       .order("ordinal", { ascending: true })
       .limit(1);
     const nextRole = (nextRows?.[0]?.role as AgentRole | undefined) ?? null;
-    const nextName = nextRole ? AGENTS[nextRole]?.name ?? nextRole : null;
+    const nextName = nextRole ? (AGENTS[nextRole]?.name ?? nextRole) : null;
 
     // Generate a substantive team-chat message that feels like a real teammate.
     const teamSys =
@@ -320,9 +331,10 @@ export const runAgentTask = createServerFn({ method: "POST" })
       `Be concrete. No headings, bullets, or code fences.`;
     const teamUser = `App: ${project?.name ?? ""}\n\nMy output just now:\n${r.text.slice(0, 2500)}`;
     const chat = await callAI(teamSys, teamUser);
-    const chatContent = chat.ok && chat.text.trim()
-      ? chat.text.trim()
-      : `${def.name} finished${nextName ? `. @${nextName} — you're up.` : "."}`;
+    const chatContent =
+      chat.ok && chat.text.trim()
+        ? chat.text.trim()
+        : `${def.name} finished${nextName ? `. @${nextName} — you're up.` : "."}`;
 
     await supabase.from("agent_messages").insert({
       run_id: task.run_id,
@@ -340,9 +352,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
  *  the app schema so the preview actually reflects the agents' work. */
 export const finalizeAgentRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ runId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ runId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: tasks } = await supabase
@@ -353,15 +363,10 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
     if (!tasks || tasks.length === 0 || tasks[0].user_id !== userId)
       return { ok: false as const, error: "Run not found" };
     const anyFailed = tasks.some((t) => t.status === "failed");
-    const allDone = tasks.every(
-      (t) => t.status === "completed" || t.status === "failed",
-    );
+    const allDone = tasks.every((t) => t.status === "completed" || t.status === "failed");
     if (!allDone) return { ok: true as const, status: "running" };
     const next = anyFailed ? "failed" : "completed";
-    await supabase
-      .from("agent_runs")
-      .update({ status: next })
-      .eq("id", data.runId);
+    await supabase.from("agent_runs").update({ status: next }).eq("id", data.runId);
 
     // ─── KEY FIX: Regenerate app schema from combined agent outputs ───
     // This is what makes agents actually work as a team — their individual
@@ -385,9 +390,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
           .single();
         if (!project) throw new Error("Project not found");
 
-        const completedTasks = tasks.filter(
-          (t) => t.status === "completed" && t.output,
-        );
+        const completedTasks = tasks.filter((t) => t.status === "completed" && t.output);
         const agentContext = completedTasks
           .map((t) => {
             const agentName = AGENTS[t.role as AgentRole]?.name ?? t.role;
@@ -403,32 +406,24 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
         // pipeline already consumes, so the spec is ready-to-apply with no second
         // AI call.
         try {
-          const {
-            parseBackendSpecFromText,
-            mergeBackendSpec,
-            validateBackendSpec,
-          } = await import("./backend-provision.functions");
+          const { parseBackendSpecFromText, mergeBackendSpec, validateBackendSpec } =
+            await import("./backend-provision.functions");
 
-          const architectOutput =
-            completedTasks.find((t) => t.role === "database_architect")?.output;
-          const developerOutput =
-            completedTasks.find((t) => t.role === "backend_developer")?.output;
+          const architectOutput = completedTasks.find(
+            (t) => t.role === "database_architect",
+          )?.output;
+          const developerOutput = completedTasks.find(
+            (t) => t.role === "backend_developer",
+          )?.output;
 
-          const architectSpec = architectOutput
-            ? parseBackendSpecFromText(architectOutput)
-            : null;
-          const developerSpec = developerOutput
-            ? parseBackendSpecFromText(developerOutput)
-            : null;
+          const architectSpec = architectOutput ? parseBackendSpecFromText(architectOutput) : null;
+          const developerSpec = developerOutput ? parseBackendSpecFromText(developerOutput) : null;
 
           if (architectSpec || developerSpec) {
             const merged = mergeBackendSpec(architectSpec, developerSpec);
             const validation = validateBackendSpec(merged);
             if (validation.ok) {
-              await supabase
-                .from("projects")
-                .update({ backend_spec: merged })
-                .eq("id", project.id);
+              await supabase.from("projects").update({ backend_spec: merged }).eq("id", project.id);
 
               const counts = {
                 tables: merged.tables?.length ?? 0,
@@ -440,8 +435,7 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
               if (counts.tables) parts.push(`${counts.tables} tables`);
               if (counts.functions) parts.push(`${counts.functions} PG functions`);
               if (counts.storage) parts.push(`${counts.storage} storage buckets`);
-              if (counts.edge_functions)
-                parts.push(`${counts.edge_functions} edge functions`);
+              if (counts.edge_functions) parts.push(`${counts.edge_functions} edge functions`);
               const summary =
                 parts.length > 0
                   ? `🗄️ **Backend designed:** ${parts.join(", ")}. Open the Backend panel → paste your Supabase Management PAT → Apply / Deploy.`
@@ -470,9 +464,11 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
 
         // Pass 1: Prefer the user-approved brief stored on the project; only
         // fall back to AI extraction when no approved brief exists.
-        let designBrief = '';
+        let designBrief = "";
         const savedBrief =
-          (project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments))
+          project.attachments &&
+          typeof project.attachments === "object" &&
+          !Array.isArray(project.attachments)
             ? (project.attachments as Record<string, unknown>).design_brief
             : undefined;
 
@@ -503,30 +499,50 @@ Extract this JSON:
 }
 
 Use agents' exact values if provided. Infer from domain if not. Always 4-6 screens.`;
-            const briefResult = await callAI(extractionPrompt, '');
+            const briefResult = await callAI(extractionPrompt, "");
             if (briefResult.ok) {
               designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
             }
           } catch (e) {
-            console.log("[finalizeAgentRun] Brief extraction skipped (credits):", (e as Error).message);
+            console.log(
+              "[finalizeAgentRun] Brief extraction skipped (credits):",
+              (e as Error).message,
+            );
           }
         }
 
         // Pass 2: Generate the full app schema
-        try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id); }
-        catch (e) { throw new Error((e as Error).message); }
+        try {
+          await consumeOrThrow(
+            userId,
+            CREDIT_COSTS.generate_project,
+            "agent_run.finalize",
+            project.id,
+          );
+        } catch (e) {
+          throw new Error((e as Error).message);
+        }
 
         let figmaPromptSnippet = "";
         if (project.figma_tokens) {
           try {
-            const tokens = typeof project.figma_tokens === "string" 
-              ? JSON.parse(project.figma_tokens) 
-              : project.figma_tokens;
+            const tokens =
+              typeof project.figma_tokens === "string"
+                ? JSON.parse(project.figma_tokens)
+                : project.figma_tokens;
             if (tokens.colors?.length || tokens.typography?.length) {
-              figmaPromptSnippet = `## Figma Design Context\n` +
+              figmaPromptSnippet =
+                `## Figma Design Context\n` +
                 `The user imported these tokens from Figma. You MUST prioritize using them:\n` +
-                (tokens.colors?.length ? `- Palette Colors: ${tokens.colors.slice(0, 10).join(", ")}\n` : "") +
-                (tokens.typography?.length ? `- Heading/Body Fonts: ${tokens.typography.slice(0, 5).map((t: any) => t.fontFamily).join(", ")}\n` : "") +
+                (tokens.colors?.length
+                  ? `- Palette Colors: ${tokens.colors.slice(0, 10).join(", ")}\n`
+                  : "") +
+                (tokens.typography?.length
+                  ? `- Heading/Body Fonts: ${tokens.typography
+                      .slice(0, 5)
+                      .map((t: any) => t.fontFamily)
+                      .join(", ")}\n`
+                  : "") +
                 `\n`;
             }
           } catch {
@@ -545,22 +561,33 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         // element types to emit (no `text` placeholders like "[split-hero]").
         let screensChecklist = "";
         try {
-          const brief = (savedBrief && typeof savedBrief === "object") ? savedBrief as Record<string, unknown> : null;
-          const briefScreens = Array.isArray(brief?.screens) ? brief!.screens as Array<Record<string, unknown>> : [];
+          const brief =
+            savedBrief && typeof savedBrief === "object"
+              ? (savedBrief as Record<string, unknown>)
+              : null;
+          const briefScreens = Array.isArray(brief?.screens)
+            ? (brief!.screens as Array<Record<string, unknown>>)
+            : [];
           if (briefScreens.length > 0) {
             screensChecklist =
               `\n\n## Screen Build Checklist (render EACH as a real screen with the listed element TYPES — never as a text element containing the type name)\n` +
-              briefScreens.map((s, i) => {
-                const id = String(s.id ?? `screen-${i + 1}`);
-                const title = String(s.title ?? id);
-                const layout = String(s.layout ?? "stack");
-                const icon = String(s.icon ?? "circle");
-                const purpose = typeof s.purpose === "string" ? s.purpose : "";
-                const prims = Array.isArray(s.keyPrimitives) ? (s.keyPrimitives as string[]).join(", ") : "";
-                return `${i + 1}. id="${id}" title="${title}" layout="${layout}" icon="${icon}"\n   purpose: ${purpose}\n   required element types (emit as real elements, 6-10 total): ${prims}`;
-              }).join("\n");
+              briefScreens
+                .map((s, i) => {
+                  const id = String(s.id ?? `screen-${i + 1}`);
+                  const title = String(s.title ?? id);
+                  const layout = String(s.layout ?? "stack");
+                  const icon = String(s.icon ?? "circle");
+                  const purpose = typeof s.purpose === "string" ? s.purpose : "";
+                  const prims = Array.isArray(s.keyPrimitives)
+                    ? (s.keyPrimitives as string[]).join(", ")
+                    : "";
+                  return `${i + 1}. id="${id}" title="${title}" layout="${layout}" icon="${icon}"\n   purpose: ${purpose}\n   required element types (emit as real elements, 6-10 total): ${prims}`;
+                })
+                .join("\n");
           }
-        } catch { /* non-fatal */ }
+        } catch {
+          /* non-fatal */
+        }
 
         // When an approved brief exists, it is the SINGLE SOURCE OF TRUTH for
         // design (palette, typography, screens, layout). Agent design outputs
@@ -589,7 +616,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             (figmaPromptSnippet ? `${figmaPromptSnippet}\n` : "") +
             (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
             designBrief +
-            screensChecklist + `\n\n` +
+            screensChecklist +
+            `\n\n` +
             (filteredAgentContext
               ? `## Supporting Specialist Outputs (data/backend only — DO NOT use to override design)\n${filteredAgentContext}\n\n`
               : "") +
@@ -612,7 +640,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             (knowledgeBlock ? `## Knowledge Base\n${knowledgeBlock}\n\n` : "") +
             `## Agent Team Outputs\nThe following specialist agents analyzed and designed this app:\n\n${agentContext}\n\n` +
             designBrief +
-            screensChecklist + `\n\n` +
+            screensChecklist +
+            `\n\n` +
             `## CRITICAL INSTRUCTIONS\n` +
             `1. Follow the Screen Build Checklist EXACTLY — same id, title, layout, icon, and element types per screen. Element types in the checklist MUST be emitted as real elements (e.g. {"type":"split-hero",...}), NEVER as a "text" element whose content is "[split-hero]".\n` +
             `2. Use the Designer's EXACT color palette (already in theme.palette). Do not invent new colors.\n` +
@@ -637,8 +666,12 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         let result: { ok: boolean; text: string; error?: string } = { ok: false, text: "" };
         let usedMockupPipeline = false;
         const mockupUrl =
-          (project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments))
-            ? ((project.attachments as Record<string, unknown>).design_mockup_url as string | undefined)
+          project.attachments &&
+          typeof project.attachments === "object" &&
+          !Array.isArray(project.attachments)
+            ? ((project.attachments as Record<string, unknown>).design_mockup_url as
+                | string
+                | undefined)
             : undefined;
 
         if (savedBrief && typeof savedBrief === "object" && mockupUrl) {
@@ -680,7 +713,9 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               // comparison artifact next to the build output.
               try {
                 const prevAttachments =
-                  project.attachments && typeof project.attachments === "object" && !Array.isArray(project.attachments)
+                  project.attachments &&
+                  typeof project.attachments === "object" &&
+                  !Array.isArray(project.attachments)
                     ? (project.attachments as Record<string, unknown>)
                     : {};
                 const buildMatch = {
@@ -705,12 +740,14 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
                 console.warn("[finalizeAgentRun] failed to persist build_match:", e);
               }
 
-              const scoreStr = typeof mp.winnerScore === "number" ? ` — **${mp.winnerScore}/100 confidence**` : "";
-              const racedList = mp.candidateModels && mp.candidateModels.length > 1
-                ? `\n_Raced ${mp.candidateModels.length} models:_ ${mp.candidateModels
-                    .map((m, i) => `${m} (${mp.candidateScores?.[i] ?? 0})`)
-                    .join(", ")}`
-                : "";
+              const scoreStr =
+                typeof mp.winnerScore === "number" ? ` — **${mp.winnerScore}/100 confidence**` : "";
+              const racedList =
+                mp.candidateModels && mp.candidateModels.length > 1
+                  ? `\n_Raced ${mp.candidateModels.length} models:_ ${mp.candidateModels
+                      .map((m, i) => `${m} (${mp.candidateScores?.[i] ?? 0})`)
+                      .join(", ")}`
+                  : "";
               const reportLink = mp.comparisonReportUrl
                 ? `\n[📊 View comparison artifacts](${mp.comparisonReportUrl})`
                 : "";
@@ -726,19 +763,20 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
                   reportLink,
               });
             } else {
-              console.warn("[finalizeAgentRun] mockup pipeline failed, falling back:", mp.error, mp.stages);
+              console.warn(
+                "[finalizeAgentRun] mockup pipeline failed, falling back:",
+                mp.error,
+                mp.stages,
+              );
             }
           } catch (e) {
             console.error("[finalizeAgentRun] mockup pipeline error, falling back:", e);
           }
         }
 
-
         if (!usedMockupPipeline) {
           const r = await callAIStrong(CODE_GEN_SYSTEM_PROMPT, userPrompt);
-          result = r.ok
-            ? { ok: true, text: r.text }
-            : { ok: false, text: "", error: r.error };
+          result = r.ok ? { ok: true, text: r.text } : { ok: false, text: "", error: r.error };
         }
 
         if (result.ok && result.text.length > 50) {
@@ -754,7 +792,11 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               .eq("id", project.id);
 
             const screenCount = (fixed ?? parsed).screens?.length ?? 0;
-            const elementCount = (fixed ?? parsed).screens?.reduce((sum: number, s: { elements?: unknown[] }) => sum + (s.elements?.length ?? 0), 0) ?? 0;
+            const elementCount =
+              (fixed ?? parsed).screens?.reduce(
+                (sum: number, s: { elements?: unknown[] }) => sum + (s.elements?.length ?? 0),
+                0,
+              ) ?? 0;
 
             await supabase.from("agent_messages").insert({
               run_id: data.runId,
@@ -809,7 +851,13 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             // there, so this is what the user actually sees and ships.
             try {
               const { buildCodeForProjectInternal } = await import("./code-gen-build.functions");
-              const cg = await buildCodeForProjectInternal(project.id, userId);
+              // Pass the authed client so code-gen persists even without the
+              // service-role key (local dev) — RLS lets the owner write.
+              const cg = await buildCodeForProjectInternal(
+                project.id,
+                userId,
+                supabase as unknown as { from: (t: string) => unknown },
+              );
               if (cg.ok) {
                 await supabase.from("agent_messages").insert({
                   run_id: data.runId,
@@ -824,7 +872,6 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             } catch (e) {
               console.error("[finalizeAgentRun] codegen error:", e);
             }
-
           } else {
             await supabase
               .from("projects")

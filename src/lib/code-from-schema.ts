@@ -39,6 +39,20 @@ function safeId(s: string): string {
   return s.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^[0-9]/, "_$&");
 }
 
+/**
+ * Returns a usable <img> src, dropping oversized inline `data:` URIs. The
+ * schema sometimes carries multi-MB base64 PNGs; inlining those into the
+ * generated source bloats a single screen file to megabytes and chokes the
+ * Sandpack preview. Hosted URLs (and small data URIs) pass through unchanged;
+ * an oversized data URI yields "" so the caller falls back to a gradient.
+ */
+const MAX_INLINE_DATA_URI = 4096;
+function imgSrc(v: unknown): string {
+  const s = typeof v === "string" ? v : "";
+  if (s.startsWith("data:") && s.length > MAX_INLINE_DATA_URI) return "";
+  return s;
+}
+
 function resolveTheme(theme: MobileAppSchema["theme"]): MobileTheme {
   if (theme && typeof theme === "object") return theme as MobileTheme;
   // String preset name — provide a sensible default. The renderer maps
@@ -143,7 +157,7 @@ ${pad}</div>`;
     case "slide": {
       // Large editorial hero. Uses the element image as a full-bleed background
       // with a dark scrim so the text stays legible; falls back to a gradient.
-      const heroImg = e.image ?? e.src ?? e.background;
+      const heroImg = imgSrc(e.image ?? e.src ?? e.background);
       const cta = e.buttonLabel ?? e.cta;
       return `${pad}<div className="relative mx-5 my-3 rounded-3xl overflow-hidden shadow-lg min-h-[200px] flex items-end ${heroImg ? "" : "bg-gradient-to-br from-[var(--c-primary)] to-[var(--c-accent)]"}">
 ${heroImg ? `${pad}  <img src=${JSON.stringify(String(heroImg))} alt="" className="absolute inset-0 h-full w-full object-cover" />\n${pad}  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />` : ""}
@@ -160,7 +174,7 @@ ${pad}</div>`;
     case "feature-showcase":
     case "promo-card": {
       // Compact content card with an optional image.
-      const img = e.image ?? e.src;
+      const img = imgSrc(e.image ?? e.src);
       return `${pad}<div${action} className="mx-5 my-2 rounded-2xl overflow-hidden bg-[var(--c-card)] border border-[var(--c-border)]">
 ${img ? `${pad}  <img src=${JSON.stringify(String(img))} alt="" className="w-full h-36 object-cover" />` : ""}
 ${pad}  <div className="p-4">
@@ -191,7 +205,7 @@ ${pad}</div>`;
       const cells = cards
         .map((c, i) => {
           const ca = actionHandler(c.action as MAction | undefined);
-          const img = c.image ?? c.src;
+          const img = imgSrc(c.image ?? c.src);
           return `${pad}    <button${ca} key={${i}} className="text-left rounded-2xl overflow-hidden bg-[var(--c-card)] border border-[var(--c-border)] active:scale-[0.98] transition-transform">${img ? `<img src=${JSON.stringify(String(img))} alt="" className="w-full h-24 object-cover" />` : ""}<div className="p-3">${c.badge ? `<span className="inline-block rounded-full bg-[var(--c-primary)]/15 text-[var(--c-primary)] px-2 py-0.5 text-[10px] font-medium mb-1">${jsx(c.badge)}</span>` : ""}<p className="text-sm font-semibold text-[var(--c-text)] truncate">${jsx(c.title ?? c.label ?? c.name)}</p>${c.subtitle ? `<p className="text-xs text-[var(--c-muted)] truncate">${jsx(c.subtitle)}</p>` : ""}</div></button>`;
         })
         .join("\n");
@@ -209,8 +223,12 @@ ${pad}  <p className="text-4xl font-bold text-[var(--c-text)] mt-1">${jsx(e.valu
 ${pad}  ${delta ? `<p className="text-sm text-[var(--c-muted)] mt-1">${jsx(delta)}</p>` : ""}
 ${pad}</div>`;
     }
-    case "image":
-      return `${pad}<img src=${JSON.stringify(String(e.src ?? e.url ?? ""))} alt=${JSON.stringify(String(e.alt ?? ""))} className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] object-cover" />`;
+    case "image": {
+      const src = imgSrc(e.src ?? e.url);
+      if (!src)
+        return `${pad}<div className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] aspect-video bg-[var(--c-card)] border border-[var(--c-border)]" />`;
+      return `${pad}<img src=${JSON.stringify(src)} alt=${JSON.stringify(String(e.alt ?? ""))} className="mx-5 my-2 rounded-2xl w-[calc(100%-2.5rem)] object-cover" />`;
+    }
     case "avatar":
       return `${pad}<div className="px-5 py-2"><div className="h-12 w-12 rounded-full bg-[var(--c-card)] border border-[var(--c-border)] grid place-items-center text-[var(--c-text)] font-semibold">${jsx(
         String(e.initials ?? e.name ?? "U")

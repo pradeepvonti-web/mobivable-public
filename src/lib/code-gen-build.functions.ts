@@ -18,8 +18,39 @@ import { z } from "zod";
 import { generateProjectFromSchema } from "./code-from-schema";
 import type { MobileAppSchema } from "./mobile-app-schema";
 
-async function loadSchema(projectId: string, userId: string): Promise<MobileAppSchema | null> {
-  const { data, error } = await supabaseAdmin
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type DbClient = { from: (table: string) => any };
+
+/**
+ * Prefer the service-role admin client (bypasses RLS); fall back to the
+ * caller's authenticated client when SUPABASE_SERVICE_ROLE_KEY is absent
+ * (e.g. local dev, where the managed secret isn't injected). RLS lets a
+ * project owner manage their own `project_file_overrides` rows
+ * (`user_id = auth.uid()`), so the authed client works for the owner — the
+ * generated code persists without the service-role key.
+ */
+function getDb(userDb?: DbClient): DbClient {
+  try {
+    // Accessing `.from` triggers the lazy supabaseAdmin proxy, which throws
+    // when SUPABASE_SERVICE_ROLE_KEY is missing.
+    const test = supabaseAdmin as unknown as DbClient;
+    if (test && typeof test.from === "function") return test;
+  } catch {
+    /* service-role key unavailable — fall through to the user's client */
+  }
+  if (userDb) return userDb;
+  throw new Error(
+    "No database client available. Set SUPABASE_SERVICE_ROLE_KEY or pass a user session.",
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+async function loadSchema(
+  projectId: string,
+  userId: string,
+  db: DbClient,
+): Promise<MobileAppSchema | null> {
+  const { data, error } = await db
     .from("projects")
     .select("result, user_id")
     .eq("id", projectId)
@@ -43,19 +74,25 @@ async function loadSchema(projectId: string, userId: string): Promise<MobileAppS
 export async function buildCodeForProjectInternal(
   projectId: string,
   userId: string,
+  userDb?: DbClient,
 ): Promise<{ ok: true; fileCount: number; screenCount: number } | { ok: false; error: string }> {
-  const schema = await loadSchema(projectId, userId);
+  const db = getDb(userDb);
+  const usingAdmin = db !== userDb;
+  const schema = await loadSchema(projectId, userId, db);
   if (!schema) return { ok: false, error: "No saved schema for this project." };
 
   const project = generateProjectFromSchema(schema);
   const entries = Object.entries(project.files);
 
   // Remove old generated overrides, then bulk insert the new tree.
-  const { error: delErr } = await supabaseAdmin
+  const { error: delErr } = await db
     .from("project_file_overrides")
     .delete()
     .eq("project_id", projectId);
-  if (delErr) return { ok: false, error: `Clear previous files failed: ${delErr.message}` };
+  if (delErr) {
+    console.error("[buildCode] delete failed:", delErr.message, { usingAdmin });
+    return { ok: false, error: `Clear previous files failed: ${delErr.message}` };
+  }
 
   const rows = entries.map(([file_path, content]) => ({
     project_id: projectId,
@@ -63,8 +100,15 @@ export async function buildCodeForProjectInternal(
     file_path,
     content,
   }));
-  const { error: insErr } = await supabaseAdmin.from("project_file_overrides").insert(rows);
-  if (insErr) return { ok: false, error: `Insert generated files failed: ${insErr.message}` };
+  const { error: insErr } = await db.from("project_file_overrides").insert(rows);
+  if (insErr) {
+    console.error("[buildCode] insert failed:", insErr.message, {
+      usingAdmin,
+      rowCount: rows.length,
+    });
+    return { ok: false, error: `Insert generated files failed: ${insErr.message}` };
+  }
+  console.log(`[buildCode] persisted ${rows.length} files (admin=${usingAdmin})`);
 
   return { ok: true, fileCount: entries.length, screenCount: project.screenCount };
 }
@@ -73,7 +117,13 @@ export const buildCodeForProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ projectId: z.string().uuid() }).parse)
   .handler(async ({ data, context }) => {
-    return buildCodeForProjectInternal(data.projectId, context.userId);
+    // Pass the caller's authed client so this works without the service-role
+    // key (local dev): RLS lets the owner write their own file overrides.
+    return buildCodeForProjectInternal(
+      data.projectId,
+      context.userId,
+      context.supabase as unknown as DbClient,
+    );
   });
 
 // ─── GitHub multi-file commit ───────────────────────────────────────
@@ -116,7 +166,10 @@ async function commitFilesToRepo(
     token,
   );
   if (!refRes.ok) {
-    return { ok: false, error: `Get ref failed (${refRes.status}): ${(await refRes.text()).slice(0, 200)}` };
+    return {
+      ok: false,
+      error: `Get ref failed (${refRes.status}): ${(await refRes.text()).slice(0, 200)}`,
+    };
   }
   const refJson = (await refRes.json()) as { object: { sha: string } };
   const latestCommitSha = refJson.object.sha;
@@ -146,13 +199,18 @@ async function commitFilesToRepo(
           { method: "POST", body: JSON.stringify({ content, encoding: "utf-8" }) },
           token,
         );
-        if (!r.ok) return { path, sha: "", error: `${r.status}: ${(await r.text()).slice(0, 120)}` };
+        if (!r.ok)
+          return { path, sha: "", error: `${r.status}: ${(await r.text()).slice(0, 120)}` };
         const j = (await r.json()) as { sha: string };
         return { path, sha: j.sha };
       }),
     );
     for (const r of results) {
-      if (!r.sha) return { ok: false, error: `Blob ${r.path} failed: ${("error" in r && r.error) || "unknown"}` };
+      if (!r.sha)
+        return {
+          ok: false,
+          error: `Blob ${r.path} failed: ${("error" in r && r.error) || "unknown"}`,
+        };
       blobShas.push({ path: r.path, sha: r.sha });
     }
   }
@@ -170,7 +228,10 @@ async function commitFilesToRepo(
     token,
   );
   if (!treeRes.ok) {
-    return { ok: false, error: `Create tree failed (${treeRes.status}): ${(await treeRes.text()).slice(0, 200)}` };
+    return {
+      ok: false,
+      error: `Create tree failed (${treeRes.status}): ${(await treeRes.text()).slice(0, 200)}`,
+    };
   }
   const treeJson = (await treeRes.json()) as { sha: string };
 
@@ -195,7 +256,10 @@ async function commitFilesToRepo(
     token,
   );
   if (!updateRes.ok) {
-    return { ok: false, error: `Update ref failed (${updateRes.status}): ${(await updateRes.text()).slice(0, 200)}` };
+    return {
+      ok: false,
+      error: `Update ref failed (${updateRes.status}): ${(await updateRes.text()).slice(0, 200)}`,
+    };
   }
 
   return {
@@ -232,7 +296,10 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
 
     if (rowsErr) return { ok: false as const, error: rowsErr.message };
     if (!rows || rows.length === 0) {
-      return { ok: false as const, error: "No generated files for this project. Run the build first." };
+      return {
+        ok: false as const,
+        error: "No generated files for this project. Run the build first.",
+      };
     }
     const files: Record<string, string> = {};
     for (const r of rows) files[r.file_path] = r.content;
@@ -252,7 +319,11 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
     let defaultBranch = "main";
     let needCreate = false;
 
-    const existsRes = await ghFetch(`https://api.github.com/repos/${fullName}`, { method: "GET" }, token);
+    const existsRes = await ghFetch(
+      `https://api.github.com/repos/${fullName}`,
+      { method: "GET" },
+      token,
+    );
     if (existsRes.status === 404) {
       needCreate = true;
     } else if (existsRes.ok) {
@@ -296,13 +367,12 @@ export const pushProjectToGithub = createServerFn({ method: "POST" })
       `Sync generated app (${Object.keys(files).length} files)`,
     );
     return result.ok
-      ? ({
+      ? {
           ok: true as const,
           repoUrl: result.repoUrl!,
           fullName: result.fullName!,
           commitSha: result.commitSha!,
           fileCount: result.fileCount ?? Object.keys(files).length,
-        })
-      : ({ ok: false as const, error: result.error ?? "Commit failed" });
+        }
+      : { ok: false as const, error: result.error ?? "Commit failed" };
   });
-

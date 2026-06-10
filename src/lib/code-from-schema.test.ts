@@ -100,3 +100,49 @@ describe("code-from-schema reads element content from props", () => {
     expect(dashboard).not.toContain(">stat-row<");
   });
 });
+
+describe("code-from-schema drops oversized inline data: URIs", () => {
+  // A multi-MB base64 image in the schema must NOT be inlined into the source
+  // (it bloats the file and chokes the Sandpack preview).
+  const bigDataUri = "data:image/png;base64," + "A".repeat(2_000_000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const schema: any = {
+    name: "Heavy",
+    theme: { mode: "dark" },
+    screens: [
+      {
+        id: "home",
+        title: "Home",
+        elements: [
+          { type: "parallax-hero", props: { title: "Hero", image: bigDataUri } },
+          { type: "image", props: { src: bigDataUri } },
+        ],
+      },
+    ],
+  };
+
+  const { files } = generateProjectFromSchema(schema);
+  const home = files["src/screens/Screen_home.tsx"] ?? "";
+
+  it("does not inline the megabyte data URI", () => {
+    expect(home).not.toContain("data:image/png;base64,AAAA");
+    expect(home.length).toBeLessThan(20_000);
+  });
+
+  it("still passes through normal hosted URLs", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s: any = {
+      name: "X",
+      theme: { mode: "dark" },
+      screens: [
+        {
+          id: "home",
+          title: "H",
+          elements: [{ type: "image", props: { src: "https://cdn.example.com/a.png" } }],
+        },
+      ],
+    };
+    const out = generateProjectFromSchema(s).files["src/screens/Screen_home.tsx"] ?? "";
+    expect(out).toContain("https://cdn.example.com/a.png");
+  });
+});
