@@ -7,8 +7,8 @@
  * file from scratch. The agent then writes/edits screens, stores, and
  * components on top, and self-verifies with `bunx tsc --noEmit` + `bun run lint`.
  *
- * Keep this lean and tsc-clean: it is the floor, not the app. Expo SDK 51 /
- * expo-router 3, file-based routing under `app/`.
+ * Keep this lean and tsc-clean: it is the floor, not the app. Expo SDK 53 /
+ * expo-router 5, file-based routing under `app/`.
  */
 
 export type FileMap = Record<string, string>;
@@ -16,7 +16,9 @@ export type FileMap = Record<string, string>;
 /** Marker file the workspace manager checks to know a scaffold was applied. */
 export const SCAFFOLD_MARKER = ".mobivable-scaffold";
 
-export const EXPO_SCAFFOLD_VERSION = "1";
+// Bump on any scaffold change so the workspace manager rescaffolds existing
+// sandboxes (the marker mismatch triggers a clean reseed + reinstall).
+export const EXPO_SCAFFOLD_VERSION = "2";
 
 /**
  * Returns the scaffold file map for a project. `appName` only affects display
@@ -48,34 +50,34 @@ export function expoScaffold(appName: string): FileMap {
           lint: "eslint .",
         },
         dependencies: {
-          expo: "~51.0.0",
-          "expo-router": "~3.5.0",
-          "expo-status-bar": "~1.12.0",
-          "expo-constants": "~16.0.0",
-          "expo-linking": "~6.3.0",
-          react: "18.2.0",
-          "react-dom": "18.2.0",
-          "react-native": "0.74.5",
-          "react-native-safe-area-context": "4.10.5",
-          "react-native-screens": "3.31.1",
-          "@expo/vector-icons": "^14.0.0",
+          expo: "~53.0.0",
+          "expo-router": "~5.0.0",
+          "expo-status-bar": "~2.2.3",
+          "expo-constants": "~17.1.0",
+          "expo-linking": "~7.1.0",
+          react: "19.0.0",
+          "react-dom": "19.0.0",
+          "react-native": "0.79.5",
+          "react-native-safe-area-context": "5.4.0",
+          "react-native-screens": "~4.10.0",
+          "@expo/vector-icons": "~14.1.0",
           // Visual primitives so the build can REPRODUCE the mockup faithfully
           // (donut/line charts, gradient heros, styled QR) instead of flattening
           // it into plain cards. All are react-native-web / expo-export safe.
-          // SDK 51-pinned versions.
-          "react-native-svg": "15.2.0", // charts/icons/QR via SVG primitives
-          "expo-linear-gradient": "~13.0.2", // gradient hero/card surfaces
-          "react-native-qrcode-svg": "^6.3.2", // QR codes (uses react-native-svg)
+          // SDK 53-pinned versions.
+          "react-native-svg": "15.11.2", // charts/icons/QR via SVG primitives
+          "expo-linear-gradient": "~14.1.0", // gradient hero/card surfaces
+          "react-native-qrcode-svg": "~6.3.2", // QR codes (uses react-native-svg)
           // Required for `expo export -p web` (the live preview build).
-          "react-native-web": "~0.19.10",
-          "@expo/metro-runtime": "~3.2.3",
+          "react-native-web": "~0.20.0",
+          "@expo/metro-runtime": "~5.0.4",
         },
         devDependencies: {
-          "@babel/core": "^7.24.0",
-          "@types/react": "~18.2.79",
-          eslint: "^8.57.0",
-          "eslint-config-expo": "^7.1.0",
-          typescript: "~5.3.3",
+          "@babel/core": "^7.25.0",
+          "@types/react": "~19.0.10",
+          eslint: "^9.0.0",
+          "eslint-config-expo": "~9.2.0",
+          typescript: "~5.8.3",
         },
         private: true,
       },
