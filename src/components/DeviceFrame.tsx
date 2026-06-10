@@ -230,8 +230,49 @@ function FlutterPreview({
  * iframe. This is the "Live" preview — the actual generated React Native app
  * compiled to web — as opposed to the schema-driven Flutter/React renderers.
  */
-function ExpoPreview({ url }: { url?: string | null }) {
+function ExpoPreview({ url, rebuilding }: { url?: string | null; rebuilding?: boolean }) {
   const [loading, setLoading] = useState(true);
+
+  // While the sandbox is being re-provisioned/rebuilt, never mount the iframe —
+  // the old URL is dead and the browser would render a raw "refused to connect"
+  // page inside the device frame. Show a rebuild state instead.
+  if (rebuilding) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          padding: 24,
+          textAlign: "center",
+          color: "#fff",
+          background: "#0A0A1A",
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            border: "2.5px solid rgba(255,255,255,0.25)",
+            borderTopColor: "#fff",
+            animation: "flutterLoadSpin 0.8s linear infinite",
+          }}
+        />
+        <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.9 }}>
+          Preview expired — rebuilding…
+        </span>
+        <span style={{ fontSize: 11, color: "#9CA3AF", maxWidth: 220 }}>
+          The live sandbox went to sleep. Spinning it back up — this takes a minute or two.
+        </span>
+        <style>{`@keyframes flutterLoadSpin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   if (!url) {
     return (
@@ -315,6 +356,7 @@ export function DeviceFrame({
   theme,
   activeScreenIndex = 0,
   expoPreviewUrl,
+  expoRebuilding,
 }: {
   os?: DeviceOS;
   /** Hex/rgb/oklch color of the app screen background (top area). Used to pick contrast for the status bar. */
@@ -332,6 +374,8 @@ export function DeviceFrame({
   activeScreenIndex?: number;
   /** Public URL of the running Expo-web build (used when renderMode='expo'). */
   expoPreviewUrl?: string | null;
+  /** True while the sandbox/preview is being auto-recovered — hides the dead iframe. */
+  expoRebuilding?: boolean;
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -509,7 +553,7 @@ export function DeviceFrame({
                 height={height}
               />
             ) : renderMode === "expo" ? (
-              <ExpoPreview url={expoPreviewUrl} />
+              <ExpoPreview url={expoPreviewUrl} rebuilding={expoRebuilding} />
             ) : (
               children
             )}

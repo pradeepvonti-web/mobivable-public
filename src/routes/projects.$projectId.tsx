@@ -879,7 +879,7 @@ function ProjectPage() {
           await reloadProject();
           return;
         }
-        if (attempts >= 48) { setRestartingExpo(false); return; } // ~4 min cap
+        if (attempts >= 96) { setRestartingExpo(false); return; } // ~8 min cap (install + export can be slow)
         buildTimer = setTimeout(tick, 5000);
       };
       buildTimer = setTimeout(tick, 5000);
@@ -4436,6 +4436,7 @@ function ProjectPage() {
             })()}
             renderMode={renderMode}
             expoPreviewUrl={expoPreviewUrl}
+            expoRebuilding={restartingExpo}
             schema={resolveRenderableSchema(project?.result, liveSchema, demoApp)}
             theme={(() => {
               try {
