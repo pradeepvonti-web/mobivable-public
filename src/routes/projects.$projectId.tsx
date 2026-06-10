@@ -1059,7 +1059,7 @@ function ProjectPage() {
     if (generating) return;
     setGenerating(true);
     try {
-      const res = await generateFn({ data: { projectId } });
+      const res = await generateFn({ data: { projectId, premium } });
       if (!res.ok) setError(res.error);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
