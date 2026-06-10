@@ -22,6 +22,118 @@ export type FlutterMessage =
    */
   | { type: 'SCREENSHOT_REQUEST'; requestId: string };
 
+// ─── Flutter prop-contract adapter ──────────────────────────────────────
+//
+// The committed Flutter preview engine (public/flutter-preview/main.dart.js)
+// reads a handful of element props under DIFFERENT keys than the schema
+// generator emits. The generator targets the contract in CODE_GEN_SYSTEM_PROMPT
+// (and the React renderer, which matches it), but `element_renderer.dart`
+// drifted — e.g. it reads `props.text` for a marquee while the schema emits
+// `props.items: string[]`, so it always shows the "Scrolling text..." default.
+//
+// Until the engine is recompiled from corrected Dart source, this adapter
+// bridges the gap on the JS side: for each affected element it copies the
+// spec-named prop into the key the engine reads. It is NON-DESTRUCTIVE — it
+// only fills the engine key when that key is absent, so any schema already
+// using the engine key (or a future rebuilt engine reading the spec key) is
+// untouched. Mirrors the mismatch table audited against the schema spec.
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type AnyObj = Record<string, any>;
+
+/** Map a single element's props from spec keys → keys the engine reads. */
+function adaptElementForFlutter(el: AnyObj): void {
+  if (!el || typeof el !== 'object') return;
+  const type = el.type;
+  // The engine reads `element['props'] ?? element`, so props may be nested
+  // under `props` or flattened onto the element. Mutate whichever holds them.
+  const props: AnyObj = el.props && typeof el.props === 'object' ? el.props : el;
+
+  switch (type) {
+    case 'marquee':
+      // spec: { items: string[] }  →  engine reads: text (single string)
+      if (props.text == null && Array.isArray(props.items)) {
+        const sep = typeof props.separator === 'string' ? `   ${props.separator}   ` : '     •     ';
+        props.text = props.items.filter((s: unknown) => typeof s === 'string').join(sep);
+      }
+      break;
+    case 'stat-card-xl':
+      // spec: { label, deltaDirection }  →  engine reads: title, deltaType
+      if (props.title == null && props.label != null) props.title = props.label;
+      if (props.deltaType == null && props.deltaDirection != null) {
+        props.deltaType = props.deltaDirection === 'down' ? 'negative' : 'positive';
+      }
+      break;
+    case 'pricing-card':
+      // spec: { name }  →  engine reads: planName
+      if (props.planName == null && props.name != null) props.planName = props.name;
+      break;
+    case 'empty-state':
+    case 'map-card':
+      // spec: { actionLabel }  →  engine reads: buttonLabel
+      if (props.buttonLabel == null && props.actionLabel != null) props.buttonLabel = props.actionLabel;
+      break;
+    case 'bank-card':
+      // spec: { cardNumber, gradient }  →  engine reads: lastFour, gradientColors
+      if (props.lastFour == null && props.cardNumber != null) {
+        props.lastFour = String(props.cardNumber).replace(/\D/g, '').slice(-4);
+      }
+      if (props.gradientColors == null && props.gradient != null) props.gradientColors = props.gradient;
+      break;
+    case 'chat-bubble':
+      // spec: { placeholder }  →  engine reads: inputPlaceholder
+      if (props.inputPlaceholder == null && props.placeholder != null) props.inputPlaceholder = props.placeholder;
+      break;
+    case 'radar-chart':
+      // spec: { color }  →  engine reads: fillColor / strokeColor
+      if (props.fillColor == null && props.color != null) props.fillColor = props.color;
+      if (props.strokeColor == null && props.color != null) props.strokeColor = props.color;
+      break;
+    case 'calendar-strip':
+      // spec: { showMonth }  →  engine reads: showHeader
+      if (props.showHeader == null && props.showMonth != null) props.showHeader = props.showMonth;
+      break;
+    case 'swipe-card':
+      // spec: cards[].prompt  →  engine reads: cards[].imagePrompt
+      if (Array.isArray(props.cards)) {
+        for (const c of props.cards) {
+          if (c && typeof c === 'object' && c.imagePrompt == null && c.prompt != null) {
+            c.imagePrompt = c.prompt;
+          }
+        }
+      }
+      break;
+  }
+
+  // Recurse into nested element arrays so adapted props reach children of
+  // containers (section, card, glass-card, gradient-mesh-bg, bottom-sheet…).
+  // All fills above are guarded by `== null`, so visiting the same node twice
+  // (when props === el) is idempotent.
+  for (const arr of [props.children, props.elements, el.children, el.elements]) {
+    if (Array.isArray(arr)) {
+      for (const child of arr) adaptElementForFlutter(child);
+    }
+  }
+}
+
+/**
+ * Return a deep clone of `schema` with every element's props remapped to the
+ * keys the compiled Flutter engine reads. See `adaptElementForFlutter`.
+ */
+export function normalizeSchemaForFlutter(schema: MobileAppSchema): MobileAppSchema {
+  const clone = JSON.parse(JSON.stringify(schema)) as MobileAppSchema;
+  const screens = (clone as AnyObj).screens;
+  if (Array.isArray(screens)) {
+    for (const screen of screens) {
+      if (Array.isArray(screen?.elements)) {
+        for (const el of screen.elements) adaptElementForFlutter(el as AnyObj);
+      }
+    }
+  }
+  return clone;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 /**
  * Send a schema update to the Flutter preview iframe.
  */
@@ -32,7 +144,9 @@ export function sendSchemaToFlutter(
   if (!iframe?.contentWindow) return;
   const message: FlutterMessage = {
     type: 'SCHEMA_UPDATE',
-    schema: JSON.parse(JSON.stringify(schema)), // deep clone to avoid proxy issues
+    // Remap spec prop keys → engine prop keys (also deep-clones, avoiding
+    // proxy issues with the live schema object).
+    schema: normalizeSchemaForFlutter(schema),
   };
   iframe.contentWindow.postMessage(message, '*');
 }

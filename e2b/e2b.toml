@@ -1,0 +1,12 @@
+# E2B template config for the Mobivable agent-build sandbox.
+# Build with:  e2b template build   (run from this directory)
+# The CLI fills in `template_id` on first build — commit it afterward.
+
+template_name = "mobivable-expo"
+dockerfile = "e2b.Dockerfile"
+
+# Generous start timeout: first boot pulls the layered image.
+# CPU/RAM bumped so Metro/expo export has headroom.
+[resources]
+cpu_count = 2
+memory_mb = 2048

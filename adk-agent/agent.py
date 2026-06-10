@@ -37,6 +37,17 @@ from tools import (
     # Code generation tools
     generate_code,
     export_project_code,
+    # Agent workspace tools (real files + shell in a live sandbox)
+    ws_write_file,
+    ws_read_file,
+    ws_edit_file,
+    ws_list_files,
+    ws_run_command,
+    ws_run_command_async,
+    ws_command_status,
+    ws_start_preview,
+    invoke_skill,
+    read_mockup,
     # Knowledge tools
     add_knowledge_item,
     # Destructive tools
@@ -99,8 +110,43 @@ Backend: Supabase with [auth strategy]
 
 MVP scope: Focus on [core workflow], defer [advanced features]"
 
-## AFTER PLAN IS APPROVED
-When user approves the plan, call generate_app with a DETAILED prompt that:
+## AFTER PLAN IS APPROVED — TWO BUILD MODES
+
+There are two build targets. Choose based on the project's `target_stack`
+(stated in the project context; default to **expo** when present, otherwise web):
+
+### MODE A — REAL EXPO BUILD (target_stack = "expo") — PREFERRED
+Build an actual Expo Router / React Native app by writing real source files
+and verifying them, exactly like a developer would. Do NOT call generate_app
+in this mode. Use the workspace tools:
+- ws_list_files / ws_read_file — inspect the pre-seeded Expo scaffold (app/_layout.tsx,
+  app/(tabs)/_layout.tsx, package.json, tsconfig.json already exist).
+- ws_write_file — create each screen, store, component, and util.
+- ws_edit_file — make surgical fixes (exact unique substring replace).
+- ws_run_command — synchronous, QUICK commands only (`bunx tsc --noEmit`, `bun run lint`, ls, cat); read errors; fix; re-run.
+- ws_run_command_async + ws_command_status — for LONG commands (`bun install`, `bunx expo export -p web`):
+  start async, then poll ws_command_status until status="done" (check exitCode). Never run these synchronously — they time out.
+
+Required workflow:
+1. ws_list_files to see the scaffold; ws_read_file the layout files you'll extend.
+1a. read_mockup(project_id) to SEE the approved mockup — it returns exact colors, fonts, layout, and
+    components. The mockup is the source of truth ABOVE the text brief; match it pixel-wise.
+1b. invoke_skill("frontend-design") and FOLLOW its design-system discipline (lock constants/theme.ts
+    from the mockup's real colors/fonts, build reusable components, then screens). Do this before writing screens.
+2. Build the data layer first (store/, types, seed data), then navigation (app/(tabs)/_layout.tsx),
+   then each screen as a file under app/ (use Expo Router file-based routing).
+3. Use realistic data and the approved palette/typography. No placeholder/lorem content.
+4. Install deps: ws_run_command_async("bun install"), then poll ws_command_status until status="done".
+5. Run `bunx tsc --noEmit` (sync) — if it errors, read the output, fix with ws_edit_file, and re-run until clean.
+6. Run `bun run lint` (sync) — clean up warnings/unused imports.
+7. Do a final ws_read_file review pass over the key files.
+8. Call ws_start_preview (returns a jobId), then poll ws_command_status until done — the LIVE preview is then ready. Summarize what you built.
+
+Narrate each step briefly ("Now let's build the Dashboard screen:") before the tool calls,
+so the user sees the development process.
+
+### MODE B — SCHEMA BUILD (target_stack = "web", or no Expo workspace)
+Call generate_app with a DETAILED prompt that:
 - Names every screen with specific elements and layout
 - Uses domain-specific premium primitives (bank-card for fintech, swipe-card for dating, etc.)
 - Includes realistic data (not placeholders)
@@ -163,6 +209,17 @@ studio_agent = Agent(
         # Code generation
         generate_code,
         export_project_code,
+        # Real Expo build — write/read/edit files + run bun/tsc/eslint in a live sandbox
+        ws_list_files,
+        ws_read_file,
+        ws_write_file,
+        ws_edit_file,
+        ws_run_command,
+        ws_run_command_async,
+        ws_command_status,
+        ws_start_preview,
+        invoke_skill,
+        read_mockup,
     ],
 )
 

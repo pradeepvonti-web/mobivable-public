@@ -258,6 +258,112 @@ async def delete_project(project_id: str) -> dict:
     return await _call_mcp_tool("delete_project", {"project_id": project_id})
 
 
+# ── Agent Workspace Tools — real files + shell in a live sandbox ──
+# These let the Studio agent build a REAL Expo app: write source files and
+# run bun/tsc/eslint against a persistent per-project sandbox, then fix errors.
+
+async def ws_write_file(project_id: str, path: str, content: str) -> dict:
+    """Create or overwrite a file in the project's live Expo build workspace.
+    Use forward-slash paths relative to the workspace root, e.g.
+    'app/(tabs)/index.tsx' or 'store/useAppStore.ts'. Persists + mirrors to the project.
+    """
+    return await _call_mcp_tool("ws_write_file", {
+        "project_id": project_id,
+        "path": path,
+        "content": content,
+    })
+
+
+async def ws_read_file(project_id: str, path: str) -> dict:
+    """Read a file from the project's live build workspace. Returns its text."""
+    return await _call_mcp_tool("ws_read_file", {
+        "project_id": project_id,
+        "path": path,
+    })
+
+
+async def ws_edit_file(project_id: str, path: str, old_string: str, new_string: str) -> dict:
+    """Surgically edit a workspace file by replacing an exact, UNIQUE substring.
+    old_string must occur exactly once. Prefer this over ws_write_file for small fixes.
+    """
+    return await _call_mcp_tool("ws_edit_file", {
+        "project_id": project_id,
+        "path": path,
+        "old_string": old_string,
+        "new_string": new_string,
+    })
+
+
+async def ws_list_files(project_id: str, path: str = ".") -> dict:
+    """List files/directories at a path in the project's build workspace."""
+    return await _call_mcp_tool("ws_list_files", {
+        "project_id": project_id,
+        "path": path,
+    })
+
+
+async def ws_run_command(project_id: str, command: str, timeout_ms: int = 0) -> dict:
+    """Run an allowlisted shell command in the workspace (cwd = workspace root).
+    Allowed: bun, bunx, npm, npx, node, tsc, eslint, expo, ls, cat, find, grep,
+    head, tail, mkdir, rm, mv, cp. Use for `bunx tsc --noEmit`, `bun run lint`,
+    `bun install`. Returns exitCode, stdout, stderr.
+    """
+    args: dict[str, Any] = {"project_id": project_id, "command": command}
+    if timeout_ms:
+        args["timeout_ms"] = timeout_ms
+    return await _call_mcp_tool("ws_run_command", args)
+
+
+async def ws_run_command_async(project_id: str, command: str) -> dict:
+    """Start a LONG shell command (e.g. `bun install`, `bunx expo export -p web`)
+    in the background and return a job id immediately. Poll ws_command_status
+    until done. Use the synchronous ws_run_command only for quick checks.
+    """
+    return await _call_mcp_tool("ws_run_command_async", {
+        "project_id": project_id,
+        "command": command,
+    })
+
+
+async def ws_command_status(project_id: str, job_id: str) -> dict:
+    """Check a background job (from ws_run_command_async or ws_start_preview).
+    Returns status ('running'|'done'), exitCode when done, and output so far.
+    """
+    return await _call_mcp_tool("ws_command_status", {
+        "project_id": project_id,
+        "job_id": job_id,
+    })
+
+
+async def ws_start_preview(project_id: str, rebuild: bool = False) -> dict:
+    """Build the Expo app for web and start the live preview, returning a public URL
+    the studio renders in the device frame. Call this as the FINAL build step,
+    after `bunx tsc --noEmit` and `bun run lint` pass. Pass rebuild=true to
+    re-export after later edits.
+    """
+    args: dict[str, Any] = {"project_id": project_id}
+    if rebuild:
+        args["rebuild"] = rebuild
+    return await _call_mcp_tool("ws_start_preview", args)
+
+
+async def invoke_skill(name: str) -> dict:
+    """Load a reusable instruction skill by name and return its body to follow.
+    Use invoke_skill("frontend-design") during an Expo build (after reading the
+    mockup, before writing screens) to anchor the UI on a premium design system.
+    """
+    return await _call_mcp_tool("invoke_skill", {"name": name})
+
+
+async def read_mockup(project_id: str) -> dict:
+    """Vision-read the project's APPROVED mockup image and return a pixel-level
+    description (exact colors, fonts, per-screen layout, components, data). Call
+    this FIRST in an Expo build — the mockup is the source of truth above the
+    text brief. Also saves the analysis to designs/mockup.md in the workspace.
+    """
+    return await _call_mcp_tool("read_mockup", {"project_id": project_id})
+
+
 # ── Collect all tools for ADK agent registration ─────────────────
 
 ALL_TOOLS = [
@@ -287,4 +393,15 @@ ALL_TOOLS = [
     add_knowledge_item,
     # Destructive
     delete_project,
+    # Agent workspace (real files + shell)
+    ws_write_file,
+    ws_read_file,
+    ws_edit_file,
+    ws_list_files,
+    ws_run_command,
+    ws_run_command_async,
+    ws_command_status,
+    ws_start_preview,
+    invoke_skill,
+    read_mockup,
 ]

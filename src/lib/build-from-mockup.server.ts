@@ -75,25 +75,48 @@ export interface ScreenPlan {
  * it to project-attachments and return the public URL. Best-effort: if the
  * upload fails, return null and the caller will fall back.
  */
-async function ensureHttpsImageUrl(
+export async function ensureHttpsImageUrl(
   rawUrl: string,
   projectId: string,
+  // Optional fallback client (the caller's authed Supabase client) used for the
+  // storage upload when the service-role admin client is unavailable — e.g.
+  // local dev without SUPABASE_SERVICE_ROLE_KEY, where `supabaseAdmin` throws.
+  // Without this, read_mockup can't turn a data-URI mockup into an https URL
+  // for the vision model, so the agent builds blind to the approved design.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fallbackClient?: { storage: any },
 ): Promise<string | null> {
   if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
   const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(rawUrl);
   if (!m) return null;
   const contentType = m[1];
   const b64 = m[2];
+
+  // Prefer the service-role client (bypasses storage RLS); fall back to the
+  // caller's authed client. Accessing `.storage` on the lazy admin proxy throws
+  // when the service-role key is missing — caught here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let client: { storage: any } | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adm = supabaseAdmin as unknown as { storage: any };
+    if (adm && adm.storage) client = adm;
+  } catch {
+    /* admin unavailable (no service-role key) */
+  }
+  if (!client && fallbackClient?.storage) client = fallbackClient;
+  if (!client) return null;
+
   try {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const ext = contentType.split("/")[1]?.split("+")[0] ?? "png";
     const path = `${projectId}/mockups/mockup-${Date.now()}.${ext}`;
-    const up = await supabaseAdmin.storage.from(ATTACHMENT_BUCKET).upload(path, bytes, {
+    const up = await client.storage.from(ATTACHMENT_BUCKET).upload(path, bytes, {
       contentType,
       upsert: true,
     });
     if (up.error) return null;
-    const { data: pub } = supabaseAdmin.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
+    const { data: pub } = client.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
     return pub.publicUrl;
   } catch {
     return null;
