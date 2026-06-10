@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 const MAX_IMAGES = 8;
+const MAX_IMAGES_PER_SCREEN = 4;
 const CONCURRENCY = 3;
 const BUCKET = "app-assets";
 
@@ -14,7 +15,7 @@ type PromptSite = {
   apply: (url: string) => void;
 };
 
-function walkPrompts(schema: MobileAppSchema, sites: PromptSite[]) {
+function walkPrompts(schema: MobileAppSchema, sites: PromptSite[], screenId?: string) {
   const visit = (els?: MElement[]) => {
     if (!els) return;
     for (const el of els) {
@@ -43,7 +44,10 @@ function walkPrompts(schema: MobileAppSchema, sites: PromptSite[]) {
       if (Array.isArray(children)) visit(children);
     }
   };
-  for (const s of schema.screens ?? []) visit(s.elements);
+  for (const s of schema.screens ?? []) {
+    if (screenId && s.id !== screenId) continue;
+    visit(s.elements);
+  }
 }
 
 async function hashKey(input: string): Promise<string> {
@@ -112,8 +116,9 @@ export async function runAppImagesInternal(args: {
   supabase: SupabaseClient<Database>;
   userId: string;
   projectId: string;
+  screenId?: string;
 }): Promise<AppImagesResult> {
-  const { supabase, userId, projectId } = args;
+  const { supabase, userId, projectId, screenId } = args;
 
   const { data: project, error } = await supabase
     .from("projects")
@@ -133,8 +138,9 @@ export async function runAppImagesInternal(args: {
   }
 
   const sites: PromptSite[] = [];
-  walkPrompts(schema, sites);
-  const queue = sites.slice(0, MAX_IMAGES);
+  walkPrompts(schema, sites, screenId);
+  const cap = screenId ? MAX_IMAGES_PER_SCREEN : MAX_IMAGES;
+  const queue = sites.slice(0, cap);
   if (queue.length === 0) return { ok: true, generated: 0, cached: 0, failed: 0, skipped: 0 };
 
   try {

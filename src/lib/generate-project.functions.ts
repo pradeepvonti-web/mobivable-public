@@ -44,26 +44,36 @@ export const generateProject = createServerFn({ method: "POST" })
       try { await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "generate_project", project.id); }
       catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
-      // ── PASS 1: design brief (palette, typography, mood, references, layouts) ──
-      let brief: string;
-      if (data.designBrief?.trim()) {
-        brief = data.designBrief.trim();
-      } else {
-        const briefRes = await callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model);
-        brief = briefRes.ok ? briefRes.text.trim() : "";
+      // ── PASSES 1 + 2 IN PARALLEL ──
+      // Run the design brief and a first-pass schema draft concurrently.
+      // The draft uses the raw prompt only; once the brief lands we do a
+      // merge pass that aligns the draft to the brief's palette / typography
+      // / layouts. This cuts wall-time vs. the old strictly-sequential flow
+      // because the slow code-gen call starts before the brief finishes.
+      const briefPromise: Promise<string> = data.designBrief?.trim()
+        ? Promise.resolve(data.designBrief.trim())
+        : callAI(DESIGN_BRIEF_SYSTEM_PROMPT, project.prompt, project.model).then((r) =>
+            r.ok ? r.text.trim() : "",
+          );
+
+      const draftUserPrompt = `${project.prompt}\n\nMake it PREMIUM quality — use glass-cards, parallax-heroes, gradient-mesh backgrounds, stat-card-xl with sparklines, and domain-appropriate typography. At least 4-5 screens with varied layouts (bento-grid, magazine, split-hero). Real data, not placeholders.`;
+      const draftPromise = data.premium
+        ? callAIStrong(SYSTEM_PROMPT, draftUserPrompt)
+        : callAI(SYSTEM_PROMPT, draftUserPrompt, project.model);
+
+      const [brief, draftRes] = await Promise.all([briefPromise, draftPromise]);
+
+      // ── PASS 3: merge ──
+      // If we have a brief, run one more pass to refine the draft against it.
+      // Otherwise the draft IS the final result.
+      let r = draftRes;
+      if (brief && draftRes.ok) {
+        const mergeUserPrompt = `USER REQUEST:\n${project.prompt}\n\nDESIGN BRIEF (follow strictly — derive theme.palette/typography/radius/spacing/motion from it; use each screen's "layout" and include its "keyPrimitives"; carry the mood into entrance + gesture choices):\n${brief}\n\nFIRST-PASS DRAFT SCHEMA (refine and align to the brief; keep the structure, screens and elements; upgrade palette/typography/layouts to match):\n${draftRes.text}`;
+        const merged = data.premium
+          ? await callAIStrong(SYSTEM_PROMPT, mergeUserPrompt)
+          : await callAI(SYSTEM_PROMPT, mergeUserPrompt, project.model);
+        if (merged.ok) r = merged;
       }
-
-      // ── PASS 2: compose full schema ──
-      // When premium=true, use the strongest available model (Opus/Pro/GPT-4o)
-      // for max quality. Otherwise honor the user's selected model (project.model),
-      // which is 3-5x faster.
-      const userPrompt = brief
-        ? `USER REQUEST:\n${project.prompt}\n\nDESIGN BRIEF (follow strictly — derive theme.palette/typography/radius/spacing/motion from it; use each screen's "layout" and include its "keyPrimitives"; carry the mood into entrance + gesture choices):\n${brief}`
-        : `${project.prompt}\n\nMake it PREMIUM quality — use glass-cards, parallax-heroes, gradient-mesh backgrounds, stat-card-xl with sparklines, and domain-appropriate typography. At least 4-5 screens with varied layouts (bento-grid, magazine, split-hero). Real data, not placeholders.`;
-
-      const r = data.premium
-        ? await callAIStrong(SYSTEM_PROMPT, userPrompt)
-        : await callAI(SYSTEM_PROMPT, userPrompt, project.model);
 
       if (!r.ok) {
         await supabase
