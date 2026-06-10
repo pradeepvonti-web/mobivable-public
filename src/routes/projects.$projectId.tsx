@@ -4084,6 +4084,7 @@ function ProjectPage() {
                 const s = project?.result ? parseAppSchema(project.result) : null;
                 return s ?? SAMPLE_APPS[demoApp] ?? null;
               })()}
+              projectId={projectId}
               projectName={project?.name}
               supabaseUrl={projectIntegration.supabase_url ?? undefined}
               supabaseAnonKey={projectIntegration.supabase_anon_key ?? undefined}

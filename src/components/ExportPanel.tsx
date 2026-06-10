@@ -1,16 +1,19 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   Download, Smartphone, ExternalLink, Copy, Check,
   FileText, Package, Code2, FolderOpen, QrCode, Loader2,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import type { MobileAppSchema } from "@/lib/mobile-app-schema";
 import { exportToExpo, createExportZip, type ExportedFile, type ExportOptions } from "@/lib/export-project";
+import { startExpoGo, getExpoGoTunnel } from "@/lib/expo-preview.functions";
 
 type Tab = "files" | "qr" | "preview";
 
 /** Export panel for downloading the app as an Expo project */
 export function ExportPanel({
   schema,
+  projectId,
   projectName,
   supabaseUrl,
   supabaseAnonKey,
@@ -18,6 +21,8 @@ export function ExportPanel({
   monetizationKeys,
 }: {
   schema: MobileAppSchema | null;
+  /** Enables the live Expo Go tunnel QR (scan to open on a phone). */
+  projectId?: string;
   projectName?: string;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
@@ -30,6 +35,41 @@ export function ExportPanel({
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<string>("App.tsx");
+
+  // Live Expo Go tunnel QR.
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const qrPollRef = useRef(false);
+
+  const startDeviceServer = useCallback(async () => {
+    if (!projectId) return;
+    setQrLoading(true);
+    setQrError(null);
+    setQrUrl(null);
+    qrPollRef.current = true;
+    try {
+      const r = await startExpoGo({ data: { projectId } });
+      if (!r.ok) { setQrError(r.error ?? "Couldn't start the device server."); setQrLoading(false); return; }
+      let tries = 0;
+      const poll = async () => {
+        if (!qrPollRef.current) return;
+        tries++;
+        try {
+          const t = await getExpoGoTunnel({ data: { projectId } });
+          if (!qrPollRef.current) return;
+          if (t.ready && t.url) { setQrUrl(t.url); setQrLoading(false); return; }
+          if (t.error && tries > 6) { setQrError(t.error); setQrLoading(false); return; }
+        } catch { /* keep polling */ }
+        if (tries > 40) { setQrError("The tunnel is taking too long. Try again."); setQrLoading(false); return; }
+        setTimeout(poll, 3000);
+      };
+      setTimeout(poll, 3000);
+    } catch (e) {
+      setQrError(e instanceof Error ? e.message : "Couldn't start the device server.");
+      setQrLoading(false);
+    }
+  }, [projectId]);
 
   // Build ExportOptions piecewise so a project with only one of Supabase /
   // monetization configured still gets the right slice baked into its zip.
@@ -194,22 +234,67 @@ export function ExportPanel({
 
         {activeTab === "qr" && (
           <div className="flex flex-col items-center justify-center gap-6 py-8">
-            {/* QR code placeholder — in production this would use a QR library */}
-            <div className="w-48 h-48 rounded-2xl border-2 border-dashed border-border grid place-items-center bg-card/60">
-              <div className="text-center space-y-2">
-                <QrCode className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-                <p className="text-[10px] text-muted-foreground">
-                  QR code available after<br />running Expo dev server
-                </p>
+            {/* Live Expo Go tunnel QR — scan to open the real app on a phone. */}
+            {qrUrl ? (
+              <div className="w-48 h-48 rounded-2xl grid place-items-center bg-white p-3">
+                <QRCodeSVG value={qrUrl} size={168} />
               </div>
-            </div>
+            ) : (
+              <div className="w-48 h-48 rounded-2xl border-2 border-dashed border-border grid place-items-center bg-card/60">
+                <div className="text-center space-y-2 px-3">
+                  {qrLoading ? (
+                    <>
+                      <Loader2 className="h-10 w-10 text-primary/70 mx-auto animate-spin" />
+                      <p className="text-[10px] text-muted-foreground">Building a secure tunnel…<br />~30–90s</p>
+                    </>
+                  ) : qrError ? (
+                    <p className="text-[10px] text-destructive">{qrError}</p>
+                  ) : (
+                    <>
+                      <QrCode className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+                      <p className="text-[10px] text-muted-foreground">Start the dev server<br />to get a scannable QR</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="text-center space-y-2 max-w-xs">
               <h3 className="text-sm font-semibold text-foreground">Preview on Device</h3>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Download the project, run <code className="text-[10px] bg-card px-1.5 py-0.5 rounded font-mono">npx expo start</code>,
-                then scan the QR code with the <strong>Expo Go</strong> app.
-              </p>
+              {qrUrl ? (
+                <>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Scan with the <strong>Expo Go</strong> app — camera, location &amp; native features run here. First open bundles on the device (~30s).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(qrUrl, "exp-url")}
+                    className="w-full truncate rounded-lg border border-border bg-card/60 px-3 py-1.5 text-[10px] font-mono text-foreground/80 hover:bg-card"
+                    title="Click to copy"
+                  >
+                    {copied === "exp-url" ? "Copied!" : qrUrl}
+                  </button>
+                </>
+              ) : (
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {projectId
+                    ? <>Start a live dev server in the cloud and scan the QR with the <strong>Expo Go</strong> app — no local setup.</>
+                    : <>Download the project, run <code className="text-[10px] bg-card px-1.5 py-0.5 rounded font-mono">npx expo start</code>, then scan with the <strong>Expo Go</strong> app.</>}
+                </p>
+              )}
             </div>
+
+            {projectId && (
+              <button
+                type="button"
+                onClick={startDeviceServer}
+                disabled={qrLoading}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {qrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Smartphone className="h-3.5 w-3.5" />}
+                {qrLoading ? "Starting…" : qrUrl ? "Restart dev server" : "Start dev server & show QR"}
+              </button>
+            )}
             <div className="flex gap-2">
               <a
                 href="https://apps.apple.com/app/expo-go/id982107779"
