@@ -907,13 +907,15 @@ export async function ensureExpoPreviewLive(
     return { ok: true, url: existing, status: "live" };
   }
   // Dead, expired, or never built. Clear the stale URL so the iframe doesn't
-  // try to load a host that returns "Sandbox Not Found" while we rebuild, then
-  // re-provision a fresh sandbox (forceNew skips the doomed reconnect attempt
-  // when the previous host is gone) and rebuild the preview.
+  // keep loading a host that returns "Sandbox Not Found" / "Closed Port" while
+  // we rebuild. Don't force a new sandbox here — getOrCreateWorkspace will
+  // reconnect when possible (preserving in-progress work + cached deps) and
+  // only provision a fresh one when reconnect actually fails. The bunCheck
+  // path inside ensureExpoWebPreview handles a wedged-but-connected sandbox.
   if (existing) {
     await mergeWorkspaceMeta(projectId, ctx, { previewUrl: undefined }).catch(() => undefined);
   }
-  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true, forceNew: !!existing });
+  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
   if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
   return { ok: true, url: r.url, status: "building", jobId: r.jobId };
 }
