@@ -761,6 +761,7 @@ function ProjectPage() {
     toast.success(`Model set to ${m}`);
   }
   const [visualEdit, setVisualEdit] = useState(false);
+  const [premium, setPremium] = useState(false);
   const [selectedEl, setSelectedEl] = useState<
     { tag: string; text: string; classes: string; path: number[] } | null
   >(null);
@@ -1058,7 +1059,7 @@ function ProjectPage() {
     if (generating) return;
     setGenerating(true);
     try {
-      const res = await generateFn({ data: { projectId } });
+      const res = await generateFn({ data: { projectId, premium } });
       if (!res.ok) setError(res.error);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
@@ -3001,6 +3002,32 @@ function ProjectPage() {
                             ],
                             [
                               {
+                                icon: Zap,
+                                label: premium ? "Premium quality: On" : "Premium quality",
+                                hint: premium ? "On" : "Slower",
+                                onClick: () => {
+                                  setPremium((p) => !p);
+                                  setPlusOpen(false);
+                                  toast(premium ? "Premium quality off" : "Premium quality on", {
+                                    description: premium
+                                      ? "App generation uses your selected model."
+                                      : "App generation will use the strongest model (slower).",
+                                  });
+                                },
+                              },
+                              {
+                                icon: MousePointerClick,
+                                label: visualEdit ? "Exit visual edits" : "Visual edits",
+                                onClick: () => {
+                                  setPlusOpen(false);
+                                  setVisualEdit((v) => !v);
+                                  setSelectedEl(null);
+                                  if (!visualEdit) setMobileView("preview");
+                                },
+                              },
+                            ],
+                            [
+                              {
                                 icon: Camera,
                                 label: "Take a screenshot",
                                 onClick: stub("Screenshot capture"),
@@ -3052,22 +3079,18 @@ function ProjectPage() {
                     </>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVisualEdit((v) => !v);
-                    setSelectedEl(null);
-                    if (!visualEdit) setMobileView("preview");
-                  }}
-                  className={`h-8 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs transition-colors ${
-                    visualEdit
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                  }`}
-                >
-                  <MousePointerClick className="h-3.5 w-3.5" />
-                  <span>{visualEdit ? "Exit visual edits" : "Visual edits"}</span>
-                </button>
+                {premium && (
+                  <span className="h-8 inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 text-xs text-primary">
+                    <Zap className="h-3.5 w-3.5" />
+                    Premium
+                  </span>
+                )}
+                {visualEdit && (
+                  <span className="h-8 inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 text-xs text-primary">
+                    <MousePointerClick className="h-3.5 w-3.5" />
+                    Visual edits
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 relative">
                 <div className="relative">
