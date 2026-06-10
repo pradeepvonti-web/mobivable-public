@@ -4436,6 +4436,7 @@ function ProjectPage() {
             })()}
             renderMode={renderMode}
             expoPreviewUrl={expoPreviewUrl}
+            expoRebuilding={restartingExpo}
             schema={resolveRenderableSchema(project?.result, liveSchema, demoApp)}
             theme={(() => {
               try {
