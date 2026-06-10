@@ -826,6 +826,65 @@ export async function getExpoPreviewUrl(
   return readMeta(project)?.previewUrl ?? null;
 }
 
+/**
+ * Probe whether the persisted preview URL is actually serving the app. Runs
+ * server-side (no CORS) — the browser can't fetch the cross-origin e2b.app host.
+ * Returns false for an expired sandbox ("Sandbox not found", 404/410), a live
+ * sandbox with nothing on the port ("Closed Port Error", 502/503), or a network
+ * failure. E2B sometimes returns 200 with an HTML error page, so we also sniff
+ * the body for its error markers.
+ */
+export async function probePreviewServing(url: string | null | undefined): Promise<boolean> {
+  if (!url) return false;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    let res: Response;
+    try {
+      res = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.status < 200 || res.status >= 400) return false;
+    const body = await res.text().catch(() => "");
+    if (
+      /closed port error|sandbox .*?(not found|isn.?t running|has expired)|no service running on port|connection refused/i.test(
+        body,
+      )
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Auto-recovery for the live preview: if the persisted URL is already serving,
+ * return it; otherwise (expired/GC'd sandbox or a build that never came up)
+ * re-provision and rebuild. getOrCreateWorkspace restores the mirrored file tree
+ * into a fresh sandbox when the old one is gone, so no work is lost. Returns the
+ * (possibly new) URL and a status the UI can act on without a manual Restart.
+ */
+export async function ensureExpoPreviewLive(
+  projectId: string,
+  ctx: WorkspaceCtx,
+): Promise<
+  | { ok: true; url: string; status: "live" }
+  | { ok: true; url?: string; status: "building"; jobId?: string }
+  | { ok: false; status: "error"; error: string }
+> {
+  const existing = await getExpoPreviewUrl(projectId, ctx);
+  if (existing && (await probePreviewServing(existing))) {
+    return { ok: true, url: existing, status: "live" };
+  }
+  // Dead, expired, or never built → re-provision + rebuild (self-healing serve).
+  const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
+  if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
+  return { ok: true, url: r.url, status: "building", jobId: r.jobId };
+}
+
 // ─── Runtime probe (gap #3: does E2B work on this host?) ────────────
 
 export interface WorkspaceProbeResult {

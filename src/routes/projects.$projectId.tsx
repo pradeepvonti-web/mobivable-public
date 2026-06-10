@@ -86,7 +86,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import { useCollaboration } from "@/hooks/use-collaboration";
 import { PresenceBar, CollaborationOverlay } from "@/components/CollaborationOverlay";
 import { generateProject } from "@/lib/generate-project.functions";
-import { refreshExpoPreview } from "@/lib/expo-preview.functions";
+import { refreshExpoPreview, ensurePreviewLive, checkPreviewServing } from "@/lib/expo-preview.functions";
 import { generateAppImages } from "@/lib/app-images.functions";
 
 import { generateAsset } from "@/lib/generate-asset.functions";
@@ -823,6 +823,54 @@ function ProjectPage() {
       setRestartingExpo(false);
     }
   };
+
+  // ── Auto-recovery: when the device frame shows the Expo preview but the
+  // sandbox has expired / the port isn't serving, re-provision and rebuild
+  // automatically (no manual Restart). Runs once per project; skipped while a
+  // build is actively streaming so it never clashes with the agent's own build.
+  const ensurePreviewLiveFn = useServerFn(ensurePreviewLive);
+  const checkPreviewServingFn = useServerFn(checkPreviewServing);
+  const autoRecoveryRef = useRef(false);
+  useEffect(() => {
+    autoRecoveryRef.current = false; // reset when switching projects
+  }, [projectId]);
+  useEffect(() => {
+    if (renderMode !== "expo" || !expoPreviewUrl || sending || autoRecoveryRef.current) return;
+    autoRecoveryRef.current = true;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    (async () => {
+      try {
+        const r = await ensurePreviewLiveFn({ data: { projectId } });
+        if (cancelled || r.status === "live" || r.status === "error") return;
+        // status === "building": sandbox was re-provisioned — poll until the
+        // port serves, then refresh the project so the iframe loads the new URL.
+        setRestartingExpo(true);
+        let attempts = 0;
+        const poll = async () => {
+          if (cancelled) return;
+          attempts += 1;
+          const s = await checkPreviewServingFn({ data: { projectId } }).catch(() => null);
+          if (cancelled) return;
+          if (s && s.ok && s.serving) {
+            setRestartingExpo(false);
+            await reloadProject();
+            return;
+          }
+          if (attempts >= 48) { setRestartingExpo(false); return; } // ~4 min cap
+          timer = setTimeout(poll, 5000);
+        };
+        timer = setTimeout(poll, 5000);
+      } catch {
+        if (!cancelled) setRestartingExpo(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderMode, expoPreviewUrl, sending, projectId]);
 
   const handleExportExpo = async () => {
     setExportingExpo(true);

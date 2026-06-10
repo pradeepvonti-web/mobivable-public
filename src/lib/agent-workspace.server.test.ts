@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // The module imports supabaseAdmin at top level; stub it so importing the
 // module doesn't try to construct a real client. Tests inject ctx.supabase.
@@ -17,6 +17,7 @@ import {
   wsCommandStatus,
   ensureExpoWebPreview,
   getExpoPreviewUrl,
+  probePreviewServing,
   probeWorkspaceRuntime,
   resolveBuildStack,
   isWorkspaceRuntimeAvailable,
@@ -484,5 +485,56 @@ describe("workspace lifecycle", () => {
     });
     await getOrCreateWorkspace(PROJECT_ID, { userId: CTX_USER, supabase }, {});
     expect(createOpts!.template).toBe("mobivable-expo");
+  });
+});
+
+describe("probePreviewServing — preview liveness detection (auto-recovery)", () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  function mockFetch(impl: () => Promise<{ status: number; body: string }> | { status: number; body: string }) {
+    globalThis.fetch = (async () => {
+      const r = await impl();
+      return {
+        status: r.status,
+        text: async () => r.body,
+      } as unknown as Response;
+    }) as typeof fetch;
+  }
+
+  it("returns false for a null/empty url without fetching", async () => {
+    let called = false;
+    globalThis.fetch = (async () => { called = true; return {} as Response; }) as typeof fetch;
+    expect(await probePreviewServing(null)).toBe(false);
+    expect(await probePreviewServing(undefined)).toBe(false);
+    expect(await probePreviewServing("")).toBe(false);
+    expect(called).toBe(false);
+  });
+
+  it("returns true for a live app (200 + normal HTML)", async () => {
+    mockFetch(() => ({ status: 200, body: "<!DOCTYPE html><div id=root>QR Generator</div>" }));
+    expect(await probePreviewServing("https://8088-abc.e2b.app/")).toBe(true);
+  });
+
+  it("returns false when the port isn't serving (502 Closed Port)", async () => {
+    mockFetch(() => ({ status: 502, body: "Bad Gateway" }));
+    expect(await probePreviewServing("https://8088-abc.e2b.app/")).toBe(false);
+  });
+
+  it("returns false for an expired sandbox (404 Sandbox not found)", async () => {
+    mockFetch(() => ({ status: 404, body: "sandbox not found" }));
+    expect(await probePreviewServing("https://8088-dead.e2b.app/")).toBe(false);
+  });
+
+  it("returns false for a 200 response that is actually an E2B error page", async () => {
+    mockFetch(() => ({ status: 200, body: "<h1>Closed Port Error</h1>no service running on port 8088" }));
+    expect(await probePreviewServing("https://8088-abc.e2b.app/")).toBe(false);
+  });
+
+  it("returns false when the request throws (network failure / abort)", async () => {
+    globalThis.fetch = (async () => { throw new Error("fetch failed"); }) as typeof fetch;
+    expect(await probePreviewServing("https://8088-abc.e2b.app/")).toBe(false);
   });
 });
