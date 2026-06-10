@@ -32,6 +32,7 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projec
 import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as ApiPublicMcpRouteImport } from './routes/api/public/mcp'
+import { Route as ApiPublicAdminCheckRouteImport } from './routes/api/public/admin-check'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -155,6 +156,11 @@ const ApiPublicMcpRoute = ApiPublicMcpRouteImport.update({
   path: '/api/public/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAdminCheckRoute = ApiPublicAdminCheckRouteImport.update({
+  id: '/api/public/admin-check',
+  path: '/api/public/admin-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/admin-check': typeof ApiPublicAdminCheckRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/admin-check': typeof ApiPublicAdminCheckRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/success': typeof CheckoutSuccessRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/api/public/admin-check': typeof ApiPublicAdminCheckRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/image/proxy': typeof ApiPublicImageProxyRoute
@@ -315,6 +324,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/admin-check'
     | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
@@ -347,6 +357,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/admin-check'
     | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
@@ -379,6 +390,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/success'
     | '/projects/$projectId'
+    | '/api/public/admin-check'
     | '/api/public/mcp'
     | '/api/public/github/callback'
     | '/api/public/image/proxy'
@@ -410,6 +422,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ApiPublicAdminCheckRoute: typeof ApiPublicAdminCheckRoute
   ApiPublicMcpRoute: typeof ApiPublicMcpRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicImageProxyRoute: typeof ApiPublicImageProxyRoute
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/admin-check': {
+      id: '/api/public/admin-check'
+      path: '/api/public/admin-check'
+      fullPath: '/api/public/admin-check'
+      preLoaderRoute: typeof ApiPublicAdminCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -678,6 +698,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ApiPublicAdminCheckRoute: ApiPublicAdminCheckRoute,
   ApiPublicMcpRoute: ApiPublicMcpRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicImageProxyRoute: ApiPublicImageProxyRoute,
@@ -690,13 +711,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
