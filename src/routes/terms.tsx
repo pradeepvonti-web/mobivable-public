@@ -131,22 +131,14 @@ function TermsPage() {
 
       <Section title="9. Payments, Subscriptions & Taxes">
         <p>
-          Our order process is conducted by our online reseller{" "}
-          <a href="https://www.paddle.com" className="text-primary underline" target="_blank" rel="noreferrer noopener">
-            Paddle.com
-          </a>
-          . Paddle.com is the Merchant of Record for all our orders. Paddle provides all customer
-          service inquiries and handles returns.
+          Payments are processed securely by Stripe, our payment processor. Where applicable,
+          Stripe calculates and collects sales tax, VAT, or GST at checkout based on your
+          location.
         </p>
         <p>
-          Payments, billing, tax handling, cancellations, and refund mechanics are governed by the{" "}
-          <a href="https://www.paddle.com/legal/checkout-buyer-terms" className="text-primary underline" target="_blank" rel="noreferrer noopener">
-            Paddle Buyer Terms
-          </a>
-          . Subscriptions automatically renew at the end of each billing period until cancelled.
-          You can cancel at any time through your account or via{" "}
-          <a href="https://paddle.net" className="text-primary underline" target="_blank" rel="noreferrer noopener">paddle.net</a>.
-          See our Refund Policy for our money-back guarantee.
+          Subscriptions automatically renew at the end of each billing period until cancelled.
+          You can cancel at any time from the billing portal accessible in your dashboard. See our
+          Refund Policy for our money-back guarantee.
         </p>
       </Section>
 
