@@ -156,7 +156,12 @@ function DashboardPage() {
     setBusy(targetPriceId);
     setError(null);
     try {
-      await changePlan({ data: { targetPriceId: targetPriceId as any } });
+      await changePlan({
+        data: {
+          targetPriceId: targetPriceId as any,
+          environment: getStripeEnvironment(),
+        },
+      });
       await load();
       router.invalidate();
     } catch (e) {
