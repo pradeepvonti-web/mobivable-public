@@ -76,6 +76,7 @@ export const generateProject = createServerFn({ method: "POST" })
       }
 
       if (!r.ok) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "generate_project", project.id);
         await supabase
           .from("projects")
           .update({ status: "failed", error_text: r.error })
@@ -95,6 +96,7 @@ export const generateProject = createServerFn({ method: "POST" })
       return { ok: true as const, result: finalResult, cached: false };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown generation error";
+      await refundCredits(userId, CREDIT_COSTS.generate_project, "generate_project", project.id);
       await supabase
         .from("projects")
         .update({ status: "failed", error_text: msg })
