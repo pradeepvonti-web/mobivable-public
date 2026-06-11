@@ -95,6 +95,7 @@ function DashboardPage() {
   });
   const [syncNotice, setSyncNotice] = useState<{
     updated: boolean;
+    error?: string;
     syncedAt: string;
     message: string;
   } | null>(null);
@@ -114,6 +115,47 @@ function DashboardPage() {
     void load();
   }, [status]);
 
+  const doPortalSync = async () => {
+    const before = subRef.current;
+    try {
+      const result = await syncSub({ data: { environment: getStripeEnvironment() } });
+      await load();
+      router.invalidate();
+      if (result.ok && result.sub) {
+        const changed =
+          !before ||
+          before.status !== result.sub.status ||
+          before.price_id !== result.sub.price_id ||
+          before.cancel_at_period_end !== result.sub.cancel_at_period_end;
+        setSyncNotice({
+          updated: changed,
+          error: undefined,
+          syncedAt: result.syncedAt,
+          message: changed
+            ? `Updated to ${PRICE_LABEL[result.sub.price_id] ?? result.sub.price_id} · ${result.sub.status}`
+            : "No subscription changes found",
+        });
+        setTimeout(() => setSyncNotice(null), 8000);
+      } else if (!result.ok) {
+        setSyncNotice({
+          updated: false,
+          error: result.reason ?? "Sync failed",
+          syncedAt: new Date().toISOString(),
+          message: result.reason ?? "We couldn't sync your subscription from Stripe.",
+        });
+      }
+    } catch (e) {
+      setSyncNotice({
+        updated: false,
+        error: e instanceof Error ? e.message : "Unknown error",
+        syncedAt: new Date().toISOString(),
+        message: e instanceof Error ? e.message : "Sync failed unexpectedly.",
+      });
+    }
+  };
+  const doPortalSyncRef = useRef(doPortalSync);
+  doPortalSyncRef.current = doPortalSync;
+
   // When the user returns from the Stripe Customer Portal (opened in a new
   // tab), pull the latest subscription state from Stripe and refresh the
   // dashboard. Triggered on tab focus + visibility, and on mount if the URL
@@ -124,26 +166,8 @@ function DashboardPage() {
     const refresh = async () => {
       if (pending) return;
       pending = true;
-      const before = subRef.current;
       try {
-        const result = await syncSub({ data: { environment: getStripeEnvironment() } });
-        await load();
-        router.invalidate();
-        if (result.ok && result.sub) {
-          const changed =
-            !before ||
-            before.status !== result.sub.status ||
-            before.price_id !== result.sub.price_id ||
-            before.cancel_at_period_end !== result.sub.cancel_at_period_end;
-          setSyncNotice({
-            updated: changed,
-            syncedAt: result.syncedAt,
-            message: changed
-              ? `Updated to ${PRICE_LABEL[result.sub.price_id] ?? result.sub.price_id} · ${result.sub.status}`
-              : "No subscription changes found",
-          });
-          setTimeout(() => setSyncNotice(null), 8000);
-        }
+        await doPortalSyncRef.current();
       } finally {
         pending = false;
       }
@@ -519,11 +543,23 @@ function DashboardPage() {
         ) : (
           <>
             {syncNotice && (
-              <div className={`border p-5 ${syncNotice.updated ? "border-emerald-500/40 bg-emerald-500/10" : "border-border bg-muted/30"}`}>
+              <div className={`border p-5 ${
+                syncNotice.error
+                  ? "border-destructive/40 bg-destructive/10"
+                  : syncNotice.updated
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-border bg-muted/30"
+              }`}>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className={`font-display text-sm uppercase tracking-wider mb-1 ${syncNotice.updated ? "text-emerald-600" : "text-muted-foreground"}`}>
-                      {syncNotice.updated ? "Subscription synced" : "Already up to date"}
+                  <div className="flex-1">
+                    <p className={`font-display text-sm uppercase tracking-wider mb-1 ${
+                      syncNotice.error
+                        ? "text-destructive"
+                        : syncNotice.updated
+                        ? "text-emerald-600"
+                        : "text-muted-foreground"
+                    }`}>
+                      {syncNotice.error ? "Sync failed" : syncNotice.updated ? "Subscription synced" : "Already up to date"}
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {syncNotice.message}
@@ -531,11 +567,20 @@ function DashboardPage() {
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
                       Last synced · {new Date(syncNotice.syncedAt).toLocaleTimeString()}
                     </p>
+                    {syncNotice.error && (
+                      <button
+                        type="button"
+                        onClick={() => { setSyncNotice(null); void doPortalSync(); }}
+                        className="mt-3 px-4 py-2 bg-primary text-background font-display text-xs uppercase tracking-wider hover:invert transition-all"
+                      >
+                        Retry sync
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"
                     onClick={() => setSyncNotice(null)}
-                    className="text-muted-foreground hover:text-foreground text-xs"
+                    className="text-muted-foreground hover:text-foreground text-xs shrink-0"
                   >
                     Dismiss
                   </button>
