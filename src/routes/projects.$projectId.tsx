@@ -1932,7 +1932,7 @@ function ProjectPage() {
 
         {/* ── Center: URL pill ── */}
         <div className="hidden md:flex flex-1 justify-center px-4 min-w-0">
-          <div className="flex items-center gap-1 h-8 max-w-md w-full rounded-full border border-border bg-muted/40 px-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 h-8 max-w-xl w-full rounded-full border border-border bg-muted/40 px-3 text-xs text-muted-foreground">
             <Smartphone className="h-3.5 w-3.5 shrink-0 opacity-70" />
             <span className="truncate flex-1 font-mono">
               /projects/{project?.id ?? "…"}
