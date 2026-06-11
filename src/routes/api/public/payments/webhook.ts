@@ -67,6 +67,22 @@ async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
     .eq("environment", env);
 }
 
+// Mark sub as past_due immediately on payment failure so the dunning banner
+// surfaces without waiting for the next subscription.updated event.
+async function handleInvoicePaymentFailed(invoice: any, env: StripeEnv) {
+  const subscriptionId =
+    invoice.subscription ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.[0]?.subscription;
+  if (!subscriptionId) return;
+  const supabase = await getAdmin();
+  await supabase
+    .from("subscriptions")
+    .update({ status: "past_due", updated_at: new Date().toISOString() })
+    .eq("stripe_subscription_id", subscriptionId)
+    .eq("environment", env);
+}
+
 async function handleWebhook(req: Request, env: StripeEnv) {
   const event = await verifyWebhook(req, env);
   switch (event.type) {
@@ -76,6 +92,14 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       break;
     case "customer.subscription.deleted":
       await handleSubscriptionDeleted(event.data.object, env);
+      break;
+    case "invoice.payment_failed":
+      await handleInvoicePaymentFailed(event.data.object, env);
+      break;
+    case "invoice.payment_succeeded":
+    case "checkout.session.completed":
+      // Subscription events carry the data we need; just log these.
+      console.log("Webhook ack:", event.type);
       break;
     default:
       console.log("Unhandled event:", event.type);
