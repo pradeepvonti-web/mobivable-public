@@ -794,6 +794,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               .eq("id", project.id);
           }
         } else {
+          // Code-gen produced no usable schema — refund the generate_project charge
+          await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id);
           console.error("[finalizeAgentRun] Code gen failed", {
             ok: result.ok,
             textLength: result.ok ? result.text.length : 0,
@@ -801,6 +803,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
           });
         }
       } catch (e) {
+        // Refund on any throw after the generate_project consume
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id);
         console.error("[finalizeAgentRun] Schema regeneration error:", e);
         // Non-fatal: the run is still marked as completed
       }
