@@ -23,12 +23,11 @@ const FAQS = [
   },
   {
     q: "How does billing work?",
-    a: "Subscriptions are billed via Paddle on the cadence you select — monthly or yearly. Yearly plans are charged upfront and save roughly 20%. Every payment generates a tax-compliant invoice emailed to you.",
+    a: "Subscriptions are billed securely via Stripe on the cadence you select — monthly or yearly. Yearly plans are charged upfront and save roughly 20%. Every payment generates a tax-compliant invoice emailed to you.",
   },
   {
     q: "What's your refund policy?",
-    a: "We offer a 30-day money-back guarantee on first-time purchases of any paid plan. You can cancel anytime to stop future renewals. Refunds are processed by Paddle, our Merchant of Record — request one at paddle.net or via our refund policy page.",
-
+    a: "We offer a 30-day money-back guarantee on first-time purchases of any paid plan. You can cancel anytime from your dashboard's billing portal to stop future renewals. See our refund policy page for full details.",
   },
   {
     q: "What happens when I upgrade or downgrade?",

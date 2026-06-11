@@ -60,7 +60,7 @@ function PrivacyPage() {
           <li><strong>Usage & telemetry</strong>: features used, page views, AI credit consumption, error reports.</li>
           <li><strong>Device & network data</strong>: IP address, browser type, operating system, device identifiers.</li>
           <li><strong>Support communications</strong>: messages you send to support and our responses.</li>
-          <li><strong>Billing metadata</strong>: subscription tier, plan history. Payment card details are collected directly by Paddle and are never seen or stored by us.</li>
+          <li><strong>Billing metadata</strong>: subscription tier, plan history. Payment card details are collected directly by Stripe and are never seen or stored by us.</li>
         </ul>
       </Section>
 
@@ -78,7 +78,7 @@ function PrivacyPage() {
       <Section title="4. How We Share Your Data">
         <p>We share personal data with the following categories of recipients only as necessary:</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5">
-          <li><strong>Paddle.com Market Ltd</strong> — our Merchant of Record for all payments. Paddle handles checkout, subscription management, payment processing, tax compliance, invoicing, and refunds. See <a href="https://www.paddle.com/legal/privacy" className="text-primary underline" target="_blank" rel="noreferrer noopener">Paddle's Privacy Policy</a>.</li>
+          <li><strong>Stripe, Inc.</strong> — our payment processor. Stripe handles checkout, subscription management, payment processing, tax calculation, and invoicing. See <a href="https://stripe.com/privacy" className="text-primary underline" target="_blank" rel="noreferrer noopener">Stripe's Privacy Policy</a>.</li>
           <li><strong>Cloud infrastructure providers</strong>: hosting, databases, file storage, and CDN.</li>
           <li><strong>AI model providers</strong>: large-language-model and image-generation APIs used to process your prompts.</li>
           <li><strong>Analytics & error monitoring providers</strong>: aggregated usage and error reporting.</li>
@@ -151,9 +151,6 @@ function PrivacyPage() {
       <Section title="12. Contact">
         <p>
           AksData AI Corp · privacy@mobivable.dev
-          <br />
-          For payment-related privacy questions, contact Paddle directly via{" "}
-          <a href="https://paddle.net" className="text-primary underline" target="_blank" rel="noreferrer noopener">paddle.net</a>.
         </p>
       </Section>
     </PageShell>

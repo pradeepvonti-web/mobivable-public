@@ -1,83 +1,102 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { verifyWebhook, EventName, type PaddleEnv } from "@/lib/paddle.server";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+
+async function getAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+function resolvePriceId(item: any): string | null {
+  return (
+    item?.price?.lookup_key ||
+    item?.price?.metadata?.lovable_external_id ||
+    item?.price?.id ||
+    null
+  );
+}
+
+async function handleSubscriptionUpsert(subscription: any, env: StripeEnv) {
+  const userId =
+    subscription.metadata?.userId ||
+    (subscription.customer_metadata?.userId as string | undefined);
+  if (!userId) {
+    console.error("No userId in subscription metadata", subscription.id);
+    return;
+  }
+  const item = subscription.items?.data?.[0];
+  const priceId = resolvePriceId(item);
+  const productId = item?.price?.product;
+  const periodStart =
+    item?.current_period_start ?? subscription.current_period_start;
+  const periodEnd =
+    item?.current_period_end ?? subscription.current_period_end;
+
+  const supabase = await getAdmin();
+  await supabase.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscription.customer,
+      product_id: productId ?? "",
+      price_id: priceId ?? "",
+      status: subscription.status,
+      current_period_start: periodStart
+        ? new Date(periodStart * 1000).toISOString()
+        : null,
+      current_period_end: periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : null,
+      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+      environment: env,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "stripe_subscription_id" },
+  );
+}
+
+async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
+  const supabase = await getAdmin();
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: "canceled",
+      cancel_at_period_end: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_subscription_id", subscription.id)
+    .eq("environment", env);
+}
+
+async function handleWebhook(req: Request, env: StripeEnv) {
+  const event = await verifyWebhook(req, env);
+  switch (event.type) {
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+      await handleSubscriptionUpsert(event.data.object, env);
+      break;
+    case "customer.subscription.deleted":
+      await handleSubscriptionDeleted(event.data.object, env);
+      break;
+    default:
+      console.log("Unhandled event:", event.type);
+  }
+}
 
 export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const url = new URL(request.url);
-        const env = (url.searchParams.get("env") === "live" ? "live" : "sandbox") as PaddleEnv;
-
-        let event;
-        try {
-          event = await verifyWebhook(request, env);
-        } catch (e) {
-          console.error("Webhook signature verification failed", e);
-          return new Response("Invalid signature", { status: 401 });
+        const rawEnv = new URL(request.url).searchParams.get("env");
+        if (rawEnv !== "sandbox" && rawEnv !== "live") {
+          return Response.json({ received: true, ignored: "invalid env" });
         }
-
-        if (!event) return new Response("ok");
-
         try {
-          switch (event.eventType) {
-            case EventName.SubscriptionCreated:
-            case EventName.SubscriptionUpdated: {
-              const sub: any = event.data;
-              const item = sub.items?.[0];
-              const importMeta = item?.price?.importMeta || {};
-              const productImportMeta = item?.product?.importMeta || {};
-              const priceExternalId = importMeta.externalId;
-              const productExternalId = productImportMeta.externalId;
-              const userId = sub.customData?.userId;
-
-              if (!priceExternalId || !productExternalId) {
-                console.warn("missing importMeta.externalId — skipping", sub.id);
-                break;
-              }
-              if (!userId) {
-                console.warn("missing customData.userId — skipping", sub.id);
-                break;
-              }
-
-              await supabaseAdmin.from("subscriptions").upsert(
-                {
-                  user_id: userId,
-                  paddle_subscription_id: sub.id,
-                  paddle_customer_id: sub.customerId,
-                  product_id: productExternalId,
-                  price_id: priceExternalId,
-                  status: sub.status,
-                  current_period_start: sub.currentBillingPeriod?.startsAt ?? null,
-                  current_period_end: sub.currentBillingPeriod?.endsAt ?? null,
-                  cancel_at_period_end: !!sub.scheduledChange && sub.scheduledChange.action === "cancel",
-                  environment: env,
-                },
-                { onConflict: "paddle_subscription_id" }
-              );
-              break;
-            }
-            case EventName.SubscriptionCanceled: {
-              const sub: any = event.data;
-              await supabaseAdmin
-                .from("subscriptions")
-                .update({
-                  status: "canceled",
-                  cancel_at_period_end: true,
-                  current_period_end: sub.currentBillingPeriod?.endsAt ?? null,
-                })
-                .eq("paddle_subscription_id", sub.id);
-              break;
-            }
-            default:
-              break;
-          }
+          await handleWebhook(request, rawEnv as StripeEnv);
+          return Response.json({ received: true });
         } catch (e) {
-          console.error("Webhook handler error", e);
-          return new Response("Handler error", { status: 500 });
+          console.error("Webhook error:", e);
+          return new Response("Webhook error", { status: 400 });
         }
-
-        return new Response("ok");
       },
     },
   },

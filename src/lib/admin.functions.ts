@@ -458,7 +458,7 @@ export const getAdminPayments = createServerFn({ method: "GET" })
 
     const { data: subs } = await supabase
       .from("subscriptions")
-      .select("id, user_id, paddle_subscription_id, paddle_customer_id, product_id, price_id, status, current_period_end, cancel_at_period_end, environment, created_at")
+      .select("id, user_id, stripe_subscription_id, stripe_customer_id, product_id, price_id, status, current_period_end, cancel_at_period_end, environment, created_at")
       .order("created_at", { ascending: false })
       .limit(200);
 
