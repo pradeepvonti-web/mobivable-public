@@ -2,7 +2,7 @@
 
 **Chat. Ship. Dominate.**
 
-Mobivable is an AI-powered mobile app studio that turns natural language into production-ready mobile apps. Built on **Google Cloud** with **Gemini**, **Vertex AI**, **Agent Development Kit (ADK)**, and **Model Context Protocol (MCP)**.
+Mobivable is an AI-powered mobile app studio that turns natural language into **real, shippable** iOS & Android apps. A multi-agent system (Claude Opus 4.8 / Sonnet 4.6 primary brain, with Gemini & Vertex AI fallback) writes and verifies actual **Expo / React Native** code in a live sandbox, previews it on a real phone, and produces native binaries for the stores. Built on **Google Cloud** with **Vertex AI**, **Agent Development Kit (ADK)**, **Model Context Protocol (MCP)**, and **E2B** sandboxes.
 
 🌐 **Live**: [mobivable-776377998065.us-central1.run.app](https://mobivable-776377998065.us-central1.run.app)
 
@@ -154,8 +154,10 @@ are wrapped with transient-network retry so a dropped socket doesn't discard an 
 | **Hosting** | Google Cloud Run (2 services) |
 | **Build** | Cloud Build, Docker |
 | **Build Engine** | Real Expo build in a per-project [E2B](https://e2b.dev) sandbox (file + bash tools, `tsc`/lint, mockup-fidelity self-review) |
-| **App Preview** | Live Expo-web build served from the project's sandbox |
-| **Export** | Expo (React Native) |
+| **App Preview** | Sandbox-free **Instant** in-browser schema renderer + live Expo-web build + **Expo Go on a real phone** (ngrok tunnel QR) |
+| **Mobile Stack** | Expo SDK 54 / React Native 0.81 / expo-router 6 · native modules (camera, location, notifications, secure-store) · `react-native-svg`, `expo-linear-gradient` |
+| **Native Deploy** | **EAS Build** (APK/IPA/AAB) · **EAS Submit** (store submission) · **EAS Update** (OTA) |
+| **Export** | Full Expo (React Native) source, no lock-in |
 
 ---
 
@@ -265,14 +267,16 @@ gcloud run services add-iam-policy-binding mobivable-adk \
 
 - **🤖 AI Agent Studio** — Multi-agent system with plan-first workflow
 - **🧱 Real Expo Build Engine** — An agent writes a real Expo / React Native app file-by-file in a sandbox, runs `tsc`/lint, and self-reviews against the mockup
-- **🎨 Live Preview** — Real-time preview of the actual Expo build in device frames
+- **⚡ Instant Preview (no sandbox)** — In-browser schema renderer for instant, infra-free previews; the live Expo sandbox build is reserved for true native testing
+- **📲 Real-Device Preview** — Open the app in **Expo Go** on a real phone via a QR code (ngrok tunnel) — camera, location, notifications all work
+- **🚀 Native Deploy** — **EAS Build** (APK/IPA/AAB), **EAS Submit** (store submission), and **EAS Update** (OTA) — ship straight to the App Store / Google Play
+- **🗂️ Template Vault** — ~2,000 ready-to-use app templates for instant, **credit-free** starts
 - **✏️ Visual Editor** — Drag-and-drop editing with undo/redo
-- **📱 Native Export** — Expo (React Native)
-- **🔧 MCP Protocol** — Connect from Cursor, Claude Code, or Claude Desktop
+- **📱 Native Export** — Full Expo (React Native) source, no lock-in
+- **🔧 MCP Protocol** — 25+ tools; connect from Cursor, Claude Code, or Claude Desktop
 - **👥 Real-Time Collaboration** — Multi-user editing with presence
-- **🗄️ Backend Provisioning** — Auto-generate Supabase schemas
+- **🗄️ Backend Provisioning** — Auto-generate Supabase schemas (tables, RLS, auth) for generated apps
 - **📊 SDLC Progress** — Track design → build → test → deploy phases
-- **🎯 15+ Agent Tools** — Surgical edits, code gen, verification
 - **🌓 Dark/Light Mode** — Premium glassmorphism UI
 
 ---
