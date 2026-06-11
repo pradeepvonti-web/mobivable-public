@@ -52,21 +52,31 @@ ${data.designerOutput.slice(0, 3000)}
 
 Return the JSON theme only.`;
 
-    const r = await callAI(system, user);
-    if (!r.ok) return { ok: false as const, error: r.error };
-
-    // Strip code fences if model wrapped them
-    const text = r.text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     try {
-      const theme = JSON.parse(text) as Partial<MobileTheme>;
-      if (!theme.primary || !theme.background) {
-        return { ok: false as const, error: "Theme missing required fields" };
+      const r = await callAI(system, user);
+      if (!r.ok) {
+        await refundCredits(context.userId, CREDIT_COSTS.text, "extract_theme");
+        return { ok: false as const, error: r.error };
       }
-      return { ok: true as const, theme };
+
+      // Strip code fences if model wrapped them
+      const text = r.text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      try {
+        const theme = JSON.parse(text) as Partial<MobileTheme>;
+        if (!theme.primary || !theme.background) {
+          await refundCredits(context.userId, CREDIT_COSTS.text, "extract_theme");
+          return { ok: false as const, error: "Theme missing required fields" };
+        }
+        return { ok: true as const, theme };
+      } catch (e) {
+        await refundCredits(context.userId, CREDIT_COSTS.text, "extract_theme");
+        return {
+          ok: false as const,
+          error: e instanceof Error ? `Parse failed: ${e.message}` : "Parse failed",
+        };
+      }
     } catch (e) {
-      return {
-        ok: false as const,
-        error: e instanceof Error ? `Parse failed: ${e.message}` : "Parse failed",
-      };
+      await refundCredits(context.userId, CREDIT_COSTS.text, "extract_theme");
+      throw e;
     }
   });
