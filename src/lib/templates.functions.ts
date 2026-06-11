@@ -4,6 +4,25 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema } from "./mobile-app-schema";
 import { SAMPLE_FITTRACK, SAMPLE_SHOPLUX, SAMPLE_WEALTHFLOW } from "./sample-apps";
+import { MOBILE_THEMES } from "./mobile-theme";
+import { TEMPLATE_THEME_VARIANTS } from "./template-taxonomy";
+
+/**
+ * Prefer supabaseAdmin (prod), fall back to the caller's authed client when the
+ * service-role key is absent (local dev — supabaseAdmin is a lazy proxy that
+ * THROWS on first access, so it must be probed in a try/catch).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getDb(userClient?: { from: (table: string) => any }): { from: (table: string) => any } { // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    const test = supabaseAdmin;
+    if (test && typeof test.from === "function") return test;
+  } catch {
+    /* service-role key missing locally */
+  }
+  if (userClient) return userClient;
+  throw new Error("No database client available. Set SUPABASE_SERVICE_ROLE_KEY or pass a user session.");
+}
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -33,8 +52,8 @@ export const listTemplates = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) =>
     z.object({ category: z.string().optional() }).parse(input ?? {}),
   )
-  .handler(async ({ data }) => {
-    let query = supabaseAdmin
+  .handler(async ({ data, context }) => {
+    let query = getDb(context.supabase)
       .from("app_templates")
       .select(
         "id, name, description, category, tags, preview_image_url, feature_list, is_featured, use_count, created_at",
@@ -57,8 +76,8 @@ export const getTemplate = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) =>
     z.object({ templateId: z.string().uuid() }).parse(input),
   )
-  .handler(async ({ data }) => {
-    const { data: template, error } = await supabaseAdmin
+  .handler(async ({ data, context }) => {
+    const { data: template, error } = await getDb(context.supabase)
       .from("app_templates")
       .select("*")
       .eq("id", data.templateId)
@@ -71,6 +90,11 @@ export const getTemplate = createServerFn({ method: "GET" })
 
 /* ─── 3. Create Project From Template ────────────────────────── */
 
+/**
+ * Instantiate a template into a new project — ZERO AI credits. Optionally
+ * applies a theme variant (a MOBILE_THEMES key) so each archetype yields
+ * multiple ready-to-use looks deterministically (the "×5" of the vault).
+ */
 export const createProjectFromTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -78,44 +102,124 @@ export const createProjectFromTemplate = createServerFn({ method: "POST" })
       .object({
         templateId: z.string().uuid(),
         projectName: z.string().min(1).max(200),
+        /** MOBILE_THEMES key — deterministic recolor, no AI. */
+        themeVariant: z.string().max(40).optional(),
+        /** The user's original prompt (when created template-first from the composer). */
+        originalPrompt: z.string().max(4000).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    // Template reads are RLS-open to authed users and the project insert
+    // passes RLS via user_id, so the user-client fallback works locally.
+    const db = getDb(context.supabase);
 
     // Fetch the template
-    const { data: template, error: tErr } = await supabaseAdmin
+    const { data: template, error: tErr } = await db
       .from("app_templates")
-      .select("id, name, description, schema")
+      .select("id, name, description, schema, use_count")
       .eq("id", data.templateId)
       .single();
 
     if (tErr || !template) throw new Error("Template not found");
 
-    // Increment use_count via manual update (RPC not defined)
-    await supabaseAdmin
+    // Increment use_count via manual update (RPC not defined); best-effort —
+    // may be RLS-blocked for non-admin clients locally.
+    await db
       .from("app_templates")
       .update({ use_count: ((template as { use_count?: number }).use_count ?? 0) + 1 })
       .eq("id", data.templateId);
 
+    // Deterministic theme variant: clone the schema and swap the named theme.
+    let schema = template.schema as MobileAppSchema;
+    if (data.themeVariant && MOBILE_THEMES[data.themeVariant]) {
+      schema = { ...schema, theme: data.themeVariant };
+    }
 
     // Create the project
-    const { data: project, error: pErr } = await supabaseAdmin
+    const { data: project, error: pErr } = await db
       .from("projects")
       .insert({
         user_id: userId,
         name: data.projectName,
-        prompt: template.description ?? `Created from template: ${template.name}`,
+        prompt: data.originalPrompt ?? template.description ?? `Created from template: ${template.name}`,
         model: "default",
         status: "ready",
-        result: JSON.stringify(template.schema),
+        result: JSON.stringify(schema),
       })
       .select("id")
       .single();
 
     if (pErr) throw new Error(pErr.message);
     return { projectId: project!.id };
+  });
+
+/* ─── 3b. Match Templates to a Prompt (zero-AI) ──────────────── */
+
+export type TemplateMatch = TemplateSummary & { score: number };
+
+const STOPWORDS = new Set([
+  "a", "an", "the", "app", "application", "build", "create", "make", "i", "want",
+  "with", "and", "or", "for", "of", "to", "that", "my", "me", "in", "on", "it",
+  "is", "called", "named", "please", "simple", "basic", "mobile",
+]);
+
+function promptTokens(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, " ")
+        .split(/[\s-]+/)
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+    ),
+  ];
+}
+
+/**
+ * Keyword-match the vault against a user prompt — pure text scoring, no AI.
+ * Used by the composer's template-first flow: strong matches are offered as
+ * "start from a template (0 credits)" before any AI generation runs.
+ */
+export const matchTemplates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ prompt: z.string().min(3).max(4000), limit: z.number().int().min(1).max(10).optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const tokens = promptTokens(data.prompt);
+    if (tokens.length === 0) return { matches: [] as TemplateMatch[] };
+
+    const { data: templates, error } = await getDb(context.supabase)
+      .from("app_templates")
+      .select("id, name, description, category, tags, preview_image_url, feature_list, is_featured, use_count, created_at");
+    if (error) throw new Error(error.message);
+
+    const scored: TemplateMatch[] = ((templates ?? []) as unknown as TemplateSummary[])
+      .map((t) => {
+        const hay = {
+          name: t.name.toLowerCase(),
+          category: t.category.toLowerCase(),
+          tags: (t.tags ?? []).map((x) => x.toLowerCase()),
+          desc: (t.description ?? "").toLowerCase(),
+          features: (t.feature_list ?? []).join(" ").toLowerCase(),
+        };
+        let score = 0;
+        for (const tok of tokens) {
+          if (hay.name.includes(tok)) score += 5;
+          if (hay.category === tok || hay.category.includes(tok)) score += 4;
+          if (hay.tags.some((x) => x.includes(tok))) score += 3;
+          if (hay.desc.includes(tok)) score += 2;
+          if (hay.features.includes(tok)) score += 1;
+        }
+        return { ...t, score };
+      })
+      .filter((t) => t.score >= 5) // require a meaningful overlap, not one stray word
+      .sort((a, b) => b.score - a.score || b.use_count - a.use_count)
+      .slice(0, data.limit ?? 3);
+
+    return { matches: scored, themeVariants: [...TEMPLATE_THEME_VARIANTS] };
   });
 
 /* ─── 4. Seed Built-in Templates (admin only) ───────────────── */

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Image as ImageIcon, Send, ChevronDown, Loader2, X, Smartphone } from "lucide-react";
+import { Image as ImageIcon, Send, ChevronDown, Loader2, X, Smartphone, Sparkles, Zap } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { CloneAppDialog } from "@/components/CloneAppDialog";
+import { matchTemplates, createProjectFromTemplate, type TemplateMatch } from "@/lib/templates.functions";
+import { MOBILE_THEMES } from "@/lib/mobile-theme";
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
   {
@@ -199,9 +201,60 @@ export function AppPromptComposer() {
     await supabase.storage.from("project-attachments").remove([att.path]);
   }
 
+  // Template-first creation: strong vault matches are offered before any AI
+  // generation runs (instantiating a template costs ZERO AI credits).
+  const [templateMatches, setTemplateMatches] = useState<TemplateMatch[] | null>(null);
+  const [themeVariants, setThemeVariants] = useState<string[]>([]);
+  const [pickedTheme, setPickedTheme] = useState<Record<string, string>>({});
+  const [usingTemplate, setUsingTemplate] = useState<string | null>(null);
+
+  async function useTemplate(t: TemplateMatch) {
+    if (usingTemplate) return;
+    setUsingTemplate(t.id);
+    setError(null);
+    try {
+      const r = await createProjectFromTemplate({
+        data: {
+          templateId: t.id,
+          projectName: t.name,
+          themeVariant: pickedTheme[t.id],
+          originalPrompt: prompt.trim() || undefined,
+        },
+      });
+      navigate({ to: "/projects/$projectId", params: { projectId: r.projectId } });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create from template.");
+      setUsingTemplate(null);
+    }
+  }
+
   async function handleSubmit() {
     const text = prompt.trim();
     if (!text || submitting || uploading) return;
+    // Template-first: check the vault before spending AI credits — unless the
+    // user attached images (a mockup means they want a custom AI build) or
+    // they already saw suggestions for this prompt and chose to proceed.
+    if (attachments.length === 0 && templateMatches === null) {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const res = await matchTemplates({ data: { prompt: text, limit: 3 } });
+        if (res.matches.length > 0) {
+          setTemplateMatches(res.matches);
+          setThemeVariants((res as { themeVariants?: string[] }).themeVariants ?? []);
+          setSubmitting(false);
+          return; // show suggestions; "Generate with AI" proceeds past this
+        }
+      } catch {
+        // Matching is best-effort — fall through to the normal AI path.
+      }
+      setSubmitting(false);
+    }
+    await createWithAI(text);
+  }
+
+  async function createWithAI(text: string) {
+    if (submitting || uploading) return;
     setSubmitting(true);
     setError(null);
     const { data: u } = await supabase.auth.getUser();
@@ -263,7 +316,7 @@ export function AppPromptComposer() {
           <div className="relative">
             <textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => { setPrompt(e.target.value); if (templateMatches) setTemplateMatches(null); }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               onKeyDown={(e) => {
@@ -330,6 +383,67 @@ export function AppPromptComposer() {
 
           {error && (
             <p className="mt-2 text-sm text-destructive font-mono">{error}</p>
+          )}
+
+          {/* Template-first suggestions: instant, zero AI credits */}
+          {templateMatches && templateMatches.length > 0 && (
+            <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                <p className="text-xs font-semibold">
+                  Start instantly from a ready-made template — <span className="text-primary">0 AI credits</span>
+                </p>
+              </div>
+              <div className="grid gap-2">
+                {templateMatches.map((t) => (
+                  <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/70 px-3 py-2.5">
+                    <div className="flex-1 min-w-[160px]">
+                      <p className="text-sm font-medium leading-tight">{t.name}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{t.description}</p>
+                      <p className="text-[10px] text-muted-foreground/70 font-mono uppercase mt-0.5">{t.category}{t.use_count > 0 ? ` · used ${t.use_count}×` : ""}</p>
+                    </div>
+                    {/* Theme variant swatches (deterministic recolor — still 0 credits) */}
+                    {themeVariants.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        {themeVariants.map((v) => {
+                          const th = MOBILE_THEMES[v];
+                          if (!th) return null;
+                          const active = pickedTheme[t.id] === v;
+                          return (
+                            <button
+                              key={v}
+                              type="button"
+                              title={v.replace(/_/g, " ")}
+                              onClick={() => setPickedTheme((p) => ({ ...p, [t.id]: active ? "" : v }))}
+                              className={`h-5 w-5 rounded-full border-2 transition-transform ${active ? "scale-125 border-primary" : "border-border hover:scale-110"}`}
+                              style={{ background: `linear-gradient(135deg, ${th.primary} 50%, ${th.background} 50%)` }}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => useTemplate(t)}
+                      disabled={!!usingTemplate}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60"
+                    >
+                      {usingTemplate === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                      Use template
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => createWithAI(prompt.trim())}
+                disabled={submitting || !!usingTemplate}
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+              >
+                <Sparkles className="h-3 w-3" />
+                {submitting ? "Generating…" : "None of these fit — generate a custom app with AI instead"}
+              </button>
+            </div>
           )}
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-6">
