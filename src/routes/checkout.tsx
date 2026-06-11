@@ -1,15 +1,14 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
-import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
 import { PageShell } from "@/components/PageShell";
+import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
 
 const PLAN_VALUES = ["starter", "pro", "scale", "business"] as const;
 const CADENCE_VALUES = ["monthly", "yearly"] as const;
 type Plan = (typeof PLAN_VALUES)[number];
-type Cadence = (typeof CADENCE_VALUES)[number];
 
 const PLAN_META: Record<Plan, { name: string; tag: string; blurb: string }> = {
   starter: { name: "Starter", tag: "TIER_01", blurb: "120 AI credits / month, 5 published apps, source export." },
@@ -36,13 +35,8 @@ export const Route = createFileRoute("/checkout")({
 
 function CheckoutPage() {
   const { plan, cadence } = Route.useSearch();
-  const navigate = useNavigate();
-  const { openCheckout } = usePaddleCheckout();
-
   const [authState, setAuthState] = useState<"loading" | "guest" | "user">("loading");
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const launched = useRef(false);
 
   const meta = PLAN_META[plan as Plan];
   const priceId = `${plan}_${cadence}`;
@@ -75,19 +69,10 @@ function CheckoutPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (authState !== "user" || !user || launched.current) return;
-    launched.current = true;
-    openCheckout({
-      priceId,
-      customerEmail: user.email,
-      customData: { userId: user.id },
-      successUrl: `${window.location.origin}/checkout/success`,
-    }).catch((e) => {
-      launched.current = false;
-      setError(e instanceof Error ? e.message : "Failed to open checkout");
-    });
-  }, [authState, user, priceId, plan, openCheckout]);
+  const returnUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
+      : undefined;
 
   return (
     <PageShell
@@ -95,7 +80,7 @@ function CheckoutPage() {
       title={`Confirm ${meta.name} — ${cadence === "yearly" ? "Yearly" : "Monthly"}`}
       intro={meta.blurb}
     >
-      <div className="max-w-2xl border border-border p-8 space-y-6">
+      <div className="max-w-3xl border border-border p-6 space-y-6">
         {authState === "loading" && (
           <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
             [···] Checking session
@@ -124,37 +109,16 @@ function CheckoutPage() {
                 Log in
               </Link>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              [0] After signing in, this page will open checkout automatically.
-            </p>
           </div>
         )}
 
-        {authState === "user" && (
-          <div className="space-y-4">
-            <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
-              [···] Opening secure checkout
-            </p>
-            <p className="text-sm text-muted-foreground">
-              The Paddle checkout should appear in a moment. If it doesn't,{" "}
-              <button
-                type="button"
-                className="text-primary underline-offset-4 hover:underline"
-                onClick={() => {
-                  launched.current = false;
-                  navigate({ to: "/checkout", search: { plan, cadence } });
-                }}
-              >
-                retry
-              </button>
-              .
-            </p>
-            {error && (
-              <div className="border border-destructive/40 bg-destructive/10 text-destructive text-sm p-3 font-mono">
-                {error}
-              </div>
-            )}
-          </div>
+        {authState === "user" && user && (
+          <StripeEmbeddedCheckout
+            priceId={priceId}
+            customerEmail={user.email}
+            userId={user.id}
+            returnUrl={returnUrl}
+          />
         )}
       </div>
     </PageShell>

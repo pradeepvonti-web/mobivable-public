@@ -1,71 +1,166 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { gatewayFetch, getPaddleClient, type PaddleEnv } from "@/lib/paddle.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  type StripeEnv,
+  createStripeClient,
+  getStripeErrorMessage,
+} from "@/lib/stripe.server";
 
-export const resolvePaddlePrice = createServerFn({ method: "GET" })
-  .inputValidator((data: { priceId: string; environment: PaddleEnv }) => data)
-  .handler(async ({ data }) => {
-    const response = await gatewayFetch(
-      data.environment,
-      `/prices?external_id=${encodeURIComponent(data.priceId)}`
-    );
-    const result = await response.json();
-    if (!result.data?.length) throw new Error("Price not found");
-    return result.data[0].id as string;
+type CheckoutSessionResult = { clientSecret: string } | { error: string };
+type PortalSessionResult = { url: string } | { error: string };
+
+const PRICE_IDS = [
+  "starter_monthly",
+  "starter_yearly",
+  "pro_monthly",
+  "pro_yearly",
+  "scale_monthly",
+  "scale_yearly",
+  "business_monthly",
+  "business_yearly",
+] as const;
+
+async function resolveOrCreateCustomer(
+  stripe: ReturnType<typeof createStripeClient>,
+  options: { email?: string; userId?: string },
+): Promise<string> {
+  if (options.userId && !/^[a-zA-Z0-9_-]+$/.test(options.userId)) {
+    throw new Error("Invalid userId");
+  }
+  if (options.userId) {
+    const found = await stripe.customers.search({
+      query: `metadata['userId']:'${options.userId}'`,
+      limit: 1,
+    });
+    if (found.data.length) return found.data[0].id;
+  }
+  if (options.email) {
+    const existing = await stripe.customers.list({
+      email: options.email,
+      limit: 1,
+    });
+    if (existing.data.length) {
+      const customer = existing.data[0];
+      if (options.userId && customer.metadata?.userId !== options.userId) {
+        await stripe.customers.update(customer.id, {
+          metadata: { ...customer.metadata, userId: options.userId },
+        });
+      }
+      return customer.id;
+    }
+  }
+  const created = await stripe.customers.create({
+    ...(options.email && { email: options.email }),
+    ...(options.userId && { metadata: { userId: options.userId } }),
+  });
+  return created.id;
+}
+
+export const createCheckoutSession = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      priceId: string;
+      quantity?: number;
+      customerEmail?: string;
+      userId?: string;
+      returnUrl: string;
+      environment: StripeEnv;
+    }) => {
+      if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) {
+        throw new Error("Invalid priceId");
+      }
+      return data;
+    },
+  )
+  .handler(async ({ data }): Promise<CheckoutSessionResult> => {
+    try {
+      const stripe = createStripeClient(data.environment);
+
+      const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
+      if (!prices.data.length) throw new Error("Price not found");
+      const stripePrice = prices.data[0];
+      const isRecurring = stripePrice.type === "recurring";
+
+      const customerId =
+        data.customerEmail || data.userId
+          ? await resolveOrCreateCustomer(stripe, {
+              email: data.customerEmail,
+              userId: data.userId,
+            })
+          : undefined;
+
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          { price: stripePrice.id, quantity: data.quantity || 1 },
+        ],
+        mode: isRecurring ? "subscription" : "payment",
+        ui_mode: "embedded_page",
+        return_url: data.returnUrl,
+        automatic_tax: { enabled: true },
+        ...(customerId && { customer: customerId }),
+        ...(data.userId && {
+          metadata: { userId: data.userId },
+          ...(isRecurring && {
+            subscription_data: { metadata: { userId: data.userId } },
+          }),
+        }),
+      });
+
+      return { clientSecret: session.client_secret ?? "" };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
   });
 
-// Open Paddle's hosted customer portal so the user can update payment
-// method or cancel. Returns the URL; the client opens it in a new tab.
-export const openCustomerPortal = createServerFn({ method: "POST" })
+export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { userId } = context;
-    const { data: sub, error } = await supabaseAdmin
+  .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
+  .handler(async ({ data, context }): Promise<PortalSessionResult> => {
+    const { supabase, userId } = context;
+    const { data: sub, error: subError } = await supabase
       .from("subscriptions")
-      .select("paddle_customer_id, paddle_subscription_id, environment")
+      .select("stripe_customer_id")
       .eq("user_id", userId)
+      .eq("environment", data.environment)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!sub) throw new Error("No subscription found");
-
-    const paddle = getPaddleClient(sub.environment as PaddleEnv);
-    const session = await paddle.customerPortalSessions.create(
-      sub.paddle_customer_id as string,
-      [sub.paddle_subscription_id as string]
-    );
-    return { url: session.urls.general.overview };
+    if (subError || !sub?.stripe_customer_id) {
+      return { error: "No subscription found" };
+    }
+    try {
+      const stripe = createStripeClient(data.environment);
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: sub.stripe_customer_id as string,
+        ...(data.returnUrl && { return_url: data.returnUrl }),
+      });
+      return { url: portal.url };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
   });
 
-// Change plan: upgrades take effect immediately and are prorated; downgrades
-// wait for the next billing period (no proration).
+// Legacy named exports kept so existing callers (dashboard) keep working.
+export const openCustomerPortal = createPortalSession;
+
 export const changeSubscriptionPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
-        targetPriceId: z.enum([
-          "starter_monthly",
-          "starter_yearly",
-          "pro_monthly",
-          "pro_yearly",
-          "scale_monthly",
-          "scale_yearly",
-          "business_monthly",
-          "business_yearly",
-        ]),
+        targetPriceId: z.enum(PRICE_IDS),
+        environment: z.enum(["sandbox", "live"]).default("sandbox"),
       })
-      .parse(input)
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context;
-    const { data: sub, error } = await supabaseAdmin
+    const { supabase, userId } = context;
+    const { data: sub, error } = await supabase
       .from("subscriptions")
-      .select("paddle_subscription_id, price_id, environment, status")
+      .select("stripe_subscription_id, price_id, environment, status")
       .eq("user_id", userId)
+      .eq("environment", data.environment)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -75,22 +170,20 @@ export const changeSubscriptionPlan = createServerFn({ method: "POST" })
       return { ok: true, unchanged: true };
     }
 
-    const env = sub.environment as PaddleEnv;
-    // Resolve price external id → Paddle internal id
-    const priceLookup = await gatewayFetch(
-      env,
-      `/prices?external_id=${encodeURIComponent(data.targetPriceId)}`
-    );
-    const priceJson = await priceLookup.json();
-    const paddlePriceId = priceJson.data?.[0]?.id as string | undefined;
-    if (!paddlePriceId) throw new Error("Target price not found in Paddle");
+    const env = sub.environment as StripeEnv;
+    const stripe = createStripeClient(env);
 
-    // Upgrade if moving up a tier, or monthly→yearly within the same tier.
+    const prices = await stripe.prices.list({
+      lookup_keys: [data.targetPriceId],
+    });
+    if (!prices.data.length) throw new Error("Target price not found");
+    const targetStripePrice = prices.data[0];
+
     const tierRank = (id: string): number => {
       if (id.startsWith("business_")) return 4;
       if (id.startsWith("scale_")) return 3;
       if (id.startsWith("pro_")) return 2;
-      return 1; // starter
+      return 1;
     };
     const intervalRank = (id: string) => (id.endsWith("_yearly") ? 2 : 1);
     const currentTier = tierRank(sub.price_id as string);
@@ -98,17 +191,21 @@ export const changeSubscriptionPlan = createServerFn({ method: "POST" })
     const isUpgrade =
       targetTier > currentTier ||
       (targetTier === currentTier &&
-        intervalRank(data.targetPriceId) > intervalRank(sub.price_id as string));
+        intervalRank(data.targetPriceId) >
+          intervalRank(sub.price_id as string));
 
-    const paddle = getPaddleClient(env);
-    const updated = await paddle.subscriptions.update(
-      sub.paddle_subscription_id as string,
+    const subscription = await stripe.subscriptions.retrieve(
+      sub.stripe_subscription_id as string,
+    );
+    const itemId = subscription.items.data[0]?.id;
+    if (!itemId) throw new Error("Subscription has no items");
+
+    const updated = await stripe.subscriptions.update(
+      sub.stripe_subscription_id as string,
       {
-        items: [{ priceId: paddlePriceId, quantity: 1 }],
-        prorationBillingMode: isUpgrade
-          ? "prorated_immediately"
-          : "prorated_next_billing_period",
-      }
+        items: [{ id: itemId, price: targetStripePrice.id }],
+        proration_behavior: isUpgrade ? "always_invoice" : "none",
+      },
     );
     return { ok: true, isUpgrade, status: updated.status };
   });
