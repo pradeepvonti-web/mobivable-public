@@ -148,6 +148,82 @@ export const createPortalSession = createServerFn({ method: "POST" })
 // Legacy named exports kept so existing callers (dashboard) keep working.
 export const openCustomerPortal = createPortalSession;
 
+// Pulls the user's latest subscription from Stripe and upserts it into the
+// `subscriptions` table. Used after returning from the Customer Portal so the
+// UI reflects cancellations/payment-method updates without waiting on the
+// webhook (which may also fire — the upsert is idempotent on
+// stripe_subscription_id).
+export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { environment: StripeEnv }) => data)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: row } = await supabase
+      .from("subscriptions")
+      .select("stripe_customer_id, stripe_subscription_id")
+      .eq("user_id", userId)
+      .eq("environment", data.environment)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!row?.stripe_customer_id) return { ok: false, reason: "no_customer" };
+
+    try {
+      const stripe = createStripeClient(data.environment);
+      const list = await stripe.subscriptions.list({
+        customer: row.stripe_customer_id as string,
+        status: "all",
+        limit: 1,
+      });
+      const subscription = list.data[0];
+      if (!subscription) return { ok: false, reason: "no_subscription" };
+
+      const item = subscription.items?.data?.[0];
+      const priceId =
+        (item?.price as any)?.lookup_key ||
+        (item?.price as any)?.metadata?.lovable_external_id ||
+        item?.price?.id ||
+        "";
+      const productId =
+        typeof item?.price?.product === "string"
+          ? item.price.product
+          : (item?.price?.product as any)?.id ?? "";
+      const periodStart =
+        (item as any)?.current_period_start ??
+        (subscription as any).current_period_start;
+      const periodEnd =
+        (item as any)?.current_period_end ??
+        (subscription as any).current_period_end;
+
+      const { supabaseAdmin } = await import(
+        "@/integrations/supabase/client.server"
+      );
+      await supabaseAdmin.from("subscriptions").upsert(
+        {
+          user_id: userId,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: subscription.customer as string,
+          product_id: productId,
+          price_id: priceId,
+          status: subscription.status,
+          current_period_start: periodStart
+            ? new Date(periodStart * 1000).toISOString()
+            : null,
+          current_period_end: periodEnd
+            ? new Date(periodEnd * 1000).toISOString()
+            : null,
+          cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+          environment: data.environment,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "stripe_subscription_id" },
+      );
+      return { ok: true, status: subscription.status };
+    } catch (error) {
+      return { ok: false, reason: getStripeErrorMessage(error) };
+    }
+  });
+
 export const changeSubscriptionPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
