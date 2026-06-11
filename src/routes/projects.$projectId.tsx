@@ -1897,7 +1897,7 @@ function ProjectPage() {
   return (
     <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col">
       {/* Top header bar — compact Lovable-style toolbar */}
-      <header className="shrink-0 h-12 border-b border-border bg-background flex items-center gap-1 px-2 lg:px-3">
+      <header className="shrink-0 h-12 border-b border-border bg-background flex items-center gap-2 px-3 lg:px-4">
         {/* ── Left cluster: nav + tool icons + Preview pill ── */}
         <Link
           to="/dashboard"
