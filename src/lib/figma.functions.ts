@@ -447,6 +447,7 @@ export const compileFigmaToSchema = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found or access denied" };
     }
 
+    let charged = false;
     try {
       let rootNode: any;
       let fileName = "";
