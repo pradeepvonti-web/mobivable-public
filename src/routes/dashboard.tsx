@@ -180,10 +180,11 @@ function DashboardPage() {
       const result = await portal({
         data: {
           environment: getStripeEnvironment(),
-          returnUrl: `${window.location.origin}/dashboard`,
+          returnUrl: `${window.location.origin}/dashboard?portal=return`,
         },
       });
       if ("error" in result) throw new Error(result.error);
+      sessionStorage.setItem("portal-opened", "1");
       window.open(result.url, "_blank", "noopener");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to open portal");
