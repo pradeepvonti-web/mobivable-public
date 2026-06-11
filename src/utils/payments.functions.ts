@@ -90,6 +90,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             })
           : undefined;
 
+      // Managed payments: Stripe handles end-to-end tax compliance, fraud,
+      // disputes, and transactional support for buyers in supported countries
+      // (+3.5% per tx). Incompatible with `automatic_tax`, so we drop it here.
       const session = await stripe.checkout.sessions.create({
         line_items: [
           { price: stripePrice.id, quantity: data.quantity || 1 },
@@ -97,15 +100,15 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         mode: isRecurring ? "subscription" : "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
-        automatic_tax: { enabled: true },
         ...(customerId && { customer: customerId }),
         ...(data.userId && {
-          metadata: { userId: data.userId },
+          metadata: { userId: data.userId, managed_payments: "true" },
           ...(isRecurring && {
             subscription_data: { metadata: { userId: data.userId } },
           }),
         }),
-      });
+        managed_payments: { enabled: true },
+      } as Stripe.Checkout.SessionCreateParams);
 
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
