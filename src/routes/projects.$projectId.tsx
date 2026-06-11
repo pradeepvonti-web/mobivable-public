@@ -1907,16 +1907,17 @@ function ProjectPage() {
         >
           <LayoutDashboard className="h-4 w-4" />
         </Link>
-        <button
-          type="button"
-          onClick={() => setLeftSidebarOpen((v) => !v)}
-          aria-pressed={leftSidebarOpen}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Toggle sidebar"
-          title={leftSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </button>
+        {!leftSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setLeftSidebarOpen(true)}
+            className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Show sidebar"
+            title="Show sidebar"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        )}
 
         {/* Preview pill (active) */}
         <button
@@ -2081,10 +2082,19 @@ function ProjectPage() {
         <div className="p-4 border-b border-border flex items-center gap-2">
           <Link
             to="/dashboard"
-            className="font-display text-sm uppercase tracking-wider hover:text-primary transition-colors"
+            className="flex-1 min-w-0 font-display text-sm uppercase tracking-wider hover:text-primary transition-colors truncate"
           >
             Mobivable Agentic Mobile Studio
           </Link>
+          <button
+            type="button"
+            onClick={() => setLeftSidebarOpen(false)}
+            className="h-7 w-7 shrink-0 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Hide sidebar"
+            title="Hide sidebar"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
         </div>
         <div className="p-3">
           <Link
