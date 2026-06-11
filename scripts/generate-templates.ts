@@ -55,9 +55,30 @@ async function main() {
   const { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } = await import("../src/lib/code-gen");
 
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const key = serviceKey ?? anonKey;
   if (!url || !key) throw new Error("SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or publishable key) required.");
   const db = createClient(url, key, { auth: { persistSession: false } });
+
+  // app_templates RLS requires `auth.uid() is not null AND author_id =
+  // auth.uid()`. Without the service-role key (which bypasses RLS), sign in as a
+  // user and stamp author_id with their id so inserts pass. Dev test account by
+  // default. With the service-role key, author_id stays null ("built-in").
+  let authorId: string | null = null;
+  if (!serviceKey) {
+    const email = process.env.TEMPLATE_SEED_EMAIL ?? "test@example.com";
+    const password = process.env.TEMPLATE_SEED_PASSWORD ?? "TestUser123!";
+    const { data: auth, error: authErr } = await db.auth.signInWithPassword({ email, password });
+    if (authErr || !auth.user) {
+      throw new Error(
+        `No SUPABASE_SERVICE_ROLE_KEY, and sign-in as ${email} failed (${authErr?.message ?? "no user"}). ` +
+          `Set the service-role key, or TEMPLATE_SEED_EMAIL/PASSWORD for a valid account.`,
+      );
+    }
+    authorId = auth.user.id;
+    console.log(`Authenticated as ${email} (${authorId}) — anon key + user session for RLS inserts.`);
+  }
 
   // Existing templates → skip (idempotency by slug stored in tags).
   const { data: existing, error: exErr } = await db.from("app_templates").select("tags");
@@ -108,6 +129,7 @@ async function main() {
         feature_list: features,
         is_featured: false,
         is_community: false,
+        author_id: authorId, // required by RLS when using a user session; null with service role
         use_count: 0,
       });
       if (insErr) throw new Error(`insert: ${insErr.message}`);

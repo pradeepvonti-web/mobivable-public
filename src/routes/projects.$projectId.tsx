@@ -665,7 +665,10 @@ function ProjectPage() {
   const [monetizationConfig, setMonetizationConfig] = useState<{ provider: string | null; keys: Record<string, string> }>({ provider: null, keys: {} });
   const [selectedDevice, setSelectedDevice] = useState("iPhone 16");
   const [landscape, setLandscape] = useState(false);
-  const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('expo');
+  // Default to the sandbox-free "Instant" preview (in-browser schema render) —
+  // always available and reliable, especially for template-instantiated projects
+  // that have a schema but never ran an E2B build. Expo is opt-in.
+  const [renderMode, setRenderMode] = useState<'react' | 'flutter' | 'expo'>('react');
   // Expo Go real-device preview (QR → open on a phone).
   const [deviceModal, setDeviceModal] = useState<{ expUrl?: string; devServerUrl?: string; error?: string } | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(false);
@@ -906,10 +909,9 @@ function ProjectPage() {
           | { previewUrl?: string }
           | undefined)?.previewUrl
       : undefined;
-  // Once a live preview exists, default the device frame to it.
-  useEffect(() => {
-    if (expoPreviewUrl) setRenderMode("expo");
-  }, [expoPreviewUrl]);
+  // NOTE: we intentionally do NOT auto-switch to Expo when a preview URL exists
+  // — the sandbox can be expired/closed-port, so "Instant" stays the reliable
+  // default and the user opts into the Expo (sandbox) preview explicitly.
 
   const handleRestartExpo = async () => {
     setRestartingExpo(true);
@@ -3995,16 +3997,35 @@ function ProjectPage() {
               landscape={landscape}
               onLandscapeToggle={() => setLandscape((l) => !l)}
             />
-            {/* Preview engine: Expo is the live generated React Native build —
-                the only real preview. React/Flutter (legacy schema renderers)
-                were removed; they can't render Expo-built apps. */}
+            {/* Preview engine:
+                · Instant — renders the app schema in-browser (MobileAppRenderer),
+                  NO sandbox. Always available, instant, works for templates.
+                · Expo — the live native build served from the E2B sandbox. */}
             <div className="inline-flex items-center gap-0.5 h-9 p-0.5 rounded-full border border-border bg-background/90 text-xs shadow-lg backdrop-blur">
-              <span
-                title="Live Expo app (the real generated React Native build)"
-                className="px-3 py-1.5 rounded-full font-medium bg-primary text-primary-foreground shadow-sm"
+              <button
+                type="button"
+                onClick={() => setRenderMode('react')}
+                title="Instant in-browser preview (no sandbox)"
+                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  renderMode === 'react'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Instant
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenderMode('expo')}
+                title="Live Expo app (the real generated React Native build, runs in a sandbox)"
+                className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  renderMode === 'expo'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 Expo
-              </span>
+              </button>
             </div>
             {/* Restart / rebuild the live Expo preview */}
             {renderMode === 'expo' && (
