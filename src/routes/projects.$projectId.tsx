@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Settings,
   History,
+  LayoutDashboard,
   LifeBuoy,
   Loader2,
   RefreshCw,
@@ -1904,7 +1905,7 @@ function ProjectPage() {
           aria-label="Back to dashboard"
           title="Dashboard"
         >
-          <History className="h-4 w-4" />
+          <LayoutDashboard className="h-4 w-4" />
         </Link>
         <button
           type="button"
