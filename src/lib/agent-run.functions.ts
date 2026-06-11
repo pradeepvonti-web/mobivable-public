@@ -378,6 +378,8 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
     // are combined into a single prompt that feeds CODE_GEN_SYSTEM_PROMPT
     // to produce a premium app JSON for the live preview.
     if (next === "completed") {
+      let finalizeProjectId: string | null = null;
+      let finalizeCharged = false;
       try {
         // Find the project
         const { data: runRow } = await supabase
