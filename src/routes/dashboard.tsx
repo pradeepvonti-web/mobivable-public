@@ -189,9 +189,13 @@ function DashboardPage() {
   const duplicateProject = async (p: ProjectRow) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { data } = await supabase.from("projects").insert({
+    const { data, error } = await supabase.from("projects").insert({
       user_id: u.user.id, name: `${p.name} (copy)`, prompt: p.prompt, model: p.model, status: "draft",
     }).select("id").single();
+    if (error?.message.includes("APP_QUOTA_EXCEEDED")) {
+      toast.error("You've hit your plan's app limit. Upgrade to create more.");
+      return;
+    }
     if (data) { toast.success("Project duplicated!"); void load(); }
   };
 
