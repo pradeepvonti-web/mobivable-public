@@ -9,6 +9,7 @@ import { useRequiredSession } from "@/hooks/useRequiredSession";
 import {
   openCustomerPortal,
   changeSubscriptionPlan,
+  syncSubscriptionFromStripe,
 } from "@/utils/payments.functions";
 import { AppPromptComposer } from "@/components/AppPromptComposer";
 import TemplateGallery from "@/components/TemplateGallery";
