@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { resolveTheme } from "@/lib/mobile-theme";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
