@@ -518,6 +518,31 @@ function DashboardPage() {
           </p>
         ) : (
           <>
+            {syncNotice && (
+              <div className={`border p-5 ${syncNotice.updated ? "border-emerald-500/40 bg-emerald-500/10" : "border-border bg-muted/30"}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className={`font-display text-sm uppercase tracking-wider mb-1 ${syncNotice.updated ? "text-emerald-600" : "text-muted-foreground"}`}>
+                      {syncNotice.updated ? "Subscription synced" : "Already up to date"}
+                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {syncNotice.message}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
+                      Last synced · {new Date(syncNotice.syncedAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSyncNotice(null)}
+                    className="text-muted-foreground hover:text-foreground text-xs"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             <section className="border border-border p-8">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
                 Current plan
