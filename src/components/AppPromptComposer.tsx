@@ -223,7 +223,15 @@ export function AppPromptComposer() {
       .select("id")
       .single();
     if (insertError || !data) {
-      setError(insertError?.message ?? "Failed to create project");
+      const msg = insertError?.message ?? "Failed to create project";
+      // Surface the quota trigger error in user-friendly form.
+      if (msg.includes("APP_QUOTA_EXCEEDED")) {
+        setError(
+          "You've hit your plan's app limit. Upgrade your subscription to create more apps.",
+        );
+      } else {
+        setError(msg);
+      }
       setSubmitting(false);
       return;
     }
