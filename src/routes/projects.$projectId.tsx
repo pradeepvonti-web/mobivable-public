@@ -1895,6 +1895,17 @@ function ProjectPage() {
   const isBuilding = !!project && (project.status === "building" || generating);
   const isReady = !!project && project.status === "ready" && !!project.result;
   const isFailed = !!project && project.status === "failed";
+  // The project's OWN renderable schema (not the demo fallback). Instant mode
+  // renders from this; Expo-agent builds have result=null (sandbox files only),
+  // so Instant shows a "switch to Expo" hint instead of an endless spinner or a
+  // misleading unrelated demo sample.
+  const instSchema = project?.result ? parseAppSchema(project.result) : null;
+  const isExpoStack =
+    !!expoPreviewUrl ||
+    (!!project?.attachments &&
+      typeof project.attachments === "object" &&
+      !Array.isArray(project.attachments) &&
+      (project.attachments as unknown as Record<string, unknown>).target_stack === "expo");
 
   return (
     <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-background text-foreground flex flex-col">
@@ -4650,22 +4661,38 @@ function ProjectPage() {
               return index >= 0 ? index : 0;
             })()}
           >
-            {isBuilding ? (
-              <div className="h-full w-full grid place-items-center p-6">
-                <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
+            {!instSchema ? (
+              isFailed ? (
+                <div className="h-full w-full grid place-items-center p-6">
+                  <div className="text-center">
+                    <Smartphone className="h-10 w-10 mx-auto text-destructive mb-3" />
+                    <p className="font-display text-sm uppercase tracking-wider text-destructive">Build failed</p>
+                  </div>
                 </div>
-              </div>
-            ) : isFailed && project?.result && parseAppSchema(project.result) === null && !SAMPLE_APPS[demoApp] ? (
-              <div className="h-full w-full grid place-items-center p-6">
-                <div className="text-center">
-                  <Smartphone className="h-10 w-10 mx-auto text-destructive mb-3" />
-                  <p className="font-display text-sm uppercase tracking-wider text-destructive">
-                    Build failed
-                  </p>
+              ) : isBuilding && !isExpoStack ? (
+                <div className="h-full w-full grid place-items-center p-6">
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="font-display text-sm uppercase tracking-wider">Loading app…</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                // Expo-agent build (or no schema yet): nothing to render in-browser.
+                // Guide to the Expo (sandbox) preview rather than a misleading sample.
+                <div className="h-full w-full grid place-items-center p-6">
+                  <div className="text-center max-w-[230px]">
+                    <Smartphone className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="font-display text-sm uppercase tracking-wider text-muted-foreground">No instant preview</p>
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      This app was built natively (no in-browser schema).{" "}
+                      <button type="button" onClick={() => setRenderMode("expo")} className="underline hover:no-underline">
+                        Switch to Expo
+                      </button>{" "}
+                      for the live build.
+                    </p>
+                  </div>
+                </div>
+              )
             ) : (
               <div
                 ref={previewRootRef}
