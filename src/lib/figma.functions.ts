@@ -492,6 +492,7 @@ export const compileFigmaToSchema = createServerFn({ method: "POST" })
 
       try {
         await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
+        charged = true;
       } catch (e) {
         return { ok: false as const, error: (e as Error).message };
       }
