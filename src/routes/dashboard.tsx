@@ -189,9 +189,13 @@ function DashboardPage() {
   const duplicateProject = async (p: ProjectRow) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { data } = await supabase.from("projects").insert({
+    const { data, error } = await supabase.from("projects").insert({
       user_id: u.user.id, name: `${p.name} (copy)`, prompt: p.prompt, model: p.model, status: "draft",
     }).select("id").single();
+    if (error?.message.includes("APP_QUOTA_EXCEEDED")) {
+      toast.error("You've hit your plan's app limit. Upgrade to create more.");
+      return;
+    }
     if (data) { toast.success("Project duplicated!"); void load(); }
   };
 
@@ -419,6 +423,26 @@ function DashboardPage() {
               className="px-4 py-2 bg-destructive text-background font-display text-xs uppercase tracking-wider hover:invert transition-all disabled:opacity-50"
             >
               {busy === "portal" ? "Opening…" : "Update payment method"}
+            </button>
+          </div>
+        )}
+
+        {isCanceled && periodEnd && (
+          <div className="border border-yellow-500/40 bg-yellow-500/10 p-5">
+            <p className="font-display text-sm uppercase tracking-wider text-yellow-600 mb-2">
+              Subscription canceled
+            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+              You keep your current plan benefits until <span className="text-foreground">{periodEnd}</span>.
+              After that you'll be moved to Free Beta.
+            </p>
+            <button
+              type="button"
+              onClick={handleManage}
+              disabled={busy === "portal"}
+              className="px-4 py-2 border border-yellow-500/50 text-foreground font-display text-xs uppercase tracking-wider hover:bg-yellow-500/10 transition-all disabled:opacity-50"
+            >
+              {busy === "portal" ? "Opening…" : "Manage subscription"}
             </button>
           </div>
         )}

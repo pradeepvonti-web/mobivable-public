@@ -52,8 +52,15 @@ function SignupPage() {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
-          data: { plan, display_name: displayName },
+          // Send paid-tier users to checkout right after they confirm their email.
+          // Free signups go straight home. plan is intentionally NOT in user_metadata
+          // — the DB trigger always provisions free_beta and only the Stripe webhook
+          // can elevate a user's plan.
+          emailRedirectTo:
+            plan === "free_beta"
+              ? window.location.origin
+              : `${window.location.origin}/checkout?plan=${plan}&cadence=monthly`,
+          data: { display_name: displayName },
         },
       });
       if (error) throw error;

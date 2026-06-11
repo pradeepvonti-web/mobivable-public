@@ -1373,6 +1373,7 @@ export type Database = {
           monthly: number
         }[]
       }
+      can_create_project: { Args: { p_user: string }; Returns: Json }
       consume_ai_credits: {
         Args: {
           p_amount: number
@@ -1412,6 +1413,7 @@ export type Database = {
         }
         Returns: number
       }
+      plan_app_quota: { Args: { p_plan: string }; Returns: number }
       plan_from_price: {
         Args: { p_price_id: string }
         Returns: Database["public"]["Enums"]["plan_tier"]
