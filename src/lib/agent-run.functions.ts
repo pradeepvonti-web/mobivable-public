@@ -527,6 +527,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             "agent_run.finalize",
             project.id,
           );
+          finalizeCharged = true;
+          finalizeProjectId = project.id;
         } catch (e) {
           throw new Error((e as Error).message);
         }
