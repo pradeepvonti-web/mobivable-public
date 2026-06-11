@@ -124,22 +124,34 @@ ${data.description.slice(0, 6000) || "(none provided)"}
 
 The attached images are the app's marketing screenshots. Produce the JSON spec.`;
 
-    const r = await callAIVision(buildSystemPrompt(), user, data.screenshotUrls, data.model);
-    if (!r.ok) return { ok: false as const, error: r.error };
-
-    const text = r.text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end === -1 || end <= start) {
-      return { ok: false as const, error: "Vision model did not return JSON." };
-    }
+    const COST = CREDIT_COSTS.image + CREDIT_COSTS.text;
     try {
-      const spec = JSON.parse(text.slice(start, end + 1)) as Partial<CloneSpec>;
-      if (!spec.palette?.primary || !Array.isArray(spec.screens) || spec.screens.length === 0) {
-        return { ok: false as const, error: "Spec missing required fields (palette/screens)." };
+      const r = await callAIVision(buildSystemPrompt(), user, data.screenshotUrls, data.model);
+      if (!r.ok) {
+        await refundCredits(context.userId, COST, "analyze_app_screens");
+        return { ok: false as const, error: r.error };
       }
-      return { ok: true as const, spec: spec as CloneSpec, provider: r.provider, model: r.model };
+
+      const text = r.text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start === -1 || end === -1 || end <= start) {
+        await refundCredits(context.userId, COST, "analyze_app_screens");
+        return { ok: false as const, error: "Vision model did not return JSON." };
+      }
+      try {
+        const spec = JSON.parse(text.slice(start, end + 1)) as Partial<CloneSpec>;
+        if (!spec.palette?.primary || !Array.isArray(spec.screens) || spec.screens.length === 0) {
+          await refundCredits(context.userId, COST, "analyze_app_screens");
+          return { ok: false as const, error: "Spec missing required fields (palette/screens)." };
+        }
+        return { ok: true as const, spec: spec as CloneSpec, provider: r.provider, model: r.model };
+      } catch (e) {
+        await refundCredits(context.userId, COST, "analyze_app_screens");
+        return { ok: false as const, error: e instanceof Error ? `Parse failed: ${e.message}` : "Parse failed" };
+      }
     } catch (e) {
-      return { ok: false as const, error: e instanceof Error ? `Parse failed: ${e.message}` : "Parse failed" };
+      await refundCredits(context.userId, COST, "analyze_app_screens");
+      throw e;
     }
   });
