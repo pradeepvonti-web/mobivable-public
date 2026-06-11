@@ -98,7 +98,20 @@ function DashboardPage() {
     error?: string;
     syncedAt: string;
     message: string;
-  } | null>(null);
+    lastRetryAt?: string;
+  } | null>(() => {
+    try {
+      const raw = localStorage.getItem("dashboard-sync-notice");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    try {
+      if (syncNotice) localStorage.setItem("dashboard-sync-notice", JSON.stringify(syncNotice));
+      else localStorage.removeItem("dashboard-sync-notice");
+    } catch { /* ignore */ }
+  }, [syncNotice]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const navigate = useNavigate();
@@ -566,11 +579,17 @@ function DashboardPage() {
                     </p>
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
                       Last synced · {new Date(syncNotice.syncedAt).toLocaleTimeString()}
+                      {syncNotice.lastRetryAt && (
+                        <> · Retried {new Date(syncNotice.lastRetryAt).toLocaleTimeString()}</>
+                      )}
                     </p>
                     {syncNotice.error && (
                       <button
                         type="button"
-                        onClick={() => { setSyncNotice(null); void doPortalSync(); }}
+                        onClick={() => {
+                          setSyncNotice((n) => n ? { ...n, lastRetryAt: new Date().toISOString() } : n);
+                          void doPortalSync();
+                        }}
                         className="mt-3 px-4 py-2 bg-primary text-background font-display text-xs uppercase tracking-wider hover:invert transition-all"
                       >
                         Retry sync
