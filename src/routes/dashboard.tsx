@@ -423,6 +423,26 @@ function DashboardPage() {
           </div>
         )}
 
+        {isCanceled && periodEnd && (
+          <div className="border border-yellow-500/40 bg-yellow-500/10 p-5">
+            <p className="font-display text-sm uppercase tracking-wider text-yellow-600 mb-2">
+              Subscription canceled
+            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+              You keep your current plan benefits until <span className="text-foreground">{periodEnd}</span>.
+              After that you'll be moved to Free Beta.
+            </p>
+            <button
+              type="button"
+              onClick={handleManage}
+              disabled={busy === "portal"}
+              className="px-4 py-2 border border-yellow-500/50 text-foreground font-display text-xs uppercase tracking-wider hover:bg-yellow-500/10 transition-all disabled:opacity-50"
+            >
+              {busy === "portal" ? "Opening…" : "Manage subscription"}
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest">
             [···] Loading
