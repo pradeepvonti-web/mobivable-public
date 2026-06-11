@@ -168,7 +168,7 @@ function TermsPage() {
       <Section title="12. Limitation of Liability">
         <p>
           To the maximum extent permitted by law, our aggregate liability arising out of or related
-          to the Service is limited to the fees you paid to us (via Paddle) for the Service in the
+          to the Service is limited to the fees you paid to us (via Stripe) for the Service in the
           twelve (12) months preceding the event giving rise to the claim. We will not be liable
           for indirect, incidental, special, consequential, exemplary, or punitive damages, or for
           loss of profits, revenue, data, goodwill, or business opportunities.

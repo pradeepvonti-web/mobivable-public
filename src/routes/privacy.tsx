@@ -60,7 +60,7 @@ function PrivacyPage() {
           <li><strong>Usage & telemetry</strong>: features used, page views, AI credit consumption, error reports.</li>
           <li><strong>Device & network data</strong>: IP address, browser type, operating system, device identifiers.</li>
           <li><strong>Support communications</strong>: messages you send to support and our responses.</li>
-          <li><strong>Billing metadata</strong>: subscription tier, plan history. Payment card details are collected directly by Paddle and are never seen or stored by us.</li>
+          <li><strong>Billing metadata</strong>: subscription tier, plan history. Payment card details are collected directly by Stripe and are never seen or stored by us.</li>
         </ul>
       </Section>
 
