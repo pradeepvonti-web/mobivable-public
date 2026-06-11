@@ -79,7 +79,16 @@ export const checkPreviewServing = createServerFn({ method: "POST" })
     const ctx: WorkspaceCtx = { userId: context.userId, supabase: context.supabase };
     try {
       const url = await getExpoPreviewUrl(data.projectId, ctx);
-      return { ok: true as const, url, serving: await probePreviewServing(url) };
+      if (!url) {
+        return { ok: true as const, url: null, serving: false };
+      }
+      let serving = false;
+      try {
+        serving = await probePreviewServing(url);
+      } catch {
+        serving = false;
+      }
+      return { ok: true as const, url, serving };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
     }
