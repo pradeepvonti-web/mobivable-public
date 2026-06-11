@@ -99,10 +99,49 @@ function DashboardPage() {
 
   const portal = useServerFn(openCustomerPortal);
   const changePlan = useServerFn(changeSubscriptionPlan);
+  const syncSub = useServerFn(syncSubscriptionFromStripe);
 
   useEffect(() => {
     if (status !== "authenticated") return;
     void load();
+  }, [status]);
+
+  // When the user returns from the Stripe Customer Portal (opened in a new
+  // tab), pull the latest subscription state from Stripe and refresh the
+  // dashboard. Triggered on tab focus + visibility, and on mount if the URL
+  // carries ?portal=return (set when we open the portal tab).
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        await syncSub({ data: { environment: getStripeEnvironment() } });
+        await load();
+        router.invalidate();
+      } finally {
+        pending = false;
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && sessionStorage.getItem("portal-opened") === "1") {
+        sessionStorage.removeItem("portal-opened");
+        void refresh();
+      }
+    };
+    window.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("portal") === "return") {
+      url.searchParams.delete("portal");
+      window.history.replaceState({}, "", url.toString());
+      void refresh();
+    }
+    return () => {
+      window.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [status]);
 
   async function load() {
