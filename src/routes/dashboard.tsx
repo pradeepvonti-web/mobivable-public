@@ -98,7 +98,20 @@ function DashboardPage() {
     error?: string;
     syncedAt: string;
     message: string;
-  } | null>(null);
+    lastRetryAt?: string;
+  } | null>(() => {
+    try {
+      const raw = localStorage.getItem("dashboard-sync-notice");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    try {
+      if (syncNotice) localStorage.setItem("dashboard-sync-notice", JSON.stringify(syncNotice));
+      else localStorage.removeItem("dashboard-sync-notice");
+    } catch { /* ignore */ }
+  }, [syncNotice]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const navigate = useNavigate();
