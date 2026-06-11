@@ -76,13 +76,21 @@ export const generateMaestroFlow = createServerFn({ method: "POST" })
       return { ok: false as const, error: (e as Error).message };
     }
 
-    const r = await callAI(
-      MAESTRO_FLOW_PROMPT,
-      `App Name: ${project.name}\nApp Idea: ${project.prompt}\nUI Schema:\n${schemaSummary}`
-    );
+    try {
+      const r = await callAI(
+        MAESTRO_FLOW_PROMPT,
+        `App Name: ${project.name}\nApp Idea: ${project.prompt}\nUI Schema:\n${schemaSummary}`
+      );
 
-    if (!r.ok) return { ok: false as const, error: r.error };
-    return { ok: true as const, yamlFlow: r.text.trim() };
+      if (!r.ok) {
+        await refundCredits(userId, CREDIT_COSTS.text, "testing.generate_flow", project.id);
+        return { ok: false as const, error: r.error };
+      }
+      return { ok: true as const, yamlFlow: r.text.trim() };
+    } catch (e) {
+      await refundCredits(userId, CREDIT_COSTS.text, "testing.generate_flow", project.id);
+      throw e;
+    }
   });
 
 /**
