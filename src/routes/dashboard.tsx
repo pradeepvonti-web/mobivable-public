@@ -115,6 +115,47 @@ function DashboardPage() {
     void load();
   }, [status]);
 
+  const doPortalSync = async () => {
+    const before = subRef.current;
+    try {
+      const result = await syncSub({ data: { environment: getStripeEnvironment() } });
+      await load();
+      router.invalidate();
+      if (result.ok && result.sub) {
+        const changed =
+          !before ||
+          before.status !== result.sub.status ||
+          before.price_id !== result.sub.price_id ||
+          before.cancel_at_period_end !== result.sub.cancel_at_period_end;
+        setSyncNotice({
+          updated: changed,
+          error: undefined,
+          syncedAt: result.syncedAt,
+          message: changed
+            ? `Updated to ${PRICE_LABEL[result.sub.price_id] ?? result.sub.price_id} · ${result.sub.status}`
+            : "No subscription changes found",
+        });
+        setTimeout(() => setSyncNotice(null), 8000);
+      } else if (!result.ok) {
+        setSyncNotice({
+          updated: false,
+          error: result.reason ?? "Sync failed",
+          syncedAt: new Date().toISOString(),
+          message: result.reason ?? "We couldn't sync your subscription from Stripe.",
+        });
+      }
+    } catch (e) {
+      setSyncNotice({
+        updated: false,
+        error: e instanceof Error ? e.message : "Unknown error",
+        syncedAt: new Date().toISOString(),
+        message: e instanceof Error ? e.message : "Sync failed unexpectedly.",
+      });
+    }
+  };
+  const doPortalSyncRef = useRef(doPortalSync);
+  doPortalSyncRef.current = doPortalSync;
+
   // When the user returns from the Stripe Customer Portal (opened in a new
   // tab), pull the latest subscription state from Stripe and refresh the
   // dashboard. Triggered on tab focus + visibility, and on mount if the URL
@@ -125,26 +166,8 @@ function DashboardPage() {
     const refresh = async () => {
       if (pending) return;
       pending = true;
-      const before = subRef.current;
       try {
-        const result = await syncSub({ data: { environment: getStripeEnvironment() } });
-        await load();
-        router.invalidate();
-        if (result.ok && result.sub) {
-          const changed =
-            !before ||
-            before.status !== result.sub.status ||
-            before.price_id !== result.sub.price_id ||
-            before.cancel_at_period_end !== result.sub.cancel_at_period_end;
-          setSyncNotice({
-            updated: changed,
-            syncedAt: result.syncedAt,
-            message: changed
-              ? `Updated to ${PRICE_LABEL[result.sub.price_id] ?? result.sub.price_id} · ${result.sub.status}`
-              : "No subscription changes found",
-          });
-          setTimeout(() => setSyncNotice(null), 8000);
-        }
+        await doPortalSyncRef.current();
       } finally {
         pending = false;
       }
