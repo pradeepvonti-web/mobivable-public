@@ -200,12 +200,54 @@ export const changeSubscriptionPlan = createServerFn({ method: "POST" })
     const itemId = subscription.items.data[0]?.id;
     if (!itemId) throw new Error("Subscription has no items");
 
-    const updated = await stripe.subscriptions.update(
-      sub.stripe_subscription_id as string,
-      {
-        items: [{ id: itemId, price: targetStripePrice.id }],
-        proration_behavior: isUpgrade ? "always_invoice" : "none",
-      },
-    );
-    return { ok: true, isUpgrade, status: updated.status };
+    if (isUpgrade) {
+      // Upgrade: switch immediately, prorate + invoice now so credits are
+      // granted at the new tier right away (handled by the subscriptions
+      // trigger -> profile.plan -> grant_ai_credits chain).
+      const updated = await stripe.subscriptions.update(
+        sub.stripe_subscription_id as string,
+        {
+          items: [{ id: itemId, price: targetStripePrice.id }],
+          proration_behavior: "always_invoice",
+        },
+      );
+      return { ok: true, isUpgrade: true, status: updated.status };
+    }
+
+    // Downgrade: defer the price change to the next renewal via a
+    // subscription schedule. Current period stays on the current plan;
+    // new plan + lower credits take effect at current_period_end.
+    const currentItem = subscription.items.data[0];
+    const periodEnd =
+      currentItem?.current_period_end ??
+      (subscription as unknown as { current_period_end?: number })
+        .current_period_end;
+    if (!periodEnd) throw new Error("Subscription has no current_period_end");
+
+    let scheduleId = (subscription as unknown as { schedule?: string | null })
+      .schedule;
+    if (!scheduleId) {
+      const created = await stripe.subscriptionSchedules.create({
+        from_subscription: sub.stripe_subscription_id as string,
+      });
+      scheduleId = created.id;
+    }
+
+    await stripe.subscriptionSchedules.update(scheduleId as string, {
+      end_behavior: "release",
+      phases: [
+        {
+          items: [{ price: currentItem.price.id, quantity: 1 }],
+          start_date: currentItem.current_period_start ?? "now",
+          end_date: periodEnd,
+          proration_behavior: "none",
+        },
+        {
+          items: [{ price: targetStripePrice.id, quantity: 1 }],
+          proration_behavior: "none",
+        },
+      ],
+    });
+
+    return { ok: true, isUpgrade: false, scheduledFor: periodEnd };
   });
