@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAIImage } from "./ai-provider";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 
 export const generateAsset = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -24,10 +24,16 @@ export const generateAsset = createServerFn({ method: "POST" })
 
     const fullPrompt = `${styleHint}\n\nConcept: ${data.prompt}`;
 
-    const result = await callAIImage(fullPrompt);
-    if (!result.ok) {
-      return { ok: false as const, error: result.error };
-    }
+    try {
+      const result = await callAIImage(fullPrompt);
+      if (!result.ok) {
+        await refundCredits(context.userId, CREDIT_COSTS.image, `asset.${data.kind}`);
+        return { ok: false as const, error: result.error };
+      }
 
-    return { ok: true as const, dataUrl: result.dataUrl };
+      return { ok: true as const, dataUrl: result.dataUrl };
+    } catch (e) {
+      await refundCredits(context.userId, CREDIT_COSTS.image, `asset.${data.kind}`);
+      throw e;
+    }
   });

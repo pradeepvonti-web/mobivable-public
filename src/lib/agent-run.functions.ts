@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AGENTS, ALL_ROLES, COMPLEXITY_PRESETS, type AgentRole } from "./agents";
 import { callAI, callAIStrong } from "./ai-provider";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 
 /** Recommend a set of agent roles based on the project's prompt. */
 export const recommendAgents = createServerFn({ method: "POST" })
@@ -50,6 +50,9 @@ export const recommendAgents = createServerFn({ method: "POST" })
       } catch {
         // fall back to preset
       }
+    } else {
+      // AI failed — refund so the user isn't charged for an unusable recommendation
+      await refundCredits(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id);
     }
     return { ok: true as const, complexity, roles };
   });
@@ -297,6 +300,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
     const r = await callAI(def.system, userPrompt);
 
     if (!r.ok) {
+      await refundCredits(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id);
       await supabase
         .from("agent_tasks")
         .update({ status: "failed", error_text: r.error })
@@ -374,6 +378,8 @@ export const finalizeAgentRun = createServerFn({ method: "POST" })
     // are combined into a single prompt that feeds CODE_GEN_SYSTEM_PROMPT
     // to produce a premium app JSON for the live preview.
     if (next === "completed") {
+      let finalizeProjectId: string | null = null;
+      let finalizeCharged = false;
       try {
         // Find the project
         const { data: runRow } = await supabase
@@ -502,6 +508,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             const briefResult = await callAI(extractionPrompt, "");
             if (briefResult.ok) {
               designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
+            } else {
+              await refundCredits(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
             }
           } catch (e) {
             console.log(
@@ -519,6 +527,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             "agent_run.finalize",
             project.id,
           );
+          finalizeCharged = true;
+          finalizeProjectId = project.id;
         } catch (e) {
           throw new Error((e as Error).message);
         }
@@ -788,6 +798,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
               .eq("id", project.id);
           }
         } else {
+          // Code-gen produced no usable schema — refund the generate_project charge
+          await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id);
           console.error("[finalizeAgentRun] Code gen failed", {
             ok: result.ok,
             textLength: result.ok ? result.text.length : 0,
@@ -795,6 +807,10 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
           });
         }
       } catch (e) {
+        // Refund on any throw after the generate_project consume
+        if (finalizeCharged && finalizeProjectId) {
+          await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", finalizeProjectId);
+        }
         console.error("[finalizeAgentRun] Schema regeneration error:", e);
         // Non-fatal: the run is still marked as completed
       }

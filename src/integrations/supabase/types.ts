@@ -1426,6 +1426,15 @@ export type Database = {
           read_ct: number
         }[]
       }
+      refund_ai_credits: {
+        Args: {
+          p_amount: number
+          p_project?: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
       sweep_expired_subscriptions: { Args: never; Returns: undefined }
     }
     Enums: {

@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI, callAIStrong } from "./ai-provider";
 // Note: callAIStrong forces the highest-tier model (Opus/Pro/GPT-4o) and is
 // 3-5x slower than the user's selected model. Only use it when premium=true.
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 import { CODE_GEN_SYSTEM_PROMPT, DESIGN_BRIEF_SYSTEM_PROMPT, parseAppSchema } from "@/lib/code-gen";
 import { validateAndFixSchema } from "./schema-validator";
 
@@ -76,6 +76,7 @@ export const generateProject = createServerFn({ method: "POST" })
       }
 
       if (!r.ok) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "generate_project", project.id);
         await supabase
           .from("projects")
           .update({ status: "failed", error_text: r.error })
@@ -95,6 +96,7 @@ export const generateProject = createServerFn({ method: "POST" })
       return { ok: true as const, result: finalResult, cached: false };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown generation error";
+      await refundCredits(userId, CREDIT_COSTS.generate_project, "generate_project", project.id);
       await supabase
         .from("projects")
         .update({ status: "failed", error_text: msg })

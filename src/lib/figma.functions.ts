@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 
 // ---------------------------------------------------------------------------
 // Figma URL parser
@@ -447,6 +447,7 @@ export const compileFigmaToSchema = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found or access denied" };
     }
 
+    let charged = false;
     try {
       let rootNode: any;
       let fileName = "";
@@ -491,6 +492,7 @@ export const compileFigmaToSchema = createServerFn({ method: "POST" })
 
       try {
         await consumeOrThrow(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
+        charged = true;
       } catch (e) {
         return { ok: false as const, error: (e as Error).message };
       }
@@ -546,11 +548,13 @@ Given a simplified Figma node layout tree, translate it into a valid, production
       const result = await callAI(compilerPrompt, userPrompt);
 
       if (!result.ok) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
         return { ok: false as const, error: "AI compiler failed: " + result.error };
       }
 
       const parsedSchema = parseAppSchema(result.text);
       if (!parsedSchema) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
         return { ok: false as const, error: "Malformed JSON returned from AI compiler." };
       }
 
@@ -566,6 +570,9 @@ Given a simplified Figma node layout tree, translate it into a valid, production
 
       return { ok: true as const, schema: fixed ?? parsedSchema };
     } catch (err) {
+      if (charged) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
+      }
       return {
         ok: false as const,
         error: err instanceof Error ? err.message : "Figma compile failed",

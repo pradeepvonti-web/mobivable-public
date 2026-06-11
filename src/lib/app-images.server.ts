@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { MobileAppSchema, MElement } from "@/lib/mobile-app-schema";
 import { resolveTheme } from "@/lib/mobile-theme";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -143,69 +143,80 @@ export async function runAppImagesInternal(args: {
   const queue = sites.slice(0, cap);
   if (queue.length === 0) return { ok: true, generated: 0, cached: 0, failed: 0, skipped: 0 };
 
+  const COST = CREDIT_COSTS.image * queue.length;
   try {
-    await consumeOrThrow(userId, CREDIT_COSTS.image * queue.length, "app_images", project.id);
+    await consumeOrThrow(userId, COST, "app_images", project.id);
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
 
-  const theme = resolveTheme(schema.theme);
-  const palette = [theme.primary, theme.accent, theme.background].join(", ");
+  try {
+    const theme = resolveTheme(schema.theme);
+    const palette = [theme.primary, theme.accent, theme.background].join(", ");
 
-  let generated = 0, cached = 0, failed = 0;
+    let generated = 0, cached = 0, failed = 0;
 
-  const run = async (site: PromptSite) => {
-    const key = await hashKey(`${site.prompt}|${palette}`);
-    const path = `${projectId}/${key}.png`;
+    const run = async (site: PromptSite) => {
+      const key = await hashKey(`${site.prompt}|${palette}`);
+      const path = `${projectId}/${key}.png`;
 
-    let hasStorage = false;
-    try {
-      const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(projectId, { search: `${key}.png` });
-      if (existing && existing.some((f) => f.name === `${key}.png`)) {
-        const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-        site.apply(pub.publicUrl);
-        cached++;
-        return;
-      }
-      hasStorage = true;
-    } catch {
-      // skip cache
-    }
-
-    const r = await generateOne(site.prompt, palette);
-    if (!r.ok) { failed++; console.error("[appImages] gen fail:", r.error); return; }
-
-    if (hasStorage) {
+      let hasStorage = false;
       try {
-        const bytes = b64ToBytes(r.b64);
-        const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
-          contentType: "image/png", upsert: true,
-        });
-        if (!up.error) {
+        const { data: existing } = await supabaseAdmin.storage.from(BUCKET).list(projectId, { search: `${key}.png` });
+        if (existing && existing.some((f) => f.name === `${key}.png`)) {
           const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
           site.apply(pub.publicUrl);
-          generated++;
+          cached++;
           return;
         }
+        hasStorage = true;
       } catch {
-        // fall through
+        // skip cache
       }
+
+      const r = await generateOne(site.prompt, palette);
+      if (!r.ok) { failed++; console.error("[appImages] gen fail:", r.error); return; }
+
+      if (hasStorage) {
+        try {
+          const bytes = b64ToBytes(r.b64);
+          const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
+            contentType: "image/png", upsert: true,
+          });
+          if (!up.error) {
+            const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+            site.apply(pub.publicUrl);
+            generated++;
+            return;
+          }
+        } catch {
+          // fall through
+        }
+      }
+
+      site.apply(`data:image/png;base64,${r.b64}`);
+      generated++;
+    };
+
+    for (let i = 0; i < queue.length; i += CONCURRENCY) {
+      await Promise.all(queue.slice(i, i + CONCURRENCY).map(run));
     }
 
-    site.apply(`data:image/png;base64,${r.b64}`);
-    generated++;
-  };
+    const skipped = sites.length - queue.length;
 
-  for (let i = 0; i < queue.length; i += CONCURRENCY) {
-    await Promise.all(queue.slice(i, i + CONCURRENCY).map(run));
+    await supabase
+      .from("projects")
+      .update({ result: JSON.stringify(schema) })
+      .eq("id", project.id);
+
+    // Refund credits for any images that failed to generate
+    if (failed > 0) {
+      await refundCredits(userId, CREDIT_COSTS.image * failed, "app_images", project.id);
+    }
+
+    return { ok: true, generated, cached, failed, skipped };
+  } catch (e) {
+    await refundCredits(userId, COST, "app_images", project.id);
+    throw e;
   }
-
-  const skipped = sites.length - queue.length;
-
-  await supabase
-    .from("projects")
-    .update({ result: JSON.stringify(schema) })
-    .eq("id", project.id);
-
-  return { ok: true, generated, cached, failed, skipped };
 }
