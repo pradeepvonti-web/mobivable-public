@@ -506,6 +506,8 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
             const briefResult = await callAI(extractionPrompt, "");
             if (briefResult.ok) {
               designBrief = `\n\n## Design Brief (extracted from agent team)\n${briefResult.text}`;
+            } else {
+              await refundCredits(userId, CREDIT_COSTS.text, "agent_run.extract_brief", project.id);
             }
           } catch (e) {
             console.log(
