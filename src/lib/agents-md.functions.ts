@@ -50,17 +50,28 @@ export const generateAgentsMd = createServerFn({ method: "POST" })
     try { await consumeOrThrow(userId, CREDIT_COSTS.text, "agents_md", project.id); }
     catch (e) { return { ok: false as const, error: (e as Error).message }; }
 
-    const r = await callAI(AGENTS_MD_SYSTEM_PROMPT, userPrompt, project.model);
-    if (!r.ok) return { ok: false as const, error: r.error };
+    try {
+      const r = await callAI(AGENTS_MD_SYSTEM_PROMPT, userPrompt, project.model);
+      if (!r.ok) {
+        await refundCredits(userId, CREDIT_COSTS.text, "agents_md", project.id);
+        return { ok: false as const, error: r.error };
+      }
 
-    const md = r.text.trim();
-    const { error: upErr } = await supabase
-      .from("projects")
-      .update({ agents_md: md })
-      .eq("id", project.id);
+      const md = r.text.trim();
+      const { error: upErr } = await supabase
+        .from("projects")
+        .update({ agents_md: md })
+        .eq("id", project.id);
 
-    if (upErr) return { ok: false as const, error: upErr.message };
-    return { ok: true as const, agentsMd: md };
+      if (upErr) {
+        await refundCredits(userId, CREDIT_COSTS.text, "agents_md", project.id);
+        return { ok: false as const, error: upErr.message };
+      }
+      return { ok: true as const, agentsMd: md };
+    } catch (e) {
+      await refundCredits(userId, CREDIT_COSTS.text, "agents_md", project.id);
+      throw e;
+    }
   });
 
 export const getAgentsMd = createServerFn({ method: "POST" })
