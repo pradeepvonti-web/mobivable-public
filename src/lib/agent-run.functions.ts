@@ -300,6 +300,7 @@ export const runAgentTask = createServerFn({ method: "POST" })
     const r = await callAI(def.system, userPrompt);
 
     if (!r.ok) {
+      await refundCredits(userId, CREDIT_COSTS.agent_task, `agent_task.${role}`, task.project_id);
       await supabase
         .from("agent_tasks")
         .update({ status: "failed", error_text: r.error })
