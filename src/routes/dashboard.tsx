@@ -3,7 +3,7 @@ import { AuthHydrating } from "@/components/AuthHydrating";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getPaddleEnvironment } from "@/lib/paddle";
+import { getStripeEnvironment } from "@/lib/stripe";
 import { PageShell } from "@/components/PageShell";
 import { useRequiredSession } from "@/hooks/useRequiredSession";
 import {
@@ -106,7 +106,7 @@ function DashboardPage() {
 
   async function load() {
     if (!session?.user) return;
-    const env = getPaddleEnvironment();
+    const env = getStripeEnvironment();
     const [{ data: prof }, { data: subRow }, { data: projRows }] = await Promise.all([
       supabase.from("profiles").select("display_name, plan").eq("id", session.user.id).maybeSingle(),
       supabase
@@ -137,8 +137,14 @@ function DashboardPage() {
     setBusy("portal");
     setError(null);
     try {
-      const { url } = await portal({});
-      window.open(url, "_blank", "noopener");
+      const result = await portal({
+        data: {
+          environment: getStripeEnvironment(),
+          returnUrl: `${window.location.origin}/dashboard`,
+        },
+      });
+      if ("error" in result) throw new Error(result.error);
+      window.open(result.url, "_blank", "noopener");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to open portal");
     } finally {
