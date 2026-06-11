@@ -579,11 +579,17 @@ function DashboardPage() {
                     </p>
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
                       Last synced · {new Date(syncNotice.syncedAt).toLocaleTimeString()}
+                      {syncNotice.lastRetryAt && (
+                        <> · Retried {new Date(syncNotice.lastRetryAt).toLocaleTimeString()}</>
+                      )}
                     </p>
                     {syncNotice.error && (
                       <button
                         type="button"
-                        onClick={() => { setSyncNotice(null); void doPortalSync(); }}
+                        onClick={() => {
+                          setSyncNotice((n) => n ? { ...n, lastRetryAt: new Date().toISOString() } : n);
+                          void doPortalSync();
+                        }}
                         className="mt-3 px-4 py-2 bg-primary text-background font-display text-xs uppercase tracking-wider hover:invert transition-all"
                       >
                         Retry sync
