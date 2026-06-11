@@ -696,27 +696,38 @@ export const inferBackendSpec = createServerFn({ method: "POST" })
 
     try { await consumeOrThrow(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId); }
     catch (e) { return { ok: false as const, error: (e as Error).message }; }
-    const ai = await callAI(INFER_PROMPT, summary, proj.model || "google/gemini-2.5-flash");
-    if (!ai.ok) return { ok: false as const, error: ai.error };
 
-    let parsed: { tables?: MTable[] } | null = null;
     try {
-      const m = ai.text.match(/\{[\s\S]*\}/);
-      if (m) parsed = JSON.parse(m[0]);
-    } catch {
-      return { ok: false as const, error: "AI returned invalid JSON" };
-    }
-    if (!parsed?.tables?.length) {
-      return { ok: false as const, error: "No tables inferred" };
-    }
+      const ai = await callAI(INFER_PROMPT, summary, proj.model || "google/gemini-2.5-flash");
+      if (!ai.ok) {
+        await refundCredits(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId);
+        return { ok: false as const, error: ai.error };
+      }
 
-    // Persist into projects.backend_spec
-    await supabase
-      .from("projects")
-      .update({ backend_spec: { tables: parsed.tables } })
-      .eq("id", data.projectId);
+      let parsed: { tables?: MTable[] } | null = null;
+      try {
+        const m = ai.text.match(/\{[\s\S]*\}/);
+        if (m) parsed = JSON.parse(m[0]);
+      } catch {
+        await refundCredits(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId);
+        return { ok: false as const, error: "AI returned invalid JSON" };
+      }
+      if (!parsed?.tables?.length) {
+        await refundCredits(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId);
+        return { ok: false as const, error: "No tables inferred" };
+      }
 
-    return { ok: true as const, backend: { tables: parsed.tables } };
+      // Persist into projects.backend_spec
+      await supabase
+        .from("projects")
+        .update({ backend_spec: { tables: parsed.tables } })
+        .eq("id", data.projectId);
+
+      return { ok: true as const, backend: { tables: parsed.tables } };
+    } catch (e) {
+      await refundCredits(userId, CREDIT_COSTS.text, "backend.infer_spec", data.projectId);
+      throw e;
+    }
   });
 
 /** Apply the saved backend spec to the user's own Supabase via Management API. */
