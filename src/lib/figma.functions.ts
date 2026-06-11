@@ -570,6 +570,9 @@ Given a simplified Figma node layout tree, translate it into a valid, production
 
       return { ok: true as const, schema: fixed ?? parsedSchema };
     } catch (err) {
+      if (charged) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
+      }
       return {
         ok: false as const,
         error: err instanceof Error ? err.message : "Figma compile failed",
