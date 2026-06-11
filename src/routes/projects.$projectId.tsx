@@ -1928,53 +1928,7 @@ function ProjectPage() {
           Preview
         </button>
 
-        {/* Tool icons */}
-        <button
-          type="button"
-          onClick={() => setAgentsMdOpen(true)}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Agents.md"
-          title="Agents.md"
-        >
-          <FileText className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaneTab("export")}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Cloud"
-          title="Cloud / Secrets"
-        >
-          <Cloud className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaneTab("code")}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Code"
-          title="Code editor"
-        >
-          <Code2 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaneTab("screenshots")}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Analytics"
-          title="Testing & analytics"
-        >
-          <BarChart3 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleExportExpo}
-          disabled={exportingExpo}
-          className="h-8 w-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
-          aria-label="More"
-          title={exportingExpo ? "Packaging…" : "Export Expo project"}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+        {/* Tool icons removed per request */}
 
         {/* ── Center: URL pill ── */}
         <div className="hidden md:flex flex-1 justify-center px-4 min-w-0">
