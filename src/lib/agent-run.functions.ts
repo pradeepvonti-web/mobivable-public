@@ -50,6 +50,9 @@ export const recommendAgents = createServerFn({ method: "POST" })
       } catch {
         // fall back to preset
       }
+    } else {
+      // AI failed — refund so the user isn't charged for an unusable recommendation
+      await refundCredits(userId, CREDIT_COSTS.text, "agent_run.recommend", project.id);
     }
     return { ok: true as const, complexity, roles };
   });
