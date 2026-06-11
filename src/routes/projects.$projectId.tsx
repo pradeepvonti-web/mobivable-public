@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Settings,
   History,
+  LayoutDashboard,
   LifeBuoy,
   Loader2,
   RefreshCw,
