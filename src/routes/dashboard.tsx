@@ -95,6 +95,7 @@ function DashboardPage() {
   });
   const [syncNotice, setSyncNotice] = useState<{
     updated: boolean;
+    error?: string;
     syncedAt: string;
     message: string;
   } | null>(null);
