@@ -23,7 +23,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAIVision } from "./ai-provider";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 import { FONT_ALLOWLIST } from "./mobile-theme";
 
 export type Confidence = "high" | "medium" | "low";
