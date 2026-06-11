@@ -546,11 +546,13 @@ Given a simplified Figma node layout tree, translate it into a valid, production
       const result = await callAI(compilerPrompt, userPrompt);
 
       if (!result.ok) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
         return { ok: false as const, error: "AI compiler failed: " + result.error };
       }
 
       const parsedSchema = parseAppSchema(result.text);
       if (!parsedSchema) {
+        await refundCredits(userId, CREDIT_COSTS.generate_project, "figma.compile_schema", project.id);
         return { ok: false as const, error: "Malformed JSON returned from AI compiler." };
       }
 
