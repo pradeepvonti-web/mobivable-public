@@ -218,7 +218,18 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
         },
         { onConflict: "stripe_subscription_id" },
       );
-      return { ok: true, status: subscription.status };
+      return {
+        ok: true,
+        sub: {
+          status: subscription.status,
+          price_id: priceId,
+          current_period_end: periodEnd
+            ? new Date(periodEnd * 1000).toISOString()
+            : null,
+          cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+        },
+        syncedAt: new Date().toISOString(),
+      };
     } catch (error) {
       return { ok: false, reason: getStripeErrorMessage(error) };
     }

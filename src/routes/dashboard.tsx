@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter, useNavigate } from "@tanstack/react-router";
 import { AuthHydrating } from "@/components/AuthHydrating";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getStripeEnvironment } from "@/lib/stripe";
 import { PageShell } from "@/components/PageShell";
@@ -93,9 +93,17 @@ function DashboardPage() {
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("fav-projects") ?? "[]")); } catch { return new Set(); }
   });
+  const [syncNotice, setSyncNotice] = useState<{
+    updated: boolean;
+    syncedAt: string;
+    message: string;
+  } | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const navigate = useNavigate();
+
+  const subRef = useRef<Sub | null>(sub);
+  subRef.current = sub;
 
   const portal = useServerFn(openCustomerPortal);
   const changePlan = useServerFn(changeSubscriptionPlan);
@@ -116,10 +124,26 @@ function DashboardPage() {
     const refresh = async () => {
       if (pending) return;
       pending = true;
+      const before = subRef.current;
       try {
-        await syncSub({ data: { environment: getStripeEnvironment() } });
+        const result = await syncSub({ data: { environment: getStripeEnvironment() } });
         await load();
         router.invalidate();
+        if (result.ok && result.sub) {
+          const changed =
+            !before ||
+            before.status !== result.sub.status ||
+            before.price_id !== result.sub.price_id ||
+            before.cancel_at_period_end !== result.sub.cancel_at_period_end;
+          setSyncNotice({
+            updated: changed,
+            syncedAt: result.syncedAt,
+            message: changed
+              ? `Updated to ${PRICE_LABEL[result.sub.price_id] ?? result.sub.price_id} · ${result.sub.status}`
+              : "No subscription changes found",
+          });
+          setTimeout(() => setSyncNotice(null), 8000);
+        }
       } finally {
         pending = false;
       }
