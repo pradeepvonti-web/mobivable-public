@@ -543,11 +543,23 @@ function DashboardPage() {
         ) : (
           <>
             {syncNotice && (
-              <div className={`border p-5 ${syncNotice.updated ? "border-emerald-500/40 bg-emerald-500/10" : "border-border bg-muted/30"}`}>
+              <div className={`border p-5 ${
+                syncNotice.error
+                  ? "border-destructive/40 bg-destructive/10"
+                  : syncNotice.updated
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-border bg-muted/30"
+              }`}>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className={`font-display text-sm uppercase tracking-wider mb-1 ${syncNotice.updated ? "text-emerald-600" : "text-muted-foreground"}`}>
-                      {syncNotice.updated ? "Subscription synced" : "Already up to date"}
+                  <div className="flex-1">
+                    <p className={`font-display text-sm uppercase tracking-wider mb-1 ${
+                      syncNotice.error
+                        ? "text-destructive"
+                        : syncNotice.updated
+                        ? "text-emerald-600"
+                        : "text-muted-foreground"
+                    }`}>
+                      {syncNotice.error ? "Sync failed" : syncNotice.updated ? "Subscription synced" : "Already up to date"}
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {syncNotice.message}
@@ -555,11 +567,20 @@ function DashboardPage() {
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
                       Last synced · {new Date(syncNotice.syncedAt).toLocaleTimeString()}
                     </p>
+                    {syncNotice.error && (
+                      <button
+                        type="button"
+                        onClick={() => { setSyncNotice(null); void doPortalSync(); }}
+                        className="mt-3 px-4 py-2 bg-primary text-background font-display text-xs uppercase tracking-wider hover:invert transition-all"
+                      >
+                        Retry sync
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"
                     onClick={() => setSyncNotice(null)}
-                    className="text-muted-foreground hover:text-foreground text-xs"
+                    className="text-muted-foreground hover:text-foreground text-xs shrink-0"
                   >
                     Dismiss
                   </button>
