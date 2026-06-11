@@ -1960,7 +1960,7 @@ function ProjectPage() {
 
         {/* ── Right cluster ── */}
         <div className="ml-auto md:ml-0 flex items-center gap-1">
-          <SDLCProgressBar projectId={projectId} compact />
+          {/* SDLC progress bar removed per request */}
           <button
             type="button"
             onClick={() => toast.info("Comments coming soon")}
