@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAI } from "./ai-provider";
-import { consumeOrThrow, CREDIT_COSTS } from "./credits.server";
+import { consumeOrThrow, refundCredits, CREDIT_COSTS } from "./credits.server";
 import type { MobileTheme } from "./mobile-theme";
 import { FONT_ALLOWLIST } from "./mobile-theme";
 
