@@ -808,7 +808,9 @@ Use agents' exact values if provided. Infer from domain if not. Always 4-6 scree
         }
       } catch (e) {
         // Refund on any throw after the generate_project consume
-        await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", project.id);
+        if (finalizeCharged && finalizeProjectId) {
+          await refundCredits(userId, CREDIT_COSTS.generate_project, "agent_run.finalize", finalizeProjectId);
+        }
         console.error("[finalizeAgentRun] Schema regeneration error:", e);
         // Non-fatal: the run is still marked as completed
       }
