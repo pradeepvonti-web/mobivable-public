@@ -599,6 +599,8 @@ function Index() {
         </div>
       </section>
 
+      </main>
+
       {/* Footer CTA */}
       <footer className="bg-primary text-background py-24 px-6 overflow-hidden relative">
         <div className="absolute top-0 right-0 font-display text-[20vw] leading-none opacity-10 pointer-events-none translate-x-1/4 -translate-y-1/4">
