@@ -153,8 +153,10 @@ function Index() {
 
       <SiteNav />
 
+      <main>
+
       {/* Hero */}
-      <header id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
+      <section id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-primary" />
           <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-px bg-primary" />
