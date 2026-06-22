@@ -11,7 +11,10 @@ export const Route = createFileRoute("/blog")({
       { name: "description", content: "Field notes on AI-native app development, the future of no-code, and Mobivable engineering deep dives." },
       { property: "og:title", content: "Blog — Mobivable" },
       { property: "og:description", content: "Essays, changelogs, and field notes from the Mobivable team." },
+      { property: "og:url", content: "https://mobivable.dev/blog" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/blog" }],
   }),
 });
 
@@ -155,7 +158,7 @@ function BlogPage() {
                     <div className="prose prose-sm max-w-none">
                       {p.body.split('\n\n').map((paragraph, i) => {
                         if (paragraph.startsWith('**') && paragraph.endsWith('**')) {
-                          return <h4 key={i} className="font-display text-lg uppercase mt-6 mb-2">{paragraph.replace(/\*\*/g, '')}</h4>;
+                          return <h3 key={i} className="font-display text-lg uppercase mt-6 mb-2">{paragraph.replace(/\*\*/g, '')}</h3>;
                         }
                         if (paragraph.startsWith('- ')) {
                           return (

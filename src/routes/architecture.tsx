@@ -9,7 +9,10 @@ export const Route = createFileRoute("/architecture")({
       { name: "description", content: "Technical architecture of Mobivable AI App Studio — built on Google Cloud with Gemini, Vertex AI, MCP agents, and Cloud Run." },
       { property: "og:title", content: "Architecture — Mobivable" },
       { property: "og:description", content: "Explore how Mobivable uses Gemini, Vertex AI, MCP tools, and Cloud Run to power AI-driven mobile app creation." },
+      { property: "og:url", content: "https://mobivable.dev/architecture" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/architecture" }],
   }),
 });
 
@@ -108,7 +111,7 @@ function ArchitecturePage() {
               borderColor: "rgba(255,255,255,0.06)",
             }}
           >
-            <span
+            <h2
               className="inline-block text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-md mb-4"
               style={{
                 background: `${layer.color}22`,
@@ -116,7 +119,7 @@ function ArchitecturePage() {
               }}
             >
               {layer.id === "ui" ? "👤" : "⚙️"} {layer.label}
-            </span>
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {layer.items.map((item) => (
                 <div

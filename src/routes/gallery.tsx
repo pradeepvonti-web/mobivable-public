@@ -11,6 +11,31 @@ export const Route = createFileRoute("/gallery")({
       { name: "description", content: "Browse 50 real native mobile apps generated end-to-end with Mobivable. From meditation to crypto to surf forecasts — each one started as a sentence." },
       { property: "og:title", content: "Gallery — 50 Real Apps Shipped with Mobivable" },
       { property: "og:description", content: "50 native apps generated with Mobivable, live in the App Stores." },
+      { property: "og:url", content: "https://mobivable.dev/gallery" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/gallery" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Mobivable App Gallery",
+          description: "A collection of 50 native mobile apps generated with Mobivable.",
+          url: "https://mobivable.dev/gallery",
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: (appsData as App[]).length,
+            itemListElement: (appsData as App[]).map((a, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: a.name,
+              description: a.desc,
+            })),
+          },
+        }),
+      },
     ],
   }),
 });
@@ -29,6 +54,7 @@ function GalleryPage() {
       title="Shipped From Chat."
       intro="A live archive of native mobile apps generated end-to-end with Mobivable. Every screenshot below is a real app built from a single prompt."
     >
+      <h2 className="sr-only">App Showcase</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {apps.map((a) => (
           <div key={a.code} className="group block rounded-xl border border-border overflow-hidden hover:border-primary/40 transition-all hover:shadow-lg bg-card">

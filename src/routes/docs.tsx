@@ -11,7 +11,10 @@ export const Route = createFileRoute("/docs")({
       { name: "description", content: "Learn how to ship a native mobile app to the App Store and Google Play with Mobivable's AI engine." },
       { property: "og:title", content: "Docs — Mobivable" },
       { property: "og:description", content: "Guides, references, and protocols for building native apps with Mobivable." },
+      { property: "og:url", content: "https://mobivable.dev/docs" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/docs" }],
   }),
 });
 
@@ -147,7 +150,7 @@ function DocsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <span className="font-mono text-[10px] uppercase tracking-widest text-primary">{s.code}</span>
-                    <h3 className="font-display text-xl uppercase tracking-tight">{s.title}</h3>
+                    <h2 className="font-display text-xl uppercase tracking-tight">{s.title}</h2>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">{s.body}</p>
                 </div>
