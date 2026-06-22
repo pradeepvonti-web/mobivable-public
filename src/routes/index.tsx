@@ -216,7 +216,7 @@ function Index() {
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
       {/* Process */}
       <section id="process" className="py-24 border-b border-border">
