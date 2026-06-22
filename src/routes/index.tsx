@@ -17,6 +17,15 @@ if (typeof window !== "undefined") {
 }
 
 
+const HOME_FAQS = [
+  { q: "Do I need to know how to code?", a: "No. Mobivable is designed for builders who think in products, not syntax. You describe what you want in plain language, and the AI architect generates native iOS and Android binaries." },
+  { q: "What does 'native' actually mean here?", a: "Swift for iOS and Kotlin for Android — not webviews, not wrappers. The AI compiles to platform-native code so your app runs at 120fps with full access to camera, push, biometrics, and every other OS capability." },
+  { q: "How do App Store submissions work?", a: "You click one button. Mobivable handles certificates, screenshots, metadata, and the upload to App Store Connect and Google Play Console." },
+  { q: "Can I export the source code?", a: "Yes. Every build includes the full generated project — Xcode workspace, Android Studio project, and backend scaffold. You own everything." },
+  { q: "How do AI credits work?", a: "Every AI action consumes credits. Free Beta gets 6 credits per day. Paid plans get a monthly allowance: Starter 120, Pro 300, Scale 700, Business 2,000." },
+  { q: "Is there a free tier?", a: "Yes. Free Beta is free forever during the public beta. It includes 1 published app, 6 daily AI credits, and community support." },
+];
+
 export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
@@ -32,6 +41,42 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content:
           "Describe your app. Mobivable's AI ships it to the App Store and Google Play in minutes.",
+      },
+      { property: "og:url", content: "https://mobivable.dev/" },
+    ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Mobivable",
+          url: "https://mobivable.dev",
+          logo: "https://mobivable.dev/favicon.svg",
+          sameAs: ["https://twitter.com/Mobivable", "https://github.com/mobivable"],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Mobivable",
+          url: "https://mobivable.dev",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: HOME_FAQS.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }),
       },
     ],
   }),
@@ -108,8 +153,10 @@ function Index() {
 
       <SiteNav />
 
+      <main>
+
       {/* Hero */}
-      <header id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
+      <section id="engine" className="relative pt-20 pb-32 border-b border-border overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-primary" />
           <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-px bg-primary" />
@@ -169,7 +216,7 @@ function Index() {
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
       {/* Process */}
       <section id="process" className="py-24 border-b border-border">
@@ -551,6 +598,8 @@ function Index() {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* Footer CTA */}
       <footer className="bg-primary text-background py-24 px-6 overflow-hidden relative">

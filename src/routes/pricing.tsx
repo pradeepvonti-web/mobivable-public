@@ -45,6 +45,23 @@ export const Route = createFileRoute("/pricing")({
       { name: "description", content: "Credit-based plans for building native mobile apps with AI. Free during beta, plans from $29/mo." },
       { property: "og:title", content: "Pricing — Mobivable" },
       { property: "og:description", content: "Pick a credit bucket that matches how aggressively you ship native iOS and Android apps." },
+      { property: "og:url", content: "https://mobivable.dev/pricing" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/pricing" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQS.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }),
+      },
     ],
   }),
 });
@@ -171,7 +188,7 @@ function PricingPage() {
                   </span>
                 )}
               </div>
-              <h3 className="font-display text-3xl uppercase mb-2">{t.name}</h3>
+              <h2 className="font-display text-3xl uppercase mb-2">{t.name}</h2>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-display text-5xl">${price}</span>
               </div>

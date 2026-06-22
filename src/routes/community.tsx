@@ -12,7 +12,10 @@ export const Route = createFileRoute("/community")({
       { name: "description", content: "Join thousands of builders shipping native apps with Mobivable. Discord, forums, events, and showcases." },
       { property: "og:title", content: "Community — Mobivable" },
       { property: "og:description", content: "Connect with builders shipping mobile apps from chat threads." },
+      { property: "og:url", content: "https://mobivable.dev/community" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://mobivable.dev/community" }],
   }),
 });
 
@@ -97,7 +100,7 @@ function CommunityPage() {
               <div className="flex items-start justify-between mb-1">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{c.code}</span>
               </div>
-              <h3 className="font-display text-3xl uppercase tracking-tighter mb-3 group-hover:text-primary transition-colors">{c.name}</h3>
+              <h2 className="font-display text-3xl uppercase tracking-tighter mb-3 group-hover:text-primary transition-colors">{c.name}</h2>
               <p className="text-sm text-muted-foreground max-w-[45ch] leading-relaxed mb-6">{c.body}</p>
               <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-primary group-hover:underline">
                 {c.cta} <ArrowRight className="h-3 w-3" />
