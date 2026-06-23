@@ -17,7 +17,7 @@ import {
   Smartphone, Zap, MessageSquare, BarChart3, Search, Filter,
   MoreHorizontal, Trash2, Copy, Star, StarOff, Sparkles,
   ShoppingCart, Users, Dumbbell, UtensilsCrossed, Briefcase, Palette,
-  LayoutGrid,
+  LayoutGrid, LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -344,6 +344,24 @@ function DashboardPage() {
       intro="Manage your subscription, change plans, and update billing."
     >
       <div className="space-y-12 max-w-4xl mx-auto">
+        {/* ─── Account Bar ─── */}
+        <div className="flex items-center justify-between border border-border p-4 -mt-4">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+            {session?.user?.email ?? ""}
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/login" });
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-destructive hover:text-destructive transition-colors shrink-0"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
+
         <AppPromptComposer />
 
         {/* ─── Agent CTA ─── */}
