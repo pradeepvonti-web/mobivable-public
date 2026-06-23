@@ -488,6 +488,26 @@ export async function getOrCreateWorkspace(
     template: process.env.E2B_TEMPLATE || undefined,
   });
   if (stack === "expo") await ensureWorkdirOwned(sandbox);
+
+  // Auto-install bun if the sandbox doesn't have it (default E2B image).
+  // This removes the hard dependency on the custom mobivable-expo template.
+  const bunPresent = await sandbox.commands
+    .run("bun --version", { cwd: "/home/user", timeoutMs: 10_000 })
+    .catch(() => null);
+  if (!bunPresent || bunPresent.exitCode !== 0) {
+    console.log("[workspace] bun not found — auto-installing…");
+    await sandbox.commands.run(
+      "curl -fsSL https://bun.sh/install | bash && echo 'export BUN_INSTALL=\"$HOME/.bun\"' >> ~/.bashrc && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
+      { cwd: "/home/user", timeoutMs: 120_000 },
+    );
+    // Also install serve globally for the preview
+    await sandbox.commands.run(
+      "export PATH=\"$HOME/.bun/bin:$PATH\" && bun add -g serve",
+      { cwd: "/home/user", timeoutMs: 60_000 },
+    );
+    console.log("[workspace] bun + serve installed.");
+  }
+
   const prior = stack === "expo" ? await loadMirroredFiles(projectId, ctx) : {};
   let freshlyScaffolded: boolean;
   if (Object.keys(prior).length > 0) {
@@ -669,7 +689,7 @@ export async function wsRunCommand(
 ): Promise<{ command: string; exitCode: number; stdout: string; stderr: string }> {
   assertCommandAllowed(cmd);
   const { sandbox } = await getOrCreateWorkspace(projectId, ctx);
-  const res = await sandbox.commands.run(cmd, {
+  const res = await sandbox.commands.run(`export PATH="$HOME/.bun/bin:$PATH" && ${cmd}`, {
     cwd: WORKDIR,
     timeoutMs: Math.min(Math.max(opts.timeoutMs ?? DEFAULT_CMD_TIMEOUT_MS, 1000), 300_000),
   });
@@ -706,7 +726,7 @@ export async function wsStartCommand(
   // Wrap the (already allowlisted) command: capture output + exit code to files.
   // The wrapper itself is ours, not agent input, so it may use shell operators.
   const script =
-    `mkdir -p ${JOBS_DIR} && { ${cmd} ; } > ${JOBS_DIR}/${jobId}.log 2>&1 ; ` +
+    `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && { ${cmd} ; } > ${JOBS_DIR}/${jobId}.log 2>&1 ; ` +
     `echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
   return { jobId, status: "running" };
@@ -806,30 +826,33 @@ export async function ensureExpoWebPreview(
     };
   }
 
-  // Guard: the Expo build needs `bun`, which only exists in the custom
-  // `mobivable-expo` E2B template. If the reconnected sandbox is wedged (bun
-  // missing or the runtime is broken), force-provision a fresh sandbox once
-  // — this is the auto-recovery path when an old sandbox has decayed but
-  // E2B's connect() still succeeded against it.
+  // Guard: the Expo build needs `bun`. If missing, auto-install it
+  // instead of failing — removes the hard dependency on a custom template.
   const bunCheck = await sandbox.commands
     .run("bun --version", { cwd: WORKDIR, timeoutMs: 15_000 })
     .catch(() => null);
   if (!bunCheck || bunCheck.exitCode !== 0) {
-    if (!opts.forceNew) {
-      await mergeWorkspaceMeta(projectId, ctx, {
-        sandboxId: undefined as unknown as string,
-        previewUrl: undefined,
-        previewStarted: false,
-        depsInstalled: false,
-      }).catch(() => undefined);
-      return ensureExpoWebPreview(projectId, ctx, { ...opts, forceNew: true });
+    console.log("[preview] bun not found — auto-installing…");
+    await sandbox.commands.run(
+      "curl -fsSL https://bun.sh/install | bash && echo 'export BUN_INSTALL=\"$HOME/.bun\"' >> ~/.bashrc && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
+      { cwd: "/home/user", timeoutMs: 120_000 },
+    );
+    await sandbox.commands.run(
+      "export PATH=\"$HOME/.bun/bin:$PATH\" && bun add -g serve",
+      { cwd: "/home/user", timeoutMs: 60_000 },
+    );
+    // Verify it worked
+    const recheck = await sandbox.commands
+      .run("export PATH=\"$HOME/.bun/bin:$PATH\" && bun --version", { cwd: WORKDIR, timeoutMs: 10_000 })
+      .catch(() => null);
+    if (!recheck || recheck.exitCode !== 0) {
+      return {
+        ok: false,
+        rebuilt: false,
+        error: "Failed to auto-install bun in the sandbox. Check E2B connectivity.",
+      };
     }
-    return {
-      ok: false,
-      rebuilt: false,
-      error:
-        "Expo build runtime is missing `bun` — the sandbox booted the default E2B image. Set E2B_TEMPLATE=mobivable-expo in this environment (Cloudflare Worker / Cloud Run secret) and rebuild.",
-    };
+    console.log("[preview] bun installed successfully.");
   }
 
   const url = `https://${sandbox.getHost(EXPO_PREVIEW_PORT)}`;
@@ -852,7 +875,7 @@ export async function ensureExpoWebPreview(
   // expected version (e.g. react-native 0.81.4 -> 0.81.5), preventing the
   // JS/native version mismatches that red-screen the app on a real device.
   const script =
-    `mkdir -p ${JOBS_DIR} && ` +
+    `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
     `{ bun install && (bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
