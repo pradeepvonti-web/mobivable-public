@@ -16,11 +16,15 @@ export const Route = createFileRoute("/login")({
   }),
 });
 
+const DEMO_EMAIL = "demo@mobivable.com";
+const DEMO_PASSWORD = "DemoUser123!";
+
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorHint, setErrorHint] = useState<string | null>(null);
   const logAttempt = useServerFn(logAdminLoginAttempt);
@@ -161,10 +165,47 @@ function LoginPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || demoLoading}
             className="w-full py-4 bg-primary text-background font-display text-lg uppercase tracking-wider hover:invert transition-all disabled:opacity-50"
           >
             {submitting ? "Authenticating…" : "Login"}
+          </button>
+
+          {/* ─── Demo Login ─── */}
+          <button
+            id="demo-login"
+            type="button"
+            disabled={submitting || demoLoading}
+            onClick={async () => {
+              clearError();
+              setDemoLoading(true);
+              try {
+                const { error } = await supabase.auth.signInWithPassword({
+                  email: DEMO_EMAIL,
+                  password: DEMO_PASSWORD,
+                });
+                if (error) {
+                  showAuthError(error.message, "user");
+                } else {
+                  navigate({ to: "/dashboard" });
+                }
+              } catch (err) {
+                showAuthError(
+                  err instanceof Error ? err.message : "Demo login failed.",
+                  "user",
+                );
+              } finally {
+                setDemoLoading(false);
+              }
+            }}
+            className="w-full py-4 border-2 border-primary/60 text-primary font-display text-lg uppercase tracking-wider transition-all hover:bg-primary hover:text-background disabled:opacity-50 relative overflow-hidden group"
+            style={{
+              background: "linear-gradient(135deg, hsl(var(--primary) / 0.05), hsl(var(--primary) / 0.12))",
+            }}
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              🚀 {demoLoading ? "Launching Demo…" : "Try Demo — No Account Needed"}
+            </span>
           </button>
 
           {import.meta.env.DEV && (
