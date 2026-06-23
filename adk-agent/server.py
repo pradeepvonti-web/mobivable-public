@@ -64,6 +64,7 @@ class RunRequest(BaseModel):
         description="Session ID for multi-turn conversation state",
     )
     user_id: str = Field(default="anonymous", description="User ID for auth context")
+    user_email: str = Field(default="", description="User email for guardrail callbacks")
 
 class RunResponse(BaseModel):
     """Response body for /run endpoint."""
@@ -97,12 +98,26 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """Health check endpoint for Cloud Run."""
+    def agent_tree(agent):
+        """Recursively build agent hierarchy."""
+        info = {"name": agent.name, "type": type(agent).__name__}
+        if hasattr(agent, "model") and agent.model:
+            info["model"] = agent.model
+        subs = getattr(agent, "sub_agents", None) or []
+        if subs:
+            info["sub_agents"] = [agent_tree(a) for a in subs]
+        return info
+
     return {
         "status": "healthy",
         "service": "mobivable-adk",
-        "agent": root_agent.name,
-        "model": root_agent.model,
-        "sub_agents": [a.name for a in (root_agent.sub_agents or [])],
+        "architecture": agent_tree(root_agent),
+        "features": [
+            "SequentialAgent (build pipeline)",
+            "LoopAgent (self-healing verify)",
+            "ParallelAgent (design explorer)",
+            "Callbacks (guardrails + audit)",
+        ],
     }
 
 
@@ -129,6 +144,12 @@ async def run_agent(req: RunRequest):
                 app_name=APP_NAME,
                 user_id=req.user_id,
                 session_id=req.session_id,
+                state={
+                    "user_email": req.user_email,
+                    "user_id": req.user_id,
+                    "build_phase": "idle",
+                    "tool_call_count": 0,
+                },
             )
 
         # Create the user message
@@ -200,6 +221,12 @@ async def run_agent_stream(req: RunRequest):
                     app_name=APP_NAME,
                     user_id=req.user_id,
                     session_id=req.session_id,
+                    state={
+                        "user_email": req.user_email,
+                        "user_id": req.user_id,
+                        "build_phase": "idle",
+                        "tool_call_count": 0,
+                    },
                 )
 
             # Create the user message
