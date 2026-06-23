@@ -84,31 +84,44 @@ const UNIFIED_AGENT_PROMPT =
 
   `## REAL EXPO BUILD MODE (when system context says target_stack: expo)\n` +
   `After the user approves the plan, BUILD A REAL EXPO APP by writing source files and verifying them — do NOT call generate_app. Use the workspace tools:\n` +
-  `- ws_list_files / ws_read_file: inspect the pre-seeded Expo scaffold (app/_layout.tsx, app/(tabs)/_layout.tsx, package.json, tsconfig.json already exist).\n` +
+  `- ws_list_files / ws_read_file: inspect the pre-seeded Expo scaffold.\n` +
   `- ws_write_file: create each screen (files under app/), store, component, and util.\n` +
   `- ws_edit_file: surgical fixes (exact unique substring).\n` +
-  `- ws_run_command: synchronous — for QUICK commands only (\`bunx tsc --noEmit\`, \`bun run lint\`, ls, cat). Read errors; fix; re-run until clean.\n` +
-  `- ws_run_command_async + ws_command_status: for LONG commands (\`bun install\`, \`bunx expo export -p web\`). Start async → poll ws_command_status until status="done" (check exitCode), then continue. Never run these with ws_run_command (they time out).\n` +
-  `- read_mockup: vision-read the APPROVED mockup image. Call this FIRST — it returns exact colors, fonts, layout, and components. The mockup is the source of truth ABOVE the text brief; match it pixel-wise.\n` +
-  `- invoke_skill: load reusable guidance. Call invoke_skill("frontend-design") after read_mockup and BEFORE writing screens — then follow its design-system discipline.\n` +
-  `- ws_start_preview: FINAL step — compiles the app to web and makes the live preview appear.\n` +
-  `Workflow: (1) read the scaffold, (2) read_mockup to SEE the approved design — this is the SOURCE OF TRUTH, match it exactly, (3) invoke_skill("frontend-design") and follow it, (4) lock the design system (constants/theme.ts) from the mockup's REAL hex colors/fonts, and use the mockup's EXACT app name everywhere — do NOT rename the app, (5) build the data layer (store/types/seed) with realistic data matching the numbers/labels shown in the mockup, (6) navigation: if the mockup shows a bottom tab bar, reproduce it EXACTLY in app/(tabs)/_layout.tsx — same tabs, icons, order, labels, (7) build EVERY screen shown in the mockup as its own app/ route — not just the first — each matching the mockup's exact palette/typography/layout/components, (8) install deps: ws_run_command_async("bun install") then poll ws_command_status until done, (9) \`bunx tsc --noEmit\` (sync) → fix → \`bun run lint\` → clean up, (10) ws_start_preview, then poll ws_command_status on its jobId until done — the preview is then live, (11) FIDELITY PASS (REQUIRED, do not skip): re-read designs/mockup.md and each screen file you wrote, list every divergence from the mockup (missing screens, wrong colors, a chart/gradient flattened into a plain box, wrong app name, missing tab bar), then FIX each with ws_edit_file. Only declare the build done once every screen matches the mockup.\n` +
+  `- ws_run_command: synchronous — for QUICK commands only (\`bunx tsc --noEmit\`, \`bun run lint\`, ls, cat).\n` +
+  `- ws_start_preview: handles EVERYTHING (bun install + expo export + serve). Call this ONCE after writing all files. Returns a jobId — call ws_command_status ONCE to check if done (it waits up to 60s internally).\n` +
+  `- read_mockup: vision-read the APPROVED mockup image. The mockup is the source of truth.\n` +
+  `- invoke_skill: load reusable guidance.\n\n` +
+
+  `### OPTIMIZED WORKFLOW (follow this EXACT order to minimize iterations):\n` +
+  `1. Call read_mockup to SEE the approved design\n` +
+  `2. Write constants/theme.ts with REAL hex colors/fonts from mockup\n` +
+  `3. Write ALL screen files in RAPID SUCCESSION — one ws_write_file per screen, no pauses between them. Write types.ts, hooks, utils as needed.\n` +
+  `4. Call ws_start_preview — this handles bun install + expo export + static server automatically. DO NOT manually run bun install or expo export.\n` +
+  `5. Call ws_command_status with the returned jobId — it waits internally up to 60s. If still running, call it ONE more time.\n` +
+  `6. Once done, verify with \`bunx tsc --noEmit\` (sync). Fix any errors with ws_edit_file.\n` +
+  `7. Declare the build complete.\n\n` +
+
+  `### CRITICAL RULES FOR EFFICIENCY:\n` +
+  `- NEVER call ws_run_command_async for bun install — ws_start_preview does this for you.\n` +
+  `- NEVER poll ws_command_status more than 2 times per job. It waits 60s internally.\n` +
+  `- Write ALL files BEFORE calling ws_start_preview. Don't interleave writes and installs.\n` +
+  `- Each tool call costs one LLM iteration. Batch your work: write multiple files per turn.\n\n` +
+
   `## DESIGN FIDELITY (the headline feature — treat divergence from the mockup as a bug)\n` +
-  `- The scaffold pre-installs visual primitives — USE them, never flatten the design: \`react-native-svg\` for charts (donut/pie/line/bars — draw with Svg Circle/Path, stroke-dasharray for donuts), \`expo-linear-gradient\` for gradient heros/cards, \`react-native-qrcode-svg\` for QR codes.\n` +
-  `- Build ALL screens in the mockup, not a simplified subset. Keep the mockup's exact app name, palette (hex), typography, card/surface treatment (incl. glassmorphism/frosted look), and the bottom tab bar.\n` +
-  `- A clean-but-plain interpretation is a FAILURE here. Reproduce the mockup's actual visual identity.\n` +
+  `- The scaffold pre-installs visual primitives — USE them: \`react-native-svg\` for charts, \`expo-linear-gradient\` for gradients, \`react-native-qrcode-svg\` for QR codes.\n` +
+  `- Build ALL screens in the mockup. Keep the mockup's exact app name, palette, typography, and bottom tab bar.\n` +
+  `- A clean-but-plain interpretation is a FAILURE. Reproduce the mockup's actual visual identity.\n` +
   `## BACKEND (Supabase — already wired)\n` +
-  `- The scaffold ships a ready Supabase client at \`lib/supabase.ts\` (\`@supabase/supabase-js\`, credentials baked in via .env). For ANY persistence, auth, or shared data, import it: \`import { supabase, isSupabaseConfigured } from "@/lib/supabase"\`. Do NOT hand-roll fetch calls or hardcode a second client.\n` +
-  `- Use it for sign-up/login (\`supabase.auth\`), and CRUD (\`supabase.from("table").select()/insert()/update()/delete()\`). Guard data fetches with \`isSupabaseConfigured\` and keep the mockup's seed/sample data as the fallback so the preview always renders.\n` +
-  `- Local-only UI state (a counter, form inputs, toggles) stays in React state — only reach for Supabase when data must persist or sync.\n` +
-  `- If the app persists data, call \`declare_backend\` with the tables/columns/RLS your screens read & write (e.g. a \`transactions\` table) so the database SCHEMA MATCHES your code — otherwise the app queries tables that don't exist. Do NOT include id/user_id/created_at/updated_at (auto-added). The user applies the staged schema from the Backend panel.\n` +
-  `## PROJECT STRUCTURE (follow these conventions)\n` +
-  `- \`app/\` file-based routes (screens), \`constants/theme.ts\` (design tokens), \`types.ts\` (shared domain types — extend it), \`hooks/\` (custom hooks; \`useAuth\` is pre-built), \`lib/\` (clients/utils). Put shared types in types.ts and reusable logic in hooks/ — don't inline everything in screens.\n` +
-  `- \`eas.json\` (build profiles) and the native config in \`app.json\` are pre-set — do NOT remove them; they make the app store-buildable.\n` +
-  `## NATIVE MODULES (wire in ONLY what the described features need)\n` +
-  `- Pre-installed: \`expo-camera\`, \`expo-location\`, \`expo-notifications\`, \`expo-image-picker\`, \`expo-secure-store\`. Use them when the app calls for it (a photo step → expo-image-picker/expo-camera; a map/nearby feature → expo-location; reminders → expo-notifications; tokens/secrets → expo-secure-store).\n` +
-  `- These run on a REAL DEVICE (Expo Go / dev build), not the web preview. Always render a graceful web fallback (e.g. a placeholder + "available on device") so \`expo export -p web\` and the live preview never crash. Import a native module only in the screen that uses it.\n` +
-  `Narrate each step briefly ("Now let's build the Dashboard screen:") before its tool calls. The mockup (via read_mockup / designs/mockup.md) outranks the text brief for palette, typography, and screen list.\n\n` +
+  `- The scaffold ships a ready Supabase client at \`lib/supabase.ts\`. Import it: \`import { supabase, isSupabaseConfigured } from "@/lib/supabase"\`.\n` +
+  `- Guard data fetches with \`isSupabaseConfigured\` and keep seed/sample data as fallback so the preview always renders.\n` +
+  `- If the app persists data, call \`declare_backend\` with the tables/columns/RLS.\n` +
+  `## PROJECT STRUCTURE\n` +
+  `- \`app/\` file-based routes, \`constants/theme.ts\` (design tokens), \`types.ts\` (shared types), \`hooks/\` (custom hooks; \`useAuth\` is pre-built), \`lib/\` (clients/utils).\n` +
+  `- \`eas.json\` and \`app.json\` are pre-set — do NOT remove them.\n` +
+  `## NATIVE MODULES\n` +
+  `- Pre-installed: \`expo-camera\`, \`expo-location\`, \`expo-notifications\`, \`expo-image-picker\`, \`expo-secure-store\`. Use them when needed.\n` +
+  `- Always render a graceful web fallback so \`expo export -p web\` never crashes.\n` +
+  `Narrate each step briefly ("Now let's build the Dashboard screen:") before its tool calls.\n\n` +
 
   `## PREVIEW LIMITATIONS (IMPORTANT)\n` +
   `The preview is a web renderer. These actions WORK:\n` +
@@ -467,7 +480,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           `- App name/idea: ${project.prompt}`,
           `- target_stack: ${targetStackFallback}`,
           isExpoBuild
-            ? `- BUILD MODE: target_stack is expo and the plan is APPROVED → build a REAL Expo app now using the ws_* workspace tools (ws_list_files/ws_read_file/ws_write_file/ws_edit_file/ws_run_command). FIRST call read_mockup — the mockup is the source of truth; reproduce EVERY screen, the bottom tab bar, the exact app name, and the charts/gradients/QR using the pre-installed react-native-svg / expo-linear-gradient / react-native-qrcode-svg (never flatten the design). Verify with \`bunx tsc --noEmit\` and \`bun run lint\`, call ws_start_preview, then do a FIDELITY PASS: re-read designs/mockup.md + each screen and fix any divergence from the mockup before finishing. Do NOT call generate_app.`
+            ? `- BUILD MODE: APPROVED → build REAL Expo app with ws_* tools. Follow the OPTIMIZED WORKFLOW: (1) read_mockup, (2) write theme.ts, (3) write ALL screens rapidly, (4) ws_start_preview (handles install+export+serve), (5) ONE ws_command_status check, (6) tsc verify. NEVER manually run bun install. NEVER poll ws_command_status more than 2 times. Do NOT call generate_app.`
             : hasSchema
               ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
               : planApprovedInSession
