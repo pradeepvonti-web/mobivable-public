@@ -513,7 +513,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     // Real Expo builds need a large step budget (write many files, run tsc/lint,
     // fix, re-verify). Schema edits stay cheap.
-    const MAX_ITERS = isExpoBuild ? 60 : 8;
+    const MAX_ITERS = isExpoBuild ? 120 : 8;
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
       "update_theme", "update_navigation", "generate_app", "create_project",

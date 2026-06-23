@@ -719,28 +719,43 @@ export async function wsCommandStatus(
 ): Promise<{ jobId: string; status: "running" | "done"; exitCode?: number; stdout: string }> {
   if (!/^job-[A-Za-z0-9-]+$/.test(jobId)) throw new Error("invalid job id");
   const { sandbox } = await getOrCreateWorkspace(projectId, ctx);
-  let log = "";
-  try {
-    log = await sandbox.files.read(`${JOBS_DIR}/${jobId}.log`);
-  } catch {
-    /* log not created yet */
+
+  // Poll internally for up to 60s (12 checks × 5s) so a single LLM iteration
+  // covers a meaningful wait window instead of burning iterations on rapid polls.
+  const MAX_POLLS = 12;
+  const POLL_INTERVAL_MS = 5_000;
+
+  for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
+    let log = "";
+    try {
+      log = await sandbox.files.read(`${JOBS_DIR}/${jobId}.log`);
+    } catch {
+      /* log not created yet */
+    }
+    let exitRaw: string | null = null;
+    try {
+      exitRaw = await sandbox.files.read(`${JOBS_DIR}/${jobId}.exit`);
+    } catch {
+      exitRaw = null; // still running (no exit marker yet)
+    }
+    if (exitRaw != null) {
+      const exitCode = parseInt(exitRaw.trim(), 10);
+      return {
+        jobId,
+        status: "done",
+        exitCode: Number.isFinite(exitCode) ? exitCode : -1,
+        stdout: clampOutput(log),
+      };
+    }
+    // If this is the last attempt, return running
+    if (attempt === MAX_POLLS - 1) {
+      return { jobId, status: "running", stdout: clampOutput(log) };
+    }
+    // Wait before next poll
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
-  let exitRaw: string | null = null;
-  try {
-    exitRaw = await sandbox.files.read(`${JOBS_DIR}/${jobId}.exit`);
-  } catch {
-    exitRaw = null; // still running (no exit marker yet)
-  }
-  if (exitRaw == null) {
-    return { jobId, status: "running", stdout: clampOutput(log) };
-  }
-  const exitCode = parseInt(exitRaw.trim(), 10);
-  return {
-    jobId,
-    status: "done",
-    exitCode: Number.isFinite(exitCode) ? exitCode : -1,
-    stdout: clampOutput(log),
-  };
+  // Shouldn't reach here, but safety
+  return { jobId, status: "running", stdout: "" };
 }
 
 // ─── Live Expo-web preview ──────────────────────────────────────────
