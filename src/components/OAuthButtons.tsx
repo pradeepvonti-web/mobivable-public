@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { lovable } from "@/integrations/lovable/index";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   /** Used as user metadata for new signups (e.g. selected plan). */
@@ -15,16 +15,18 @@ export function OAuthButtons({ onError }: Props) {
   const signIn = async (provider: "google" | "apple") => {
     setPending(provider);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: `${window.location.origin}/dashboard`,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
       });
-      if (result.error) {
-        onError?.(result.error.message || `${provider} sign-in failed.`);
+      if (error) {
+        onError?.(error.message || `${provider} sign-in failed.`);
         setPending(null);
         return;
       }
-      if (result.redirected) return; // browser is navigating away
-      navigate({ to: "/dashboard" });
+      // Browser will redirect to the OAuth provider
     } catch (e) {
       onError?.(e instanceof Error ? e.message : `${provider} sign-in failed.`);
       setPending(null);
