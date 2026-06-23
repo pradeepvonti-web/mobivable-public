@@ -103,6 +103,71 @@ function LoginPage() {
       intro="Sign in to your Mobivable workspace and pick up where your chat thread left off."
     >
       <div className="max-w-md mx-auto border border-border p-8">
+        {/* ─── Google for Startups AI Agents Challenge – Demo ─── */}
+        <div className="relative mb-6">
+          {/* Google 4-color gradient border */}
+          <div
+            aria-hidden
+            className="absolute -inset-px rounded-lg"
+            style={{
+              background: "linear-gradient(135deg, #4285F4, #EA4335, #FBBC04, #34A853)",
+              opacity: 0.85,
+            }}
+          />
+          <button
+            id="demo-login"
+            type="button"
+            disabled={submitting || demoLoading}
+            onClick={async () => {
+              clearError();
+              setDemoLoading(true);
+              try {
+                const { error } = await supabase.auth.signInWithPassword({
+                  email: DEMO_EMAIL,
+                  password: DEMO_PASSWORD,
+                });
+                if (error) {
+                  showAuthError(error.message, "user");
+                } else {
+                  navigate({ to: "/dashboard" });
+                }
+              } catch (err) {
+                showAuthError(
+                  err instanceof Error ? err.message : "Demo login failed.",
+                  "user",
+                );
+              } finally {
+                setDemoLoading(false);
+              }
+            }}
+            className="relative w-full py-4 px-6 bg-background rounded-lg font-display text-lg tracking-wider transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+          >
+            <span className="flex flex-col items-center gap-1.5">
+              <span className="flex items-center gap-2 text-foreground">
+                {/* Google 4-color dots */}
+                <span className="flex gap-1" aria-hidden>
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#4285F4" }} />
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#EA4335" }} />
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#FBBC04" }} />
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#34A853" }} />
+                </span>
+                <span className="uppercase">
+                  {demoLoading ? "Launching Demo…" : "Try Live Demo"}
+                </span>
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Google for Startups · AI Agents Challenge
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px bg-border" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">or sign in</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
         <OAuthButtons onError={setError} />
         <div className="flex items-center gap-3 my-6">
           <div className="flex-1 h-px bg-border" />
@@ -171,64 +236,7 @@ function LoginPage() {
             {submitting ? "Authenticating…" : "Login"}
           </button>
 
-          {/* ─── Google for Startups AI Agents Challenge – Demo ─── */}
-          <div className="relative mt-2">
-            {/* Google 4-color gradient border */}
-            <div
-              aria-hidden
-              className="absolute -inset-px rounded-lg"
-              style={{
-                background: "linear-gradient(135deg, #4285F4, #EA4335, #FBBC04, #34A853)",
-                opacity: 0.85,
-              }}
-            />
-            <button
-              id="demo-login"
-              type="button"
-              disabled={submitting || demoLoading}
-              onClick={async () => {
-                clearError();
-                setDemoLoading(true);
-                try {
-                  const { error } = await supabase.auth.signInWithPassword({
-                    email: DEMO_EMAIL,
-                    password: DEMO_PASSWORD,
-                  });
-                  if (error) {
-                    showAuthError(error.message, "user");
-                  } else {
-                    navigate({ to: "/dashboard" });
-                  }
-                } catch (err) {
-                  showAuthError(
-                    err instanceof Error ? err.message : "Demo login failed.",
-                    "user",
-                  );
-                } finally {
-                  setDemoLoading(false);
-                }
-              }}
-              className="relative w-full py-4 px-6 bg-background rounded-lg font-display text-lg tracking-wider transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-            >
-              <span className="flex flex-col items-center gap-1.5">
-                <span className="flex items-center gap-2 text-foreground">
-                  {/* Google 4-color dots */}
-                  <span className="flex gap-1" aria-hidden>
-                    <span className="h-2 w-2 rounded-full" style={{ background: "#4285F4" }} />
-                    <span className="h-2 w-2 rounded-full" style={{ background: "#EA4335" }} />
-                    <span className="h-2 w-2 rounded-full" style={{ background: "#FBBC04" }} />
-                    <span className="h-2 w-2 rounded-full" style={{ background: "#34A853" }} />
-                  </span>
-                  <span className="uppercase">
-                    {demoLoading ? "Launching Demo…" : "Try Live Demo"}
-                  </span>
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                  Google for Startups · AI Agents Challenge
-                </span>
-              </span>
-            </button>
-          </div>
+
 
           {import.meta.env.DEV && (
             <>
