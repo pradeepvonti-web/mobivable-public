@@ -14,15 +14,53 @@ Mobivable is an AI-powered mobile app platform that turns a plain-English idea i
 
 ## How AI Agents are used
 
-Mobivable uses specialized agents that work like a product team, orchestrated through a plan-first workflow and a real agentic tool-use loop:
+Mobivable is built on **Google's Agent Development Kit (ADK)** — a multi-agent system deployed as a dedicated Cloud Run microservice. The architecture showcases ADK's advanced orchestration features:
 
-- **Product Agent** — converts the idea into requirements, user stories, and a persisted design brief.
-- **UI/UX Agent** — produces screens, navigation, and a design system, plus an AI mockup that becomes the source of truth.
-- **Build Agent (real, autonomous)** — in a per-project sandbox, writes and edits the actual Expo/React Native files, runs `bun install`, `tsc --noEmit`, and `eslint`, reads the errors, fixes them, and runs a **mockup-fidelity self-review** that compares each built screen back to the approved mockup.
-- **Backend Agent** — declares the data model and provisions Supabase tables, RLS, and auth wiring for the generated app.
-- **QA Agent** — validates flows, surfaces tool errors at every boundary, and verifies the schema/build.
-- **Deployment Agent** — drives EAS cloud builds (APK/IPA/AAB), store submission, and OTA updates.
-- **MCP Agent** — cross-project operations and knowledge-base tools.
+### Multi-Agent Architecture (Google ADK)
+
+```
+🤖 mobivable_agent (root — gemini-2.5-flash)
+├── 🎨 studio_agent (full-featured editor — gemini-2.5-pro)
+│   └── callbacks: guardrails + audit logging
+│
+├── ⚡ build_pipeline (SequentialAgent — deterministic)
+│   ├── 1. research_agent → Domain research + design brief
+│   ├── 2. design_agent → Mockup analysis + design system
+│   ├── 3. build_agent → Write Expo source files in E2B sandbox
+│   ├── 4. verify_loop (LoopAgent — self-healing, max 5 cycles)
+│   │   ├── typecheck_agent → Run tsc + lint
+│   │   └── fix_agent → Fix errors automatically
+│   └── 5. preview_agent → Launch live preview
+│
+└── 🎭 design_explorer (ParallelAgent — concurrent)
+    ├── dark_designer → Dark theme variant
+    └── light_designer → Light theme variant
+```
+
+### ADK Features Used
+
+| ADK Feature | How We Use It |
+|---|---|
+| **`SequentialAgent`** | Deterministic 5-stage build pipeline: Research → Design → Build → Verify → Preview |
+| **`LoopAgent`** | Self-healing type-check → fix cycle that auto-corrects TypeScript errors (max 5 iterations) |
+| **`ParallelAgent`** | Concurrent dark/light design variant generation for user comparison |
+| **`before_model_callback`** | Guardrails that detect demo users and inject context before every LLM call |
+| **`before_tool_callback`** | Blocks destructive tools (delete, EAS build) for demo accounts |
+| **`after_tool_callback`** | Audit logging — tracks tool calls, build phase transitions, call counts |
+| **Session State** | Persists `user_email`, `build_phase`, `tool_call_count` across conversation turns |
+| **Sub-agent Delegation** | Root agent routes to specialized sub-agents based on user intent |
+
+### Agent Roles
+
+- **MCP Agent (root)** — cross-project orchestration, routes to specialized sub-agents
+- **Studio Agent** — full-featured per-project editor with 25+ MCP tools
+- **Research Agent** — domain research, competitive analysis, design brief generation
+- **Design Agent** — vision-reads the approved mockup, establishes pixel-level design system
+- **Build Agent** — writes actual Expo/React Native files in an E2B sandbox
+- **Type-Check Agent** — runs `bunx tsc --noEmit` and `bun run lint`, reports errors
+- **Fix Agent** — reads type errors, applies surgical file edits to fix them
+- **Preview Agent** — launches the live Expo-web preview for the device frame
+- **Dark/Light Designers** — generate concurrent design variants via ParallelAgent
 
 ## Technologies used
 

@@ -35,61 +35,79 @@ Studio Agent:
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    Mobivable Studio                       │
-│              (TanStack Start + React)                    │
-│         Cloud Run: mobivable-*.run.app                   │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  User Chat ──→ sendProjectMessage()                      │
-│                    │                                     │
-│                    ├── ADK_AGENT_URL set?                 │
-│                    │   YES → POST /run/stream (SSE)      │
-│                    │   NO  → TypeScript tool loop         │
-│                    │                                     │
-│                    ▼                                     │
-│  ┌────────────────────────────────────┐                  │
-│  │     ADK Agent Service             │                  │
-│  │     Cloud Run: mobivable-adk      │                  │
-│  │                                   │                  │
-│  │  ┌─────────────────────────┐      │                  │
-│  │  │ MCP Agent (Router)      │      │                  │
-│  │  │ gemini-2.5-flash        │      │                  │
-│  │  │ - Project management    │      │                  │
-│  │  │ - Knowledge base        │      │                  │
-│  │  └──────────┬──────────────┘      │                  │
-│  │             │ delegates           │                  │
-│  │  ┌──────────▼──────────────┐      │                  │
-│  │  │ Studio Agent (Builder)  │      │                  │
-│  │  │ gemini-2.5-pro          │      │                  │
-│  │  │ - Design & plan         │      │                  │
-│  │  │ - Build & edit apps     │      │                  │
-│  │  │ - Code generation       │      │                  │
-│  │  └──────────┬──────────────┘      │                  │
-│  │             │ tools               │                  │
-│  │  ┌──────────▼──────────────┐      │                  │
-│  │  │ MCP Tool Bridge         │      │                  │
-│  │  │ 15+ tools via JSON-RPC  │      │                  │
-│  │  └─────────────────────────┘      │                  │
-│  └────────────────────────────────────┘                  │
-│                                                          │
-│  Supabase (Auth, DB, Storage, RLS)                       │
-│  Vertex AI (Gemini 2.5 Flash + Pro)                      │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                      Mobivable Studio                          │
+│                (TanStack Start + React)                        │
+│           Cloud Run: mobivable-*.run.app                       │
+├────────────────────────────────────────────────────────────────┤
+│  User Chat ──→ sendProjectMessage()                            │
+│                    │                                           │
+│                    ├── ADK_AGENT_URL set?                       │
+│                    │   YES → POST /run/stream (SSE)            │
+│                    │   NO  → TypeScript tool loop               │
+│                    ▼                                           │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  ADK Agent Service (Cloud Run: mobivable-adk)           │  │
+│  │                                                          │  │
+│  │  🤖 mobivable_agent (root — gemini-2.5-flash)           │  │
+│  │  ├── 🎨 studio_agent (gemini-2.5-pro)                   │  │
+│  │  │   └── callbacks: guardrails + audit                   │  │
+│  │  │                                                       │  │
+│  │  ├── ⚡ build_pipeline (SequentialAgent)                  │  │
+│  │  │   ├── 1. research_agent → Design brief                │  │
+│  │  │   ├── 2. design_agent → Mockup analysis               │  │
+│  │  │   ├── 3. build_agent → Write Expo files               │  │
+│  │  │   ├── 4. verify_loop (LoopAgent, max 5)               │  │
+│  │  │   │   ├── typecheck_agent → tsc + lint                │  │
+│  │  │   │   └── fix_agent → Auto-fix errors                 │  │
+│  │  │   └── 5. preview_agent → Live preview                 │  │
+│  │  │                                                       │  │
+│  │  └── 🎭 design_explorer (ParallelAgent)                  │  │
+│  │      ├── dark_designer → Dark theme                      │  │
+│  │      └── light_designer → Light theme                    │  │
+│  │                                                          │  │
+│  │  MCP Tool Bridge → 25+ tools via JSON-RPC                │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  Supabase (Auth, DB, Storage, RLS)                             │
+│  Vertex AI (Gemini 2.5 Flash + Pro)                            │
+│  E2B (Secure Code Execution Sandboxes)                         │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 🤖 Google ADK Integration
 
-Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/adk-docs/) for AI agent orchestration. The ADK service runs as a separate Cloud Run microservice.
+Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/adk-docs/) for multi-agent orchestration, deployed as a dedicated Cloud Run microservice.
 
 ### Multi-Agent System
 
-| Agent | Model | Role |
-|-------|-------|------|
-| **MCP Agent** (root) | `gemini-2.5-flash` | Routes requests, manages projects, delegates to sub-agents |
-| **Studio Agent** (sub) | `gemini-2.5-pro` | Designs and builds apps with plan-first workflow |
+| Agent | Type | Model | Role |
+|-------|------|-------|------|
+| **mobivable_agent** (root) | `Agent` | `gemini-2.5-flash` | Routes requests, manages projects, delegates to sub-agents |
+| **studio_agent** | `Agent` | `gemini-2.5-pro` | Full-featured per-project editor with surgical tools |
+| **build_pipeline** | `SequentialAgent` | — | Deterministic 5-stage build pipeline |
+| **research_agent** | `Agent` | `gemini-2.5-flash` | Domain research + design brief generation |
+| **design_agent** | `Agent` | `gemini-2.5-pro` | Mockup analysis + design system |
+| **build_agent** | `Agent` | `gemini-2.5-pro` | Writes Expo source files in E2B sandbox |
+| **verify_loop** | `LoopAgent` | — | Self-healing type-check → fix cycle (max 5 iterations) |
+| **typecheck_agent** | `Agent` | `gemini-2.5-flash` | Runs `tsc --noEmit` + `lint` |
+| **fix_agent** | `Agent` | `gemini-2.5-pro` | Auto-fixes TypeScript/lint errors |
+| **preview_agent** | `Agent` | `gemini-2.5-flash` | Launches live Expo-web preview |
+| **design_explorer** | `ParallelAgent` | — | Concurrent dark/light design variants |
+
+### ADK Features Used
+
+| Feature | Implementation |
+|---------|---------------|
+| **`SequentialAgent`** | Research → Design → Build → Verify → Preview pipeline |
+| **`LoopAgent`** | Self-healing: type-check → fix → type-check until clean |
+| **`ParallelAgent`** | Dark + light design variants generated concurrently |
+| **`before_model_callback`** | Demo user guardrails — inject context before LLM calls |
+| **`before_tool_callback`** | Block destructive tools for demo accounts |
+| **`after_tool_callback`** | Audit logging — track tool calls, build phases |
+| **Session State** | User email, build phase, tool call count persistence |
 
 ### Agent Tools (via MCP)
 
@@ -100,6 +118,8 @@ Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/a
 | **Surgical Edits** | `update_screen`, `add_element`, `update_element`, `remove_element` |
 | **Styling** | `update_theme`, `update_navigation` |
 | **Code** | `generate_code`, `export_project_code` |
+| **Workspace** | `ws_write_file`, `ws_read_file`, `ws_edit_file`, `ws_list_files`, `ws_run_command` |
+| **Preview** | `ws_start_preview`, `read_mockup`, `invoke_skill` |
 | **Verification** | `verify_schema` |
 | **Knowledge** | `list_knowledge_items`, `add_knowledge_item` |
 
@@ -109,8 +129,9 @@ Mobivable uses [Google's Agent Development Kit (ADK)](https://google.github.io/a
 1. User describes app idea
 2. Agent calls research_and_plan → design brief + mockup
 3. User reviews and approves (or requests changes)
-4. Agent builds a REAL Expo app in a sandbox (see below)
-5. Live Expo-web preview rendered in Studio
+4. SequentialAgent pipeline: Research → Design → Build → Verify → Preview
+5. LoopAgent auto-fixes TypeScript errors until clean
+6. Live Expo-web preview rendered in Studio
 ```
 
 ---
@@ -166,9 +187,9 @@ are wrapped with transient-network retry so a dropped socket doesn't discard an 
 ```
 mobivable/
 ├── adk-agent/                    # ADK agent microservice (Python)
-│   ├── agent.py                  # Agent definitions (root + studio)
+│   ├── agent.py                  # Multi-agent system (Sequential/Loop/Parallel + callbacks)
 │   ├── tools.py                  # MCP tool bridge (JSON-RPC → Node.js)
-│   ├── server.py                 # FastAPI server with /run/stream SSE
+│   ├── server.py                 # FastAPI server with /run/stream SSE + session state
 │   ├── Dockerfile                # Container for Cloud Run
 │   └── requirements.txt          # google-adk, fastapi, etc.
 ├── src/
