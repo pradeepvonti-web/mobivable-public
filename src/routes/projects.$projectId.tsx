@@ -1572,44 +1572,54 @@ function ProjectPage() {
           scrollToBottom();
         } else if ((event as { type: string }).type === "tool_call") {
           const ev = event as { name: string; argsJson: string };
-          const toolId = `${tempId}-tool-${ev.name}-${Date.now()}`;
-          const toolLabels: Record<string, string> = {
-            list_screens: "📋 Reading screens…",
-            get_screen: "🔍 Inspecting screen…",
-            get_project: "📂 Loading project…",
-            list_projects: "📂 Loading projects…",
-            update_screen: "✏️ Updating screen…",
-            add_element: "➕ Adding element…",
-            update_element: "🔧 Updating element…",
-            remove_element: "🗑️ Removing element…",
-            update_theme: "🎨 Updating theme…",
-            update_navigation: "🧭 Updating navigation…",
-            verify_schema: "✅ Verifying…",
-            research_and_plan: "🔬 Researching & planning…",
-            generate_app: "🤖 Generating app…",
-            create_project: "🆕 Creating project…",
-            generate_code: "💻 Generating code…",
-            export_project_code: "📦 Exporting project…",
-            ws_write_file: "📝 Writing file…",
-            ws_read_file: "📄 Reading file…",
-            ws_edit_file: "✏️ Editing file…",
-            ws_list_files: "📁 Listing files…",
-            ws_run_command: "⌨️ Running command…",
-            ws_run_command_async: "⏳ Running (background)…",
-            ws_command_status: "🔄 Checking job…",
-            ws_start_preview: "📲 Starting live preview…",
-            invoke_skill: "🧩 Invoking skill…",
-            read_mockup: "🖼️ Reading mockup…",
+          let args: Record<string, unknown> = {};
+          try { args = JSON.parse(ev.argsJson); } catch { /* */ }
+          
+          // Build descriptive labels with context from tool args
+          const getToolLabel = (name: string, a: Record<string, unknown>): string => {
+            const path = (a.path ?? a.file_path ?? '') as string;
+            const cmd = (a.command ?? a.cmd ?? '') as string;
+            const shortPath = path.split('/').slice(-2).join('/');
+            const shortCmd = cmd.length > 40 ? cmd.slice(0, 40) + '…' : cmd;
+            
+            switch (name) {
+              case 'research_and_plan': return '🔬 Researching & creating design plan…';
+              case 'generate_app': return '🤖 Generating full app schema…';
+              case 'read_mockup': return '🖼️ Analyzing approved mockup design…';
+              case 'invoke_skill': return `🧩 Loading ${(a.skill_name ?? 'design') as string} guidance…`;
+              case 'ws_write_file': return `📝 Writing ${shortPath || 'file'}…`;
+              case 'ws_read_file': return `📖 Reading ${shortPath || 'file'}…`;
+              case 'ws_edit_file': return `✏️ Editing ${shortPath || 'file'}…`;
+              case 'ws_list_files': return `📁 Scanning ${shortPath || 'project'} structure…`;
+              case 'ws_run_command': return `⌨️ Running: ${shortCmd || 'command'}…`;
+              case 'ws_run_command_async': return `⏳ Starting: ${shortCmd || 'background task'}…`;
+              case 'ws_command_status': return '🔄 Waiting for build to complete…';
+              case 'ws_start_preview': return '📲 Building & launching live preview…';
+              case 'declare_backend': return '🗄️ Declaring database schema…';
+              case 'verify_schema': return '✅ Verifying app integrity…';
+              case 'update_screen': return `✏️ Updating ${(a.title ?? 'screen') as string}…`;
+              case 'add_element': return '➕ Adding UI element…';
+              case 'update_element': return '🔧 Updating UI element…';
+              case 'remove_element': return '🗑️ Removing element…';
+              case 'update_theme': return '🎨 Updating theme…';
+              case 'update_navigation': return '🧭 Updating navigation…';
+              case 'create_project': return '🆕 Creating project…';
+              case 'generate_code': return '💻 Generating code…';
+              case 'export_project_code': return '📦 Exporting full project…';
+              default: return `🔧 ${name}…`;
+            }
           };
+          
+          const toolId = `${tempId}-tool-${ev.name}-${Date.now()}`;
           setMessages((prev) => [
             ...prev,
             {
               id: toolId,
               role: "assistant",
-              content: toolLabels[ev.name] ?? `🔧 ${ev.name}…`,
+              content: getToolLabel(ev.name, args),
               pending: true,
               agentName: "Studio Agent",
-              collapsed: true,
+              collapsed: false,
             },
           ]);
           scrollToBottom();
