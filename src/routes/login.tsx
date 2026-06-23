@@ -171,42 +171,64 @@ function LoginPage() {
             {submitting ? "Authenticating…" : "Login"}
           </button>
 
-          {/* ─── Demo Login ─── */}
-          <button
-            id="demo-login"
-            type="button"
-            disabled={submitting || demoLoading}
-            onClick={async () => {
-              clearError();
-              setDemoLoading(true);
-              try {
-                const { error } = await supabase.auth.signInWithPassword({
-                  email: DEMO_EMAIL,
-                  password: DEMO_PASSWORD,
-                });
-                if (error) {
-                  showAuthError(error.message, "user");
-                } else {
-                  navigate({ to: "/dashboard" });
+          {/* ─── Google for Startups AI Agents Challenge – Demo ─── */}
+          <div className="relative mt-2">
+            {/* Google 4-color gradient border */}
+            <div
+              aria-hidden
+              className="absolute -inset-px rounded-lg"
+              style={{
+                background: "linear-gradient(135deg, #4285F4, #EA4335, #FBBC04, #34A853)",
+                opacity: 0.85,
+              }}
+            />
+            <button
+              id="demo-login"
+              type="button"
+              disabled={submitting || demoLoading}
+              onClick={async () => {
+                clearError();
+                setDemoLoading(true);
+                try {
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: DEMO_EMAIL,
+                    password: DEMO_PASSWORD,
+                  });
+                  if (error) {
+                    showAuthError(error.message, "user");
+                  } else {
+                    navigate({ to: "/dashboard" });
+                  }
+                } catch (err) {
+                  showAuthError(
+                    err instanceof Error ? err.message : "Demo login failed.",
+                    "user",
+                  );
+                } finally {
+                  setDemoLoading(false);
                 }
-              } catch (err) {
-                showAuthError(
-                  err instanceof Error ? err.message : "Demo login failed.",
-                  "user",
-                );
-              } finally {
-                setDemoLoading(false);
-              }
-            }}
-            className="w-full py-4 border-2 border-primary/60 text-primary font-display text-lg uppercase tracking-wider transition-all hover:bg-primary hover:text-background disabled:opacity-50 relative overflow-hidden group"
-            style={{
-              background: "linear-gradient(135deg, hsl(var(--primary) / 0.05), hsl(var(--primary) / 0.12))",
-            }}
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              🚀 {demoLoading ? "Launching Demo…" : "Try Demo — No Account Needed"}
-            </span>
-          </button>
+              }}
+              className="relative w-full py-4 px-6 bg-background rounded-lg font-display text-lg tracking-wider transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+            >
+              <span className="flex flex-col items-center gap-1.5">
+                <span className="flex items-center gap-2 text-foreground">
+                  {/* Google 4-color dots */}
+                  <span className="flex gap-1" aria-hidden>
+                    <span className="h-2 w-2 rounded-full" style={{ background: "#4285F4" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ background: "#EA4335" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ background: "#FBBC04" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ background: "#34A853" }} />
+                  </span>
+                  <span className="uppercase">
+                    {demoLoading ? "Launching Demo…" : "Try Live Demo"}
+                  </span>
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Google for Startups · AI Agents Challenge
+                </span>
+              </span>
+            </button>
+          </div>
 
           {import.meta.env.DEV && (
             <>
