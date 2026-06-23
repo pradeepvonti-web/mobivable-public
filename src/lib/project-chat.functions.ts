@@ -554,7 +554,9 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         tier,
       });
 
+      console.log(`[chat] iter=${iter} tier=${tier} streamRes.ok=${streamRes.ok} provider=${(streamRes as any).provider ?? 'N/A'} model=${(streamRes as any).model ?? 'N/A'}`);
       if (!streamRes.ok) {
+        console.error(`[chat] LLM call FAILED: ${streamRes.error}`);
         yield { type: 'agent_error' as const, role: 'developer' as AgentRole, error: streamRes.error };
         break;
       }
@@ -640,6 +642,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       }
 
       approxTokens += Math.ceil(assistantText.length / 4);
+      console.log(`[chat] iter=${iter} parsed: assistantText=${assistantText.length} chars, tools=${completedTools.length} [${completedTools.map(t => t.name).join(', ')}]`);
 
       msgs.push({
         role: "assistant", content: assistantText,
@@ -648,6 +651,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
       // No tools → done
       if (completedTools.length === 0) {
+        console.log(`[chat] iter=${iter} NO TOOLS returned. assistantText length=${assistantText.length} text='${assistantText.slice(0, 200)}'`);
         if (assistantText.trim()) {
           await supabase.from("project_messages").insert({
             project_id: project.id, user_id: userId, role: "assistant",
