@@ -62,8 +62,9 @@ export function DeviceToolbar({
       <select
         value={selectedDevice}
         onChange={(e) => onDeviceChange(e.target.value)}
-        className="min-w-0 max-w-[7.25rem] bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4 sm:max-w-[8.75rem]"
+        className="min-w-0 max-w-[7.25rem] bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4 sm:max-w-[8.75rem] dark:[color-scheme:dark]"
         style={{
+          colorScheme: "auto",
           backgroundImage:
             "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E\")",
           backgroundRepeat: "no-repeat",
