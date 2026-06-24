@@ -1193,6 +1193,12 @@ export async function getEasBuildStatus(
  */
 export async function probePreviewServing(url: string | null | undefined): Promise<boolean> {
   if (!url) return false;
+  const detail = await probePreviewDetail(url);
+  return detail === "serving";
+}
+
+/** Enhanced probe: distinguish "serving", "not-serving" (build in progress), "dead" (sandbox expired). */
+async function probePreviewDetail(url: string): Promise<"serving" | "not-serving" | "dead"> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5000);
@@ -1202,18 +1208,23 @@ export async function probePreviewServing(url: string | null | undefined): Promi
     } finally {
       clearTimeout(timer);
     }
-    if (res.status < 200 || res.status >= 400) return false;
     const body = await res.text().catch(() => "");
+    // Sandbox expired / not found / closed port — sandbox is DEAD
     if (
-      /closed port error|sandbox .*?(not found|isn.?t running|has expired)|no service running on port|connection refused/i.test(
-        body,
-      )
+      /sandbox .*?(not found|isn.?t running|has expired)/i.test(body)
     ) {
-      return false;
+      return "dead";
     }
-    return true;
+    // Port not serving yet (build in progress) — sandbox is alive but port isn't up
+    if (
+      /closed port error|no service running on port|connection refused/i.test(body)
+    ) {
+      return "not-serving";
+    }
+    if (res.status < 200 || res.status >= 400) return "not-serving";
+    return "serving";
   } catch {
-    return false;
+    return "dead"; // network error = sandbox probably expired
   }
 }
 
@@ -1236,18 +1247,22 @@ export async function ensureExpoPreviewLive(
   console.log(`[preview-live] project=${projectId} existing=${existing ? "yes" : "no"}`);
 
   if (existing) {
-    const serving = await probePreviewServing(existing);
-    console.log(`[preview-live] probe serving=${serving}`);
-    if (serving) {
+    const detail = await probePreviewDetail(existing);
+    console.log(`[preview-live] probe detail=${detail}`);
+    if (detail === "serving") {
       return { ok: true, url: existing, status: "live" };
     }
-    // URL exists but not serving yet — the build is probably still in progress.
-    // Don't clear it and don't create a new sandbox. Just return "building".
-    return { ok: true, url: existing, status: "building" };
+    if (detail === "not-serving") {
+      // Sandbox alive, build in progress — don't create a new one
+      return { ok: true, url: existing, status: "building" };
+    }
+    // detail === "dead" — sandbox expired, clear URL and rebuild
+    console.log(`[preview-live] sandbox dead, clearing URL and rebuilding`);
+    await mergeWorkspaceMeta(projectId, ctx, { previewUrl: undefined }).catch(() => undefined);
   }
 
-  // No URL at all — first time or genuinely cleared. Build from scratch.
-  console.log(`[preview-live] no URL, starting fresh build`);
+  // No URL at all or dead sandbox — build from scratch.
+  console.log(`[preview-live] starting fresh build`);
   const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
   if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
   console.log(`[preview-live] build started, url=${r.url}`);
