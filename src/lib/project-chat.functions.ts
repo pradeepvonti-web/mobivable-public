@@ -112,10 +112,11 @@ const UNIFIED_AGENT_PROMPT =
 
   `### 📦 DEPENDENCY MANAGEMENT — YOU MUST ADD PACKAGES YOU USE:\n` +
   `- Before writing code that imports a 3rd-party package (zustand, react-query, axios, @react-navigation/*, etc.), FIRST run: ws_run_command(project_id, "bun add <package-name>")\n` +
-  `- The scaffold pre-installs: expo, expo-router, react-native, react-native-svg, expo-linear-gradient, @expo/vector-icons, expo-camera, expo-location, expo-notifications, expo-image-picker, expo-secure-store, @supabase/supabase-js. You do NOT need to install these.\n` +
+  `- The scaffold pre-installs: expo, expo-router, react-native, react-native-svg, expo-linear-gradient, @expo/vector-icons, expo-camera, expo-location, expo-notifications, expo-image-picker, expo-secure-store, expo-splash-screen, expo-font, @supabase/supabase-js. You do NOT need to install these.\n` +
   `- For ANY other package you import (zustand, react-query, axios, date-fns, lodash, react-native-chart-kit, etc.), you MUST install it BEFORE using it in code.\n` +
   `- If you forget, the build WILL fail with "Unable to resolve module". This is YOUR responsibility to prevent.\n` +
-  `- When in doubt, install it. \`bun add\` is fast and idempotent.\n\n` +
+  `- When in doubt, install it. \`bun add\` is fast and idempotent.\n` +
+  `- ⚠️ IMPORT PATTERNS: expo-splash-screen uses NAMED exports: \`import * as SplashScreen from "expo-splash-screen"\`. Do NOT use default import.\n\n` +
 
   `### CRITICAL RULES FOR EFFICIENCY:\n` +
   `- NEVER call ws_run_command_async for bun install — ws_start_preview does this for you.\n` +

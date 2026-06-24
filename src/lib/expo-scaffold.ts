@@ -91,6 +91,8 @@ export function expoScaffold(appName: string, backend: ScaffoldBackend = {}): Fi
           "expo-notifications": "~0.32.17",
           "expo-image-picker": "~17.0.11",
           "expo-secure-store": "~15.0.8",
+          "expo-splash-screen": "~0.30.11",
+          "expo-font": "~14.1.6",
           // Required for `expo export -p web` (the live preview build).
           "react-native-web": "~0.21.0",
           "@expo/metro-runtime": "~6.1.2",
