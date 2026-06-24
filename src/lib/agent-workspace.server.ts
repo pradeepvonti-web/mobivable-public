@@ -1233,20 +1233,24 @@ export async function ensureExpoPreviewLive(
   | { ok: false; status: "error"; error: string }
 > {
   const existing = await getExpoPreviewUrl(projectId, ctx);
-  if (existing && (await probePreviewServing(existing))) {
-    return { ok: true, url: existing, status: "live" };
-  }
-  // Dead, expired, or never built. Clear the stale URL so the iframe doesn't
-  // keep loading a host that returns "Sandbox Not Found" / "Closed Port" while
-  // we rebuild. Don't force a new sandbox here — getOrCreateWorkspace will
-  // reconnect when possible (preserving in-progress work + cached deps) and
-  // only provision a fresh one when reconnect actually fails. The bunCheck
-  // path inside ensureExpoWebPreview handles a wedged-but-connected sandbox.
+  console.log(`[preview-live] project=${projectId} existing=${existing ? "yes" : "no"}`);
+
   if (existing) {
-    await mergeWorkspaceMeta(projectId, ctx, { previewUrl: undefined }).catch(() => undefined);
+    const serving = await probePreviewServing(existing);
+    console.log(`[preview-live] probe serving=${serving}`);
+    if (serving) {
+      return { ok: true, url: existing, status: "live" };
+    }
+    // URL exists but not serving yet — the build is probably still in progress.
+    // Don't clear it and don't create a new sandbox. Just return "building".
+    return { ok: true, url: existing, status: "building" };
   }
+
+  // No URL at all — first time or genuinely cleared. Build from scratch.
+  console.log(`[preview-live] no URL, starting fresh build`);
   const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
   if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
+  console.log(`[preview-live] build started, url=${r.url}`);
   return { ok: true, url: r.url, status: "building", jobId: r.jobId };
 }
 
