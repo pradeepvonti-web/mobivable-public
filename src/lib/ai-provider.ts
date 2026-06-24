@@ -309,6 +309,8 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "o4-mini": "o4-mini",
   },
   gemini: {
+    "Gemini 3.5 Flash": "gemini-3.5-flash",
+    "Gemini 3.1 Pro": "gemini-3.1-pro-preview",
     "Gemini 2.5 Pro": "gemini-2.5-pro",
     "Gemini 2.5 Flash": "gemini-2.5-flash",
     "Claude Opus 4.6": "gemini-2.5-pro",
@@ -843,7 +845,7 @@ async function _callAICore(
 
 /** Fast-tier model: high quality for code writing. */
 const FAST_MODELS: Record<AIProvider, string> = {
-  gemini: "gemini-2.5-pro",
+  gemini: "gemini-3.5-flash",
   anthropic: "claude-opus-4-6",
   lovable: "google/gemini-3-flash-preview",
   openai: "gpt-4o-mini",
@@ -856,7 +858,7 @@ const FAST_MODELS: Record<AIProvider, string> = {
 
 /** Strong-tier model: best quality for planning + complex reasoning. */
 const STRONG_MODELS: Record<AIProvider, string> = {
-  gemini: "gemini-2.5-pro",
+  gemini: "gemini-3.1-pro-preview",
   anthropic: "claude-opus-4-6",
   lovable: "google/gemini-2.5-pro",
   openai: "gpt-4o",
