@@ -942,39 +942,46 @@ function ProjectPage() {
   const checkPreviewServingFn = useServerFn(checkPreviewServing);
   const recoveringRef = useRef(false);
   useEffect(() => {
-    if (renderMode !== "expo" || !expoPreviewUrl) return;
+    if (renderMode !== "expo") return;
     let cancelled = false;
     let liveTimer: ReturnType<typeof setTimeout> | null = null;
     let buildTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const pollBuild = async () => {
-      if (cancelled) return;
+    const pollBuild = () => new Promise<void>((resolve) => {
+      if (cancelled) { resolve(); return; }
       let attempts = 0;
       const tick = async () => {
-        if (cancelled) return;
+        if (cancelled) { resolve(); return; }
         attempts += 1;
         const s = await checkPreviewServingFn({ data: { projectId } }).catch(() => null);
-        if (cancelled) return;
+        if (cancelled) { resolve(); return; }
         if (s && s.ok && s.serving) {
           setRestartingExpo(false);
           await reloadProject();
+          resolve();
           return;
         }
-        if (attempts >= 96) { setRestartingExpo(false); return; } // ~8 min cap (install + export can be slow)
+        if (attempts >= 96) { setRestartingExpo(false); resolve(); return; } // ~8 min cap
         buildTimer = setTimeout(tick, 5000);
       };
       buildTimer = setTimeout(tick, 5000);
-    };
+    });
 
     const recover = async () => {
       if (cancelled || sending || recoveringRef.current) return;
       recoveringRef.current = true;
+      setRestartingExpo(true);
       try {
         const r = await ensurePreviewLiveFn({ data: { projectId } });
         if (cancelled) return;
         if (r.status === "building") {
-          setRestartingExpo(true);
+          // Wait for the build to actually finish serving before releasing the lock
           await pollBuild();
+        } else if (r.status === "live") {
+          setRestartingExpo(false);
+          await reloadProject();
+        } else {
+          setRestartingExpo(false);
         }
       } catch {
         if (!cancelled) setRestartingExpo(false);
@@ -985,21 +992,23 @@ function ProjectPage() {
 
     const livenessCheck = async () => {
       if (cancelled) return;
-      if (!document.hidden && !sending) {
+      // Don't check if already recovering — wait for the current recovery to finish
+      if (!document.hidden && !sending && !recoveringRef.current) {
         const s = await checkPreviewServingFn({ data: { projectId } }).catch(() => null);
         if (cancelled) return;
         if (!s || !s.ok || !s.serving) {
           await recover();
         }
       }
-      if (!cancelled) liveTimer = setTimeout(livenessCheck, 60_000);
+      // 5 min interval — build takes 2-3 min, so don't hammer
+      if (!cancelled) liveTimer = setTimeout(livenessCheck, 300_000);
     };
 
     // Kick off immediately, then poll.
     void recover();
-    liveTimer = setTimeout(livenessCheck, 60_000);
+    liveTimer = setTimeout(livenessCheck, 300_000);
 
-    const onVisible = () => { if (!document.hidden) void livenessCheck(); };
+    const onVisible = () => { if (!document.hidden && !recoveringRef.current) void livenessCheck(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
