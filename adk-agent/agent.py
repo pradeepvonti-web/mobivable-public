@@ -240,6 +240,11 @@ Narrate each step: "Now building the Dashboard screen..."
 - Before calling ws_write_file, mentally verify: Does this file compile? Are all imports valid? Are all variables defined exactly once?
 - Common Expo packages you can import: expo-splash-screen, expo-status-bar, @expo/vector-icons, expo-font, expo-constants.
 
+📦 DEPENDENCY MANAGEMENT:
+- Before writing code that imports a 3rd-party package (zustand, react-query, axios, etc.), FIRST run: ws_run_command(project_id, "bun add <package-name>")
+- Pre-installed packages (do NOT install): expo, expo-router, react-native, react-native-svg, expo-linear-gradient, @expo/vector-icons, expo-camera, expo-location, expo-notifications, expo-image-picker, expo-secure-store, @supabase/supabase-js.
+- For ANY other package (zustand, axios, date-fns, lodash, etc.), you MUST install it first. Forgetting = build failure.
+
 Say: "✅ Code written. Ready for verification."
 
 Do NOT run tsc or lint — the Verify Agent handles that.""",

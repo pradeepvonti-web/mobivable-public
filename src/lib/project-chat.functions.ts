@@ -110,6 +110,13 @@ const UNIFIED_AGENT_PROMPT =
   `- SELF-CHECK every file before writing: Does it compile? Are all imports valid? Are all variables defined exactly once?\n` +
   `- If you create a types file, make sure ALL screens import from the SAME path. Don't scatter type definitions across files.\n\n` +
 
+  `### 📦 DEPENDENCY MANAGEMENT — YOU MUST ADD PACKAGES YOU USE:\n` +
+  `- Before writing code that imports a 3rd-party package (zustand, react-query, axios, @react-navigation/*, etc.), FIRST run: ws_run_command(project_id, "bun add <package-name>")\n` +
+  `- The scaffold pre-installs: expo, expo-router, react-native, react-native-svg, expo-linear-gradient, @expo/vector-icons, expo-camera, expo-location, expo-notifications, expo-image-picker, expo-secure-store, @supabase/supabase-js. You do NOT need to install these.\n` +
+  `- For ANY other package you import (zustand, react-query, axios, date-fns, lodash, react-native-chart-kit, etc.), you MUST install it BEFORE using it in code.\n` +
+  `- If you forget, the build WILL fail with "Unable to resolve module". This is YOUR responsibility to prevent.\n` +
+  `- When in doubt, install it. \`bun add\` is fast and idempotent.\n\n` +
+
   `### CRITICAL RULES FOR EFFICIENCY:\n` +
   `- NEVER call ws_run_command_async for bun install — ws_start_preview does this for you.\n` +
   `- NEVER poll ws_command_status more than 2 times per job. It waits 60s internally.\n` +
