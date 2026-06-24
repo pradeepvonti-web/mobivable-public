@@ -893,8 +893,9 @@ export async function ensureExpoWebPreview(
 
   // The `serve` step only runs if install + export both succeed (&&-chained), so
   // Read previous build log to diagnose failures
+  const prevLogCmd = 'export PATH="$HOME/.bun/bin:$PATH" && LATEST=$(ls -t ' + JOBS_DIR + '/*.log 2>/dev/null | head -1) && if [ -n "$LATEST" ]; then EXITF="${LATEST%.log}.exit"; echo "=EXIT="; cat "$EXITF" 2>/dev/null; echo "=LOG="; tail -50 "$LATEST"; fi';
   const prevLog = await sandbox.commands
-    .run(`export PATH="$HOME/.bun/bin:$PATH" && for f in $(ls -t ${JOBS_DIR}/*.log 2>/dev/null | head -1); do echo "=EXIT="; cat "${f%.log}.exit" 2>/dev/null; echo "=LOG="; tail -50 "$f"; done`, { cwd: WORKDIR, timeoutMs: 10_000 })
+    .run(prevLogCmd, { cwd: WORKDIR, timeoutMs: 10_000 })
     .catch(() => null);
   if (prevLog?.stdout) {
     console.log(`[preview] previous build output: ${prevLog.stdout.substring(0, 2000)}`);
