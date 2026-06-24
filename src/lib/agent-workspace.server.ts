@@ -826,13 +826,12 @@ export async function ensureExpoWebPreview(
     };
   }
 
-  // Ensure project files exist in the sandbox. When reconnecting to an
-  // existing sandbox after a failed build, /workspace/ may be empty.
-  const pkgCheck = await sandbox.commands
-    .run(`test -f ${WORKDIR}/package.json && echo "exists"`, { cwd: WORKDIR, timeoutMs: 5_000 })
-    .catch(() => null);
-  if (!pkgCheck || !pkgCheck.stdout?.includes("exists")) {
-    console.log("[preview] /workspace/package.json missing — restoring mirrored files");
+  // When rebuilding (recovery), always sync the latest mirrored files from the
+  // DB into the sandbox. The agent may have created/edited files since the last
+  // build (e.g. creating a missing constants/theme.ts). Without this, the
+  // sandbox has stale files and the build keeps failing.
+  if (opts.rebuild) {
+    console.log("[preview] rebuild requested — syncing all mirrored files to sandbox");
     const prior = await loadMirroredFiles(projectId, ctx);
     if (Object.keys(prior).length > 0) {
       await sandbox.commands.run(
@@ -842,10 +841,16 @@ export async function ensureExpoWebPreview(
       for (const [rel, content] of Object.entries(prior)) {
         await sandbox.files.write(`${WORKDIR}/${rel}`, content);
       }
-      console.log(`[preview] restored ${Object.keys(prior).length} files`);
+      console.log(`[preview] synced ${Object.keys(prior).length} files to sandbox`);
     } else {
-      console.log("[preview] no mirrored files found in DB — cannot restore");
-      return { ok: false, rebuilt: false, error: "No project files found to build." };
+      // Fallback: check if package.json exists at least
+      const pkgCheck = await sandbox.commands
+        .run(`test -f ${WORKDIR}/package.json && echo "exists"`, { cwd: WORKDIR, timeoutMs: 5_000 })
+        .catch(() => null);
+      if (!pkgCheck || !pkgCheck.stdout?.includes("exists")) {
+        console.log("[preview] no mirrored files and no package.json — cannot build");
+        return { ok: false, rebuilt: false, error: "No project files found to build." };
+      }
     }
   }
 
