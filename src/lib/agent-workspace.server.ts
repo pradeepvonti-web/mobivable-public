@@ -1209,6 +1209,7 @@ async function probePreviewDetail(url: string): Promise<"serving" | "not-serving
       clearTimeout(timer);
     }
     const body = await res.text().catch(() => "");
+    console.log(`[probe] status=${res.status} body=${body.substring(0, 120)}`);
     // Sandbox expired / not found / invalid — sandbox is DEAD
     if (
       /sandbox .*?(not found|isn.?t running|has expired)|invalid sandbox|unexpected error when routing/i.test(body)
@@ -1216,12 +1217,14 @@ async function probePreviewDetail(url: string): Promise<"serving" | "not-serving
       return "dead";
     }
     // Port not serving yet (build in progress) — sandbox is alive but port isn't up
+    // 502 Bad Gateway from E2B = sandbox alive, port routed, but no process listening
     if (
-      /closed port error|no service running on port/i.test(body)
+      /closed port error|no service running on port/i.test(body) ||
+      res.status === 502 || res.status === 503
     ) {
       return "not-serving";
     }
-    // Any other error status is likely a dead/unreachable sandbox
+    // 4xx errors with unrecognized body = likely dead
     if (res.status >= 400) return "dead";
     return "serving";
   } catch {
