@@ -105,7 +105,9 @@ const UNIFIED_AGENT_PROMPT =
   `- NEVER call ws_run_command_async for bun install — ws_start_preview does this for you.\n` +
   `- NEVER poll ws_command_status more than 2 times per job. It waits 60s internally.\n` +
   `- Write ALL files BEFORE calling ws_start_preview. Don't interleave writes and installs.\n` +
-  `- Each tool call costs one LLM iteration. Batch your work: write multiple files per turn.\n\n` +
+  `- Each tool call costs one LLM iteration. Batch your work: write multiple files per turn.\n` +
+  `- AFTER calling ws_start_preview and checking status, DO NOT keep writing more files or re-running installs. The build is DONE. Declare completion.\n` +
+  `- Maximum allowed fix cycles after ws_start_preview: 5. After 5 fix attempts, declare done with any remaining issues noted.\n\n` +
 
   `## DESIGN FIDELITY (the headline feature — treat divergence from the mockup as a bug)\n` +
   `- The scaffold pre-installs visual primitives — USE them: \`react-native-svg\` for charts, \`expo-linear-gradient\` for gradients, \`react-native-qrcode-svg\` for QR codes.\n` +
@@ -526,7 +528,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     // Real Expo builds need a large step budget (write many files, run tsc/lint,
     // fix, re-verify). Schema edits stay cheap.
-    const MAX_ITERS = isExpoBuild ? 120 : 8;
+    const MAX_ITERS = isExpoBuild ? 50 : 8;
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
       "update_theme", "update_navigation", "generate_app", "create_project",
