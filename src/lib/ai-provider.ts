@@ -93,11 +93,11 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     id: "gemini",
     name: "Google Gemini",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    defaultModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.1-pro-preview",
     models: [
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Latest)" },
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-      { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
     ],
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     getKey: () => process.env.GOOGLE_AI_API_KEY,
@@ -106,12 +106,10 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     id: "anthropic",
     name: "Anthropic Claude",
     baseUrl: "https://api.anthropic.com/v1/messages",
-    // Opus 4.8 is the first-preference model for the build brain.
-    defaultModel: "claude-opus-4-8",
+    defaultModel: "claude-opus-4-6",
     models: [
-      { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+      { id: "claude-opus-4-6", label: "Claude Opus 4.6" },
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
     ],
     authHeader: (key) => ({
       "x-api-key": key,
@@ -220,7 +218,7 @@ export function detectProvider(): ProviderConfig | null {
   // Caveat: keep ANTHROPIC_API_KEY valid — being first, an invalid key would
   // 401 every build (no provider fallback on 401). To pin it regardless of
   // order, set AI_PROVIDER=anthropic (checked above, before this list).
-  const priority: AIProvider[] = ["anthropic", "lovable", "vertex", "gemini", "openai", "groq", "openrouter", "ollama"];
+  const priority: AIProvider[] = ["gemini", "anthropic", "lovable", "vertex", "openai", "groq", "openrouter", "ollama"];
   for (const id of priority) {
     const cfg = PROVIDERS[id];
     if (cfg.getKey()) return cfg;
@@ -861,13 +859,12 @@ async function _callAICore(
 //   callAIFast   → Flash/Haiku/Mini — routing, classification, verify, quick edits
 //   callAIStrong → Pro/Sonnet/GPT-4o — schema gen, code gen, complex reasoning
 
-/** Fast-tier model per provider: cheapest + fastest, good for routing/classify. */
+/** Fast-tier model: high quality for code writing. */
 const FAST_MODELS: Record<AIProvider, string> = {
+  gemini: "gemini-2.5-pro",
+  anthropic: "claude-opus-4-6",
   lovable: "google/gemini-3-flash-preview",
   openai: "gpt-4o-mini",
-  gemini: "gemini-2.5-pro",
-  // Execution tier for the agentic build — Sonnet (not Haiku) for code quality.
-  anthropic: "claude-sonnet-4-6",
   groq: "llama-3.1-8b-instant",
   openrouter: "google/gemini-2.5-flash",
   ollama: "llama3.1",
@@ -875,13 +872,12 @@ const FAST_MODELS: Record<AIProvider, string> = {
   custom: "default",
 };
 
-/** Strong-tier model per provider: best quality for generation + reasoning. */
+/** Strong-tier model: best quality for planning + complex reasoning. */
 const STRONG_MODELS: Record<AIProvider, string> = {
+  gemini: "gemini-3.1-pro-preview",
+  anthropic: "claude-opus-4-6",
   lovable: "google/gemini-2.5-pro",
   openai: "gpt-4o",
-  gemini: "gemini-3.1-pro-preview",
-  // Planning/reasoning tier for the agentic build — Opus.
-  anthropic: "claude-opus-4-8",
   groq: "llama-3.3-70b-versatile",
   openrouter: "google/gemini-2.5-pro",
   ollama: "llama3.1:70b",
@@ -1553,7 +1549,7 @@ export type ProviderStatus = {
 export function getProviderStatuses(): ProviderStatus[] {
   const active = detectProvider();
   return (Object.values(PROVIDERS) as ProviderConfig[])
-    .filter(p => p.id !== "custom" && p.id !== "lovable")
+    .filter(p => p.id === "gemini" || p.id === "anthropic")
     .map(p => ({
       id: p.id,
       name: p.name,
