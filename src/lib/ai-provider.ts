@@ -845,7 +845,7 @@ async function _callAICore(
 
 /** Fast-tier model: high quality for code writing. */
 const FAST_MODELS: Record<AIProvider, string> = {
-  gemini: "gemini-3.5-flash",
+  gemini: "gemini-2.5-pro",
   anthropic: "claude-opus-4-6",
   lovable: "google/gemini-3-flash-preview",
   openai: "gpt-4o-mini",
@@ -858,7 +858,7 @@ const FAST_MODELS: Record<AIProvider, string> = {
 
 /** Strong-tier model: best quality for planning + complex reasoning. */
 const STRONG_MODELS: Record<AIProvider, string> = {
-  gemini: "gemini-3.1-pro-preview",
+  gemini: "gemini-2.5-pro",
   anthropic: "claude-opus-4-6",
   lovable: "google/gemini-2.5-pro",
   openai: "gpt-4o",
