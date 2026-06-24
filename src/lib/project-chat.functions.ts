@@ -528,7 +528,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
 
     // Real Expo builds need a large step budget (write many files, run tsc/lint,
     // fix, re-verify). Schema edits stay cheap.
-    const MAX_ITERS = isExpoBuild ? 50 : 8;
+    const MAX_ITERS = isExpoBuild ? 30 : 8;
     const WRITE_TOOLS = new Set([
       "update_screen", "add_element", "update_element", "remove_element",
       "update_theme", "update_navigation", "generate_app", "create_project",
@@ -732,6 +732,21 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         if (WRITE_TOOLS.has(tc.name) && !isError) modifiedProject = true;
         msgs.push({ role: "tool", tool_call_id: tc.id, name: tc.name, content: resultContent, is_error: isError });
         yield { type: 'tool_done' as const, toolName: tc.name, success: !isError };
+
+        // ── FORCE STOP after ws_start_preview succeeds ──
+        // Once preview is ready, the app is built. Stop immediately.
+        if (tc.name === "ws_start_preview" && !isError) {
+          console.log(`[chat] iter=${iter} ✅ ws_start_preview succeeded — STOPPING build loop.`);
+          const doneMsg = assistantText.trim() || "✅ Your app is built and the preview is ready! Check the preview panel on the right.";
+          await supabase.from("project_messages").insert({
+            project_id: project.id, user_id: userId, role: "assistant", content: doneMsg,
+          });
+          yield { type: 'project_updated' as const };
+          yield { type: 'agent_complete' as const, role: 'developer' as AgentRole, name: 'Studio Agent', content: doneMsg };
+          // Jump to end of loop
+          iter = MAX_ITERS;
+          break;
+        }
       }
 
       // Auto-verify after writes
