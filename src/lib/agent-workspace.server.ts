@@ -1253,8 +1253,12 @@ export async function ensureExpoPreviewLive(
       return { ok: true, url: existing, status: "live" };
     }
     if (detail === "not-serving") {
-      // Sandbox alive, build in progress — don't create a new one
-      return { ok: true, url: existing, status: "building" };
+      // Sandbox alive but port not up — the build may have failed silently.
+      // Trigger a rebuild on the SAME sandbox (getOrCreateWorkspace reconnects).
+      console.log(`[preview-live] sandbox alive but not serving, triggering rebuild on same sandbox`);
+      const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
+      if (!r.ok) return { ok: false, status: "error", error: r.error ?? "Preview rebuild failed" };
+      return { ok: true, url: r.url, status: "building", jobId: r.jobId };
     }
     // detail === "dead" — sandbox expired, clear URL and rebuild
     console.log(`[preview-live] sandbox dead, clearing URL and rebuilding`);
