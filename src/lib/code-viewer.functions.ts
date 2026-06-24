@@ -46,8 +46,30 @@ export const getProjectFiles = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Project not found" };
     }
 
+    // ── Load any user overrides (ws_write_file mirrored files) ──
+    const { data: overrides } = await supabase
+      .from("project_file_overrides")
+      .select("file_path, content")
+      .eq("project_id", data.projectId)
+      .eq("user_id", userId);
+
+    const overrideMap = new Map<string, string>(
+      ((overrides ?? []) as { file_path: string; content: string }[]).map((o) => [o.file_path, o.content]),
+    );
+
+    // If no schema result but we have overrides from ws_write_file, show those directly
     if (!project.result) {
-      return { ok: false as const, error: "No generated result found for this project" };
+      if (overrideMap.size === 0) {
+        return { ok: false as const, error: "No generated result found for this project" };
+      }
+      // Return override files directly (from Expo build)
+      const files = Array.from(overrideMap.entries()).map(([path, content]) => ({
+        path,
+        content,
+        language: languageFromPath(path),
+        isOverridden: true,
+      }));
+      return { ok: true as const, files };
     }
 
     // Parse schema from the stored result JSON
@@ -58,6 +80,16 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     );
 
     if (!schema) {
+      // Even if schema parse fails, show overrides if available
+      if (overrideMap.size > 0) {
+        const files = Array.from(overrideMap.entries()).map(([path, content]) => ({
+          path,
+          content,
+          language: languageFromPath(path),
+          isOverridden: true,
+        }));
+        return { ok: true as const, files };
+      }
       return { ok: false as const, error: "Failed to parse project schema" };
     }
 
@@ -69,8 +101,6 @@ export const getProjectFiles = createServerFn({ method: "POST" })
       .maybeSingle();
 
     // Load monetization config from project_env_vars (export-safe allow-list).
-    // Sensitive keys like stripe_webhook_secret are not in the list — they
-    // must never reach a client bundle.
     const { data: monRows } = await supabase
       .from("project_env_vars")
       .select("name, value")
@@ -109,17 +139,6 @@ export const getProjectFiles = createServerFn({ method: "POST" })
     // Generate the Expo project files
     const exportedFiles = exportToExpo(schema as MobileAppSchema, options);
 
-    // Load any user overrides
-    const { data: overrides } = await supabase
-      .from("project_file_overrides")
-      .select("file_path, content")
-      .eq("project_id", data.projectId)
-      .eq("user_id", userId);
-
-    const overrideMap = new Map<string, string>(
-      ((overrides ?? []) as { file_path: string; content: string }[]).map((o) => [o.file_path, o.content]),
-    );
-
     // Build the final file list, merging overrides
     const files = exportedFiles.map((f) => ({
       path: f.path,
@@ -127,6 +146,13 @@ export const getProjectFiles = createServerFn({ method: "POST" })
       language: languageFromPath(f.path),
       isOverridden: overrideMap.has(f.path),
     }));
+
+    // Also add any override files that aren't in the schema export
+    for (const [path, content] of overrideMap) {
+      if (!exportedFiles.some((f) => f.path === path)) {
+        files.push({ path, content, language: languageFromPath(path), isOverridden: true });
+      }
+    }
 
     return { ok: true as const, files };
   });
