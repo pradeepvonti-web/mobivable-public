@@ -88,6 +88,8 @@ export const checkPreviewServing = createServerFn({ method: "POST" })
       } catch {
         serving = false;
       }
+      // Log serving status for debugging
+      console.log(`[check-serving] project=${data.projectId} url=${url} serving=${serving}`);
       return { ok: true as const, url, serving };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
