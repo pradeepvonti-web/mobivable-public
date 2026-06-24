@@ -543,9 +543,11 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     let approxTokens = 0;
 
     for (let iter = 0; iter < MAX_ITERS; iter++) {
-      // Decide tier: first iteration uses "strong" for better reasoning,
-      // subsequent iterations (tool follow-ups) use "fast"
-      const tier = iter === 0 ? "strong" as const : "fast" as const;
+      // Expo builds: use strong (Pro) for ALL iterations — better code = fewer
+      // fix loops = faster total wall-time despite slower per-call latency.
+      // Schema edits use fast after iter 0 since they're simpler.
+      const tier = isExpoBuild ? "strong" as const
+        : iter === 0 ? "strong" as const : "fast" as const;
 
       const anth = toAnthropicMessages(msgs);
       const oai = toOpenAIMessages(msgs);
