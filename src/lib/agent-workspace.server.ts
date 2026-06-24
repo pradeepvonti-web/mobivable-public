@@ -896,14 +896,13 @@ export async function ensureExpoWebPreview(
     `( bun -e "fetch('http://localhost:${EXPO_PREVIEW_PORT}').then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1 ` +
     `|| (nohup bunx serve dist -s -l ${EXPO_PREVIEW_PORT} > ${JOBS_DIR}/serve.log 2>&1 &) )`;
 
-  // Fallback: if expo export fails, create a minimal dist/ with an error page
-  // so `serve` always has something to host → no more "Closed Port Error".
-  const fallbackPage =
-    `mkdir -p dist && echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Error</title>` +
-    `<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A0A1A;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh}` +
-    `.c{text-align:center;max-width:480px;padding:24px}.t{font-size:24px;font-weight:700;margin-bottom:12px;color:#F59E0B}.s{color:#9CA3AF;font-size:14px;line-height:1.6}` +
-    `</style></head><body><div class="c"><div class="t">⚠️ Build in Progress</div>` +
-    `<div class="s">The app is installing dependencies and compiling. This usually takes 1-2 minutes. Please click Restart to try again.</div></div></body></html>' > dist/index.html`;
+  // Fallback HTML written to dist/index.html when expo export fails.
+  // MUST be created AFTER the failed export (expo export wipes dist/ on start).
+  const FALLBACK_HTML = '<html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Building</title>' +
+    '<style>*{margin:0;padding:0}body{background:#0A0A1A;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh}' +
+    '.c{text-align:center;max-width:480px;padding:24px}.t{font-size:24px;font-weight:700;margin-bottom:12px;color:#F59E0B}.s{color:#9CA3AF;font-size:14px;line-height:1.6}' +
+    '</style></head><body><div class=c><div class=t>Build Failed</div>' +
+    '<div class=s>The Expo build encountered errors. Check the build log or click Restart to try again.</div></div></body></html>';
 
   // Read previous build log to diagnose failures
   const prevLogCmd = 'export PATH="$HOME/.bun/bin:$PATH" && LATEST=$(ls -t ' + JOBS_DIR + '/*.log 2>/dev/null | head -1) && if [ -n "$LATEST" ]; then EXITF="${LATEST%.log}.exit"; echo "=EXIT="; cat "$EXITF" 2>/dev/null; echo "=LOG="; tail -50 "$LATEST"; fi';
@@ -914,39 +913,59 @@ export async function ensureExpoWebPreview(
     console.log(`[preview] previous build output: ${prevLog.stdout.substring(0, 2000)}`);
   }
 
-  // Build script — key changes:
-  // 1. Always create dist/ with fallback page FIRST so serve always has content
-  // 2. Fix scoped package scanning (handles @org/pkg imports)
-  // 3. If expo export fails, retry once after clearing metro cache
-  // 4. Always start serve at the end, regardless of build outcome
+  // Build script flow:
+  // 1. Install deps + auto-scan for missing imports
+  // 2. Try expo export (with retry on failure)
+  // 3. If export fails, create fallback page so serve has content
+  // 4. ALWAYS start serve at the end
+  //
+  // Instead of a fragile inline grep/sed pipeline (bash escaping hell), we write
+  // a tiny Node script to the sandbox that scans source files for imports not
+  // present in node_modules. Node handles path/regex natively — zero escaping.
+  const scannerScript = [
+    `const fs=require("fs"),path=require("path");`,
+    `const dirs=["app","store","lib","hooks","constants","components","screens"];`,
+    `const skip=new Set(["react","react-dom","react-native","react-native-web","expo","expo-router"]);`,
+    `function walk(d){try{return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)])}catch{return[]}}`,
+    `const files=dirs.flatMap(d=>walk(d)).filter(f=>/\\.[jt]sx?$/.test(f));`,
+    `const pkgs=new Set();`,
+    `for(const f of files){const c=fs.readFileSync(f,"utf8");`,
+    `  for(const m of c.matchAll(/from\\s+['"]([@a-zA-Z][^'"]*)['"]/g)){`,
+    `    let p=m[1]; if(p.startsWith(".")||p.startsWith("@/"))continue;`,
+    `    if(p.startsWith("@")){const s=p.split("/");p=s.slice(0,2).join("/")}`,
+    `    else{p=p.split("/")[0]}`,
+    `    if(!skip.has(p)&&!p.startsWith("expo-")&&!p.startsWith("react-native"))pkgs.add(p)}}`,
+    `const missing=[...pkgs].filter(p=>{try{require.resolve(p);return false}catch{return true}});`,
+    `if(missing.length)console.log(missing.join(" "));`,
+  ].join("\n");
+
   const script =
     `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
     `rm -f ${JOBS_DIR}/*.exit && ` +
-    // Create fallback page first so serve always has something
-    `${fallbackPage} && ` +
     // Install deps
     `bun install && ` +
     // Install commonly used expo packages
     `bun add expo-splash-screen expo-status-bar expo-linking expo-constants expo-font @expo/vector-icons @react-navigation/native 2>/dev/null; ` +
-    // Scan source for unresolved imports — handles both plain (zustand) and scoped (@org/pkg) packages
-    `MISSING=$(grep -roh "from ['\\'']\\([^.'\\'']*\\)" app/ store/ lib/ hooks/ constants/ components/ 2>/dev/null ` +
-    `| sed "s/from ['\\'']//;s/['\\'']$//" ` +
-    `| grep -v "^\\." | grep -v "^react$" | grep -v "^react-native" | grep -v "^expo" ` +
-    `| sort -u | while read pkg; do ` +
-    `  BASE=$(echo "$pkg" | sed "s|/.*||"); ` +
-    `  [ "$BASE" != "$pkg" ] && [ "$(echo "$BASE" | cut -c1)" = "@" ] && BASE=$(echo "$pkg" | cut -d/ -f1,2); ` +
-    `  [ ! -d "node_modules/$BASE" ] && echo "$BASE"; ` +
-    `done | sort -u | tr "\\n" " "); ` +
+    // Write and run the scanner — a Node script that reliably detects missing imports
+    `cat > /tmp/_scan.cjs << 'SCANNER'\n${scannerScript}\nSCANNER\n` +
+    `MISSING=$(node /tmp/_scan.cjs 2>/dev/null); ` +
     `[ -n "$MISSING" ] && echo "Auto-installing: $MISSING" && bun add $MISSING 2>/dev/null; ` +
     // Fix version mismatches
     `(bunx expo install --fix 2>/dev/null || true); ` +
-    // Try expo export — if it fails, retry once after clearing cache
-    `if ! bunx expo export -p web 2>&1; then ` +
+    // Try expo export — if it fails, retry once, then create fallback
+    `EXPORT_OK=0; ` +
+    `if bunx expo export -p web 2>&1; then EXPORT_OK=1; ` +
+    `else ` +
     `  echo "First export failed, retrying after cache clear..."; ` +
     `  rm -rf .expo node_modules/.cache; ` +
-    `  bunx expo export -p web 2>&1 || echo "EXPORT_FAILED"; ` +
+    `  if bunx expo export -p web 2>&1; then EXPORT_OK=1; fi; ` +
     `fi; ` +
-    // ALWAYS start serve — even if export failed, serve the fallback page
+    // If export failed, create fallback page AFTER (expo export wipes dist/)
+    `if [ "$EXPORT_OK" = "0" ]; then ` +
+    `  echo "EXPORT_FAILED — creating fallback page"; ` +
+    `  mkdir -p dist && echo '${FALLBACK_HTML}' > dist/index.html; ` +
+    `fi; ` +
+    // ALWAYS start serve
     `${ensureServe} ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
