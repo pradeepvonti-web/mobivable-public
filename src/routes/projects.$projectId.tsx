@@ -816,9 +816,9 @@ function ProjectPage() {
   const [modeOpen, setModeOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const CHAT_MODELS = [
-    "Gemini 3.1 Pro",
     "Gemini 2.5 Pro",
     "Claude Opus 4.6",
+    "GLM-5.2",
   ];
   async function changeModel(m: string) {
     setModelOpen(false);

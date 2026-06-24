@@ -148,31 +148,27 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
   },
   ollama: {
     id: "ollama",
-    name: "Ollama (Local)",
-    baseUrl: `${process.env.OLLAMA_HOST || "http://localhost:11434"}/v1/chat/completions`,
-    defaultModel: "llama3.1",
+    name: "Ollama Cloud (GLM-5.2)",
+    // Ollama cloud uses native /api/chat, NOT the OpenAI compat endpoint.
+    // The call handler in callAIStreamingTiered detects provider.id === "ollama"
+    // and uses the native format.
+    baseUrl: process.env.OLLAMA_HOST
+      ? `${process.env.OLLAMA_HOST}/v1/chat/completions`
+      : "https://api.ollama.com/api/chat",
+    defaultModel: "glm-5.2:cloud",
     models: [
+      { id: "glm-5.2:cloud", label: "GLM-5.2 (Cloud)" },
       { id: "llama3.1", label: "Llama 3.1 8B" },
-      { id: "llama3.1:70b", label: "Llama 3.1 70B" },
-      { id: "llama3.2", label: "Llama 3.2 3B" },
-      { id: "codellama", label: "Code Llama" },
-      { id: "mistral", label: "Mistral 7B" },
-      { id: "mixtral", label: "Mixtral 8×7B" },
-      { id: "gemma2", label: "Gemma 2" },
       { id: "qwen2.5-coder", label: "Qwen 2.5 Coder" },
-      { id: "deepseek-coder-v2", label: "DeepSeek Coder V2" },
-      { id: "phi3", label: "Phi-3" },
     ],
-    // Ollama's OpenAI-compatible endpoint does not require auth but
-    // accepts a dummy Bearer token for compatibility.
-    authHeader: () => ({ Authorization: "Bearer ollama" }),
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     getKey: () => {
-      // Ollama is "configured" when explicitly enabled or when OLLAMA_HOST is set.
-      // No API key is required — it runs locally.
-      if (process.env.OLLAMA_ENABLED === "true") return "ollama";
-      if (process.env.OLLAMA_HOST) return "ollama";
-      if (process.env.AI_PROVIDER === "ollama") return "ollama";
-      return undefined;
+      return process.env.OLLAMA_API_KEY ?? (
+        process.env.OLLAMA_ENABLED === "true" ? "ollama" :
+        process.env.OLLAMA_HOST ? "ollama" :
+        process.env.AI_PROVIDER === "ollama" ? "ollama" :
+        undefined
+      );
     },
   },
   vertex: {
@@ -313,17 +309,17 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "o4-mini": "o4-mini",
   },
   gemini: {
-    "Gemini 3.1 Pro": "gemini-3.1-pro-preview",
     "Gemini 2.5 Pro": "gemini-2.5-pro",
     "Gemini 2.5 Flash": "gemini-2.5-flash",
-    "Claude Opus 4.6": "gemini-3.1-pro-preview",
+    "Claude Opus 4.6": "gemini-2.5-pro",
+    "GLM-5.2": "gemini-2.5-pro",
   },
   anthropic: {
-    "Gemini 3.1 Pro": "claude-opus-4-6",
     "Gemini 2.5 Pro": "claude-opus-4-6",
     "Gemini 2.5 Flash": "claude-sonnet-4-6",
     "Claude Opus 4.6": "claude-opus-4-6",
     "Claude Sonnet 4.6": "claude-sonnet-4-6",
+    "GLM-5.2": "claude-opus-4-6",
   },
   groq: {
     "Gemini 2.5 Flash": "llama-3.3-70b-versatile",
@@ -1553,7 +1549,7 @@ export type ProviderStatus = {
 export function getProviderStatuses(): ProviderStatus[] {
   const active = detectProvider();
   return (Object.values(PROVIDERS) as ProviderConfig[])
-    .filter(p => p.id === "gemini" || p.id === "anthropic")
+    .filter(p => p.id === "gemini" || p.id === "anthropic" || p.id === "ollama")
     .map(p => ({
       id: p.id,
       name: p.name,
