@@ -903,6 +903,7 @@ export async function ensureExpoWebPreview(
 
   const script =
     `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
+    `rm -f ${JOBS_DIR}/*.exit && ` +
     `{ bun install && (bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
