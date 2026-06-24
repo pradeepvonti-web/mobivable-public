@@ -742,9 +742,46 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         yield { type: 'tool_done' as const, toolName: tc.name, success: !isError };
 
         // ── FORCE STOP after ws_start_preview succeeds ──
-        // Once preview is ready, the app is built. Stop immediately.
+        // Once preview is started, wait for the build to actually complete.
         if (tc.name === "ws_start_preview" && !isError) {
-          console.log(`[chat] iter=${iter} ✅ ws_start_preview succeeded — STOPPING build loop.`);
+          // Extract jobId from result to poll status
+          let jobId: string | null = null;
+          try {
+            const parsed = JSON.parse(resultContent);
+            jobId = parsed.jobId ?? null;
+          } catch { /* */ }
+
+          if (jobId) {
+            console.log(`[chat] iter=${iter} ws_start_preview started jobId=${jobId} — waiting for build...`);
+            const statusTool = getMcpTool("ws_command_status");
+            if (statusTool) {
+              // Poll for up to 90 seconds (18 checks × 5s)
+              for (let poll = 0; poll < 18; poll++) {
+                await new Promise(r => setTimeout(r, 5000));
+                try {
+                  const statusResult = await statusTool.run(
+                    { project_id: project.id, job_id: jobId },
+                    { userId, patHash: "project-chat", supabase },
+                  );
+                  const sr = statusResult as Record<string, unknown>;
+                  console.log(`[chat] poll=${poll} status=${sr.status} exit=${sr.exitCode ?? 'n/a'}`);
+                  if (sr.status === "done") {
+                    if (sr.exitCode === 0) {
+                      console.log(`[chat] ✅ Build completed successfully!`);
+                    } else {
+                      console.log(`[chat] ⚠️ Build exited with code ${sr.exitCode}`);
+                    }
+                    break;
+                  }
+                } catch (e) {
+                  console.log(`[chat] poll error: ${e}`);
+                  break;
+                }
+              }
+            }
+          }
+
+          console.log(`[chat] iter=${iter} ✅ ws_start_preview done — STOPPING build loop.`);
           const doneMsg = assistantText.trim() || "✅ Your app is built and the preview is ready! Check the preview panel on the right.";
           await supabase.from("project_messages").insert({
             project_id: project.id, user_id: userId, role: "assistant", content: doneMsg,
