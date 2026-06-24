@@ -524,6 +524,7 @@ export function CodeViewerPanel({
     editorRef.current = editor;
 
     // Define custom dark theme matching the app
+    const isDark = document.documentElement.classList.contains('dark');
     monaco.editor.defineTheme("mobivable-dark", {
       base: "vs-dark",
       inherit: true,
@@ -551,7 +552,34 @@ export function CodeViewerPanel({
         "editorBracketMatch.border": "#528bff50",
       },
     });
-    monaco.editor.setTheme("mobivable-dark");
+    monaco.editor.defineTheme("mobivable-light", {
+      base: "vs",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "6a737d", fontStyle: "italic" },
+        { token: "keyword", foreground: "d73a49" },
+        { token: "string", foreground: "22863a" },
+        { token: "number", foreground: "005cc5" },
+        { token: "type", foreground: "6f42c1" },
+        { token: "function", foreground: "005cc5" },
+        { token: "variable", foreground: "e36209" },
+      ],
+      colors: {
+        "editor.background": "#ffffff",
+        "editor.foreground": "#24292e",
+        "editor.lineHighlightBackground": "#f6f8fa",
+        "editor.selectionBackground": "#0366d625",
+        "editorCursor.foreground": "#044289",
+        "editorLineNumber.foreground": "#1b1f2344",
+        "editorLineNumber.activeForeground": "#24292e",
+        "editor.inactiveSelectionBackground": "#0366d611",
+        "editorIndentGuide.background1": "#eaecef",
+        "editorIndentGuide.activeBackground1": "#d1d5da",
+        "editorBracketMatch.background": "#0366d610",
+        "editorBracketMatch.border": "#0366d650",
+      },
+    });
+    monaco.editor.setTheme(isDark ? "mobivable-dark" : "mobivable-light");
 
     // Ctrl+S / Cmd+S keyboard shortcut to save
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
@@ -643,7 +671,7 @@ export function CodeViewerPanel({
         <div className="flex-1 flex min-h-0">
           {/* ─── File Tree Sidebar ───────────────────────────── */}
           {!sidebarCollapsed && (
-            <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-[#0d0d15]" style={{ animation: 'fadeInUp 0.2s ease-out' }}>
+            <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-card" style={{ animation: 'fadeInUp 0.2s ease-out' }}>
               {/* Search */}
               <div className="p-2 border-b border-border/60">
                 <div className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/30 px-2 py-1.5">
@@ -685,7 +713,7 @@ export function CodeViewerPanel({
           <div className="flex-1 flex flex-col min-w-0">
             {/* Tab bar */}
             {openTabs.length > 0 && (
-              <div className="flex items-center border-b border-border bg-[#0d0d15] overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              <div className="flex items-center border-b border-border bg-card overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                 {openTabs.map((tab) => {
                   const isActive = tab.path === activeTabPath;
                   const fileName = tab.path.split("/").pop() ?? tab.path;
@@ -694,8 +722,8 @@ export function CodeViewerPanel({
                       key={tab.path}
                       className={`flex items-center gap-1.5 px-3 py-1.5 border-r border-border/30 cursor-pointer transition-colors shrink-0 ${
                         isActive
-                          ? "bg-[#0a0a12] text-foreground border-b-2 border-b-primary"
-                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                          ? "bg-background text-foreground border-b-2 border-b-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                       }`}
                       onClick={() => setActiveTabPath(tab.path)}
                     >
@@ -710,7 +738,7 @@ export function CodeViewerPanel({
                           e.stopPropagation();
                           closeTab(tab.path);
                         }}
-                        className="h-4 w-4 grid place-items-center rounded hover:bg-white/10 transition-colors ml-0.5"
+                        className="h-4 w-4 grid place-items-center rounded hover:bg-muted/40 transition-colors ml-0.5"
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>
@@ -723,7 +751,7 @@ export function CodeViewerPanel({
             {activeTab ? (
               <>
                 {/* File action bar */}
-                <div className="flex items-center justify-between px-3 py-1 border-b border-border/40 bg-[#0d0d15]">
+                <div className="flex items-center justify-between px-3 py-1 border-b border-border/40 bg-card">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[10px] font-mono text-muted-foreground/60 truncate">
                       {activeTab.path}
@@ -769,7 +797,7 @@ export function CodeViewerPanel({
                 </div>
 
                 {/* Monaco Editor */}
-                <div className="flex-1 overflow-hidden bg-[#0a0a12]">
+                <div className="flex-1 overflow-hidden bg-background">
                   {monacoLoaded && MonacoEditor ? (
                     <MonacoEditor
                       height="100%"
