@@ -892,11 +892,14 @@ export async function ensureExpoWebPreview(
     `|| (nohup bunx serve dist -s -l ${EXPO_PREVIEW_PORT} > ${JOBS_DIR}/serve.log 2>&1 &) )`;
 
   // The `serve` step only runs if install + export both succeed (&&-chained), so
-  // a failed build leaves a non-zero code in <jobId>.exit for the caller to
-  // surface — rather than silently returning a dead port.
-  // `expo install --fix` aligns every expo-managed dep to the installed SDK's
-  // expected version (e.g. react-native 0.81.4 -> 0.81.5), preventing the
-  // JS/native version mismatches that red-screen the app on a real device.
+  // Read previous build log to diagnose failures
+  const prevLog = await sandbox.commands
+    .run(`export PATH="$HOME/.bun/bin:$PATH" && for f in $(ls -t ${JOBS_DIR}/*.log 2>/dev/null | head -1); do echo "=EXIT="; cat "${f%.log}.exit" 2>/dev/null; echo "=LOG="; tail -50 "$f"; done`, { cwd: WORKDIR, timeoutMs: 10_000 })
+    .catch(() => null);
+  if (prevLog?.stdout) {
+    console.log(`[preview] previous build output: ${prevLog.stdout.substring(0, 2000)}`);
+  }
+
   const script =
     `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
     `{ bun install && (bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
