@@ -93,6 +93,8 @@ export function expoScaffold(appName: string, backend: ScaffoldBackend = {}): Fi
           "expo-secure-store": "~15.0.8",
           "expo-splash-screen": "~0.30.11",
           "expo-font": "~14.1.6",
+          // Agents frequently import ThemeProvider/DarkTheme from this:
+          "@react-navigation/native": "^7.1.5",
           // Required for `expo export -p web` (the live preview build).
           "react-native-web": "~0.21.0",
           "@expo/metro-runtime": "~6.1.2",
