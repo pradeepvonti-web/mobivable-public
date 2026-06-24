@@ -909,9 +909,13 @@ export async function ensureExpoWebPreview(
   const script =
     `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
     `rm -f ${JOBS_DIR}/*.exit && ` +
-    // Auto-install commonly missing expo packages the agent may have imported
+    // Auto-install commonly missing packages + scan source for unresolved imports
     `{ bun install && ` +
+    // Step 1: Install commonly used expo packages
     `bun add expo-splash-screen expo-status-bar expo-linking expo-constants expo-font @expo/vector-icons 2>/dev/null; ` +
+    // Step 2: Scan source for imports not in node_modules and auto-install them
+    `MISSING=$(grep -roh "from ['\\'']\\([^.@/][^'\\'']*\\)" app/ store/ lib/ hooks/ constants/ 2>/dev/null | sed "s/from ['\\'']//;s/['\\'']$//" | sort -u | while read pkg; do [ ! -d "node_modules/$pkg" ] && echo "$pkg"; done | tr "\\n" " "); ` +
+    `[ -n "$MISSING" ] && echo "Auto-installing: $MISSING" && bun add $MISSING 2>/dev/null; ` +
     `(bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
