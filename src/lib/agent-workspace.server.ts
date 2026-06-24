@@ -1209,19 +1209,20 @@ async function probePreviewDetail(url: string): Promise<"serving" | "not-serving
       clearTimeout(timer);
     }
     const body = await res.text().catch(() => "");
-    // Sandbox expired / not found / closed port — sandbox is DEAD
+    // Sandbox expired / not found / invalid — sandbox is DEAD
     if (
-      /sandbox .*?(not found|isn.?t running|has expired)/i.test(body)
+      /sandbox .*?(not found|isn.?t running|has expired)|invalid sandbox|unexpected error when routing/i.test(body)
     ) {
       return "dead";
     }
     // Port not serving yet (build in progress) — sandbox is alive but port isn't up
     if (
-      /closed port error|no service running on port|connection refused/i.test(body)
+      /closed port error|no service running on port/i.test(body)
     ) {
       return "not-serving";
     }
-    if (res.status < 200 || res.status >= 400) return "not-serving";
+    // Any other error status is likely a dead/unreachable sandbox
+    if (res.status >= 400) return "dead";
     return "serving";
   } catch {
     return "dead"; // network error = sandbox probably expired
