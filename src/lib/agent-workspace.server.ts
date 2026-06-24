@@ -1257,7 +1257,20 @@ export async function ensureExpoPreviewLive(
       return { ok: true, url: existing, status: "live" };
     }
     if (detail === "not-serving") {
-      // Sandbox alive but port not up — the build may have failed silently.
+      // Sandbox alive but port not up — check if the build failed
+      // by reading the latest job exit code from the sandbox.
+      try {
+        const ws = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
+        const logCheck = await ws.sandbox.commands.run(
+          `export PATH="$HOME/.bun/bin:$PATH" && ls -t ${JOBS_DIR}/*.exit 2>/dev/null | head -1 | xargs -r cat && echo "---LOG---" && ls -t ${JOBS_DIR}/*.log 2>/dev/null | head -1 | xargs -r tail -30`,
+          { cwd: WORKDIR, timeoutMs: 10_000 },
+        ).catch(() => null);
+        if (logCheck) {
+          console.log(`[preview-live] build diagnostic: ${logCheck.stdout?.substring(0, 500)}`);
+        }
+      } catch (e) {
+        console.log(`[preview-live] could not read build log: ${e}`);
+      }
       // Trigger a rebuild on the SAME sandbox (getOrCreateWorkspace reconnects).
       console.log(`[preview-live] sandbox alive but not serving, triggering rebuild on same sandbox`);
       const r = await ensureExpoWebPreview(projectId, ctx, { rebuild: true });
