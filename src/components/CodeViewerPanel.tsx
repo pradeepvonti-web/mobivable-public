@@ -279,6 +279,7 @@ export function CodeViewerPanel({
   const [MonacoEditor, setMonacoEditor] = useState<any>(null);
   const [monacoLoaded, setMonacoLoaded] = useState(false);
   const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
 
   const fetchFilesFn = useServerFn(getProjectFiles);
   const saveOverrideFn = useServerFn(saveFileOverride);
@@ -522,6 +523,7 @@ export function CodeViewerPanel({
   // ─── Editor mount handler ─────────────────────────────────
   const handleEditorMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
     // Define custom dark theme matching the app
     const isDark = document.documentElement.classList.contains('dark');
@@ -586,6 +588,19 @@ export function CodeViewerPanel({
       handleSave();
     });
   }, [handleSave]);
+
+  // ─── Reactive theme switching ──────────────────────────────
+  // Watch for dark mode changes (class toggle on <html>) and update Monaco theme
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const m = monacoRef.current;
+      if (!m) return;
+      const isDark = document.documentElement.classList.contains('dark');
+      m.editor.setTheme(isDark ? "mobivable-dark" : "mobivable-light");
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // ─── Computed values ──────────────────────────────────────
   const displayContent = activeTab?.editedContent ?? activeTab?.file.content ?? "";
