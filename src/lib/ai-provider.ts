@@ -849,7 +849,7 @@ const FAST_MODELS: Record<AIProvider, string> = {
   openai: "gpt-4o-mini",
   groq: "llama-3.1-8b-instant",
   openrouter: "google/gemini-2.5-flash",
-  ollama: "llama3.1",
+  ollama: "glm-5.2:cloud",
   vertex: "google/gemini-2.5-flash",
   custom: "default",
 };
@@ -862,7 +862,7 @@ const STRONG_MODELS: Record<AIProvider, string> = {
   openai: "gpt-4o",
   groq: "llama-3.3-70b-versatile",
   openrouter: "google/gemini-2.5-pro",
-  ollama: "llama3.1:70b",
+  ollama: "glm-5.2:cloud",
   vertex: "google/gemini-2.5-pro",
   custom: "default",
 };
@@ -1319,6 +1319,100 @@ async function _callAIToolsStreamingCore(args: {
       return { ok: false, error: `Anthropic error (${res.status}): ${text.slice(0, 200)}` };
     }
     return { ok: true, response: res, provider: provider.id, model };
+  }
+
+  // ── Ollama Cloud (native /api/chat) → convert to OpenAI SSE ────
+  // Ollama's cloud API uses a different format than OpenAI. We make a
+  // non-streaming request and wrap the response as OpenAI SSE so the
+  // existing parser works unchanged.
+  if (provider.id === "ollama" && url.includes("api.ollama.com")) {
+    const ollamaMessages = (args.messages.openai ?? []).map((m: Record<string, unknown>) => ({
+      role: m.role,
+      content: m.content,
+      ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
+      ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+    }));
+    // Prepend system message
+    if (args.system) {
+      ollamaMessages.unshift({ role: "system", content: args.system });
+    }
+    const ollamaBody = {
+      model,
+      messages: ollamaMessages,
+      tools: args.tools.openai?.map((t: { type: string; function: { name: string; description?: string; parameters?: unknown } }) => ({
+        type: t.type,
+        function: { name: t.function.name, description: t.function.description, parameters: t.function.parameters },
+      })),
+      stream: false,
+    };
+    let res: Response;
+    try {
+      res = await fetchWithRetry(url, {
+        method: "POST",
+        headers: {
+          ...provider.authHeader(key),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(ollamaBody),
+      });
+    } catch (e) {
+      return { ok: false, error: `Ollama request failed: ${(e as Error)?.message ?? String(e)}` };
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `Ollama error (${res.status}): ${text.slice(0, 200)}` };
+    }
+    // Parse native Ollama response and convert to OpenAI SSE stream
+    const ollamaJson = (await res.json()) as {
+      model?: string;
+      message?: {
+        role?: string;
+        content?: string;
+        tool_calls?: { function: { name: string; arguments: Record<string, unknown> } }[];
+      };
+    };
+    const msg = ollamaJson.message ?? {};
+    // Build OpenAI-format chunks as SSE
+    const chunks: string[] = [];
+    if (msg.tool_calls?.length) {
+      for (let i = 0; i < msg.tool_calls.length; i++) {
+        const tc = msg.tool_calls[i];
+        chunks.push(`data: ${JSON.stringify({
+          choices: [{
+            delta: {
+              role: "assistant",
+              content: msg.content || null,
+              tool_calls: [{
+                index: i,
+                id: `call_ollama_${i}_${Date.now()}`,
+                type: "function",
+                function: {
+                  name: tc.function.name,
+                  arguments: typeof tc.function.arguments === "string"
+                    ? tc.function.arguments
+                    : JSON.stringify(tc.function.arguments),
+                },
+              }],
+            },
+            finish_reason: null,
+          }],
+        })}\n\n`);
+      }
+    } else if (msg.content) {
+      chunks.push(`data: ${JSON.stringify({
+        choices: [{ delta: { role: "assistant", content: msg.content }, finish_reason: null }],
+      })}\n\n`);
+    }
+    chunks.push(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }] })}\n\n`);
+    chunks.push("data: [DONE]\n\n");
+
+    const sseBody = chunks.join("");
+    const fakeResponse = new Response(sseBody, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    });
+    console.log(`[chat] Ollama cloud → ${msg.tool_calls?.length ?? 0} tool calls, ${(msg.content?.length ?? 0)} chars content`);
+    return { ok: true, response: fakeResponse, provider: provider.id, model };
   }
 
   // All other providers speak the OpenAI tool-calls protocol. Some (Gemini
