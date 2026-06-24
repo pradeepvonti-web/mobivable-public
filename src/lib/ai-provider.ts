@@ -838,7 +838,7 @@ async function _callAICore(
 
 /** Fast-tier model: high quality for code writing. */
 const FAST_MODELS: Record<AIProvider, string> = {
-  gemini: "gemini-2.5-pro",
+  gemini: "gemini-3.5-flash",
   anthropic: "claude-opus-4-6",
   lovable: "google/gemini-3-flash-preview",
   openai: "gpt-4o-mini",

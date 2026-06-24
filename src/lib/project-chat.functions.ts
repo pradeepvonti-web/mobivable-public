@@ -583,7 +583,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
       const reader = body.pipeThrough(new TextDecoderStream()).getReader();
 
       let assistantText = "";
-      const completedTools: { id: string; name: string; input: Record<string, unknown> }[] = [];
+      const completedTools: { id: string; name: string; input: Record<string, unknown>; thoughtSignature?: string }[] = [];
 
       // Parse SSE — Anthropic vs OpenAI
       if (streamRes.provider === "anthropic") {
@@ -623,7 +623,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
         }
       } else {
         let buf = "";
-        const oaiTools: Record<number, { id: string; name: string; argJson: string }> = {};
+        const oaiTools: Record<number, { id: string; name: string; argJson: string; thoughtSignature?: string }> = {};
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -635,7 +635,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
             if (!trimmed.startsWith("data:")) continue;
             const d = trimmed.slice(5).trim();
             if (!d || d === "[DONE]") continue;
-            let evt: { choices?: { delta?: { content?: string; tool_calls?: { index?: number; id?: string; function?: { name?: string; arguments?: string } }[] } }[] };
+            let evt: { choices?: { delta?: { content?: string; extra_content?: { google?: { thought_signature?: string } }; tool_calls?: { index?: number; id?: string; extra_content?: { google?: { thought_signature?: string } }; function?: { name?: string; arguments?: string } }[] } }[] };
             try { evt = JSON.parse(d); } catch { continue; }
             const delta = evt.choices?.[0]?.delta;
             if (delta?.content) assistantText += delta.content;
@@ -645,6 +645,9 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
               if (tc.id) existing.id = tc.id;
               if (tc.function?.name) existing.name = tc.function.name;
               if (tc.function?.arguments) existing.argJson += tc.function.arguments;
+              // Capture thought_signature for Gemini 3.x models
+              const sig = tc.extra_content?.google?.thought_signature ?? (delta as Record<string, unknown>)?.extra_content?.google?.thought_signature;
+              if (sig) existing.thoughtSignature = sig as string;
               oaiTools[idx] = existing;
             }
           }
@@ -654,7 +657,7 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           if (!tc.id || !tc.name) continue;
           let input: Record<string, unknown> = {};
           try { input = tc.argJson ? JSON.parse(tc.argJson) : {}; } catch { /* */ }
-          completedTools.push({ id: tc.id, name: tc.name, input });
+          completedTools.push({ id: tc.id, name: tc.name, input, thoughtSignature: tc.thoughtSignature });
         }
       }
 
@@ -730,7 +733,12 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           } catch (e) { resultContent = e instanceof Error ? e.message : String(e); isError = true; }
         }
         if (WRITE_TOOLS.has(tc.name) && !isError) modifiedProject = true;
-        msgs.push({ role: "tool", tool_call_id: tc.id, name: tc.name, content: resultContent, is_error: isError });
+        const toolMsg: Record<string, unknown> = { role: "tool", tool_call_id: tc.id, name: tc.name, content: resultContent, is_error: isError };
+        // Pass thought_signature back for Gemini 3.x models
+        if (tc.thoughtSignature) {
+          toolMsg.extra_content = { google: { thought_signature: tc.thoughtSignature } };
+        }
+        msgs.push(toolMsg as typeof msgs[number]);
         yield { type: 'tool_done' as const, toolName: tc.name, success: !isError };
 
         // ── FORCE STOP after ws_start_preview succeeds ──
