@@ -1459,12 +1459,12 @@ async function _callAIImageCore(
     }
   }
 
-  // Gemini native image generation via Imagen 4.0 Fast
+  // Gemini native image generation via Imagen 4.0 Ultra
   if (provider.id === "gemini") {
     try {
-      // Use Imagen 4.0 Fast for high-quality mockups
+      // Use Imagen 4.0 Ultra for highest quality mockups
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${key}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1487,8 +1487,26 @@ async function _callAIImageCore(
         if (b64) return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
       }
 
-      // Fallback: Gemini 2.5 Flash Image via generateContent
-      console.log(`[image] Imagen 4 failed (${res.status}), trying Gemini 2.5 Flash Image...`);
+      // Fallback: Imagen 4.0 standard, then Gemini 2.5 Flash Image
+      console.log(`[image] Imagen 4 Ultra failed (${res.status}), trying standard Imagen 4...`);
+      const stdRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: { sampleCount: 1, aspectRatio: "1:1", personGeneration: "dont_allow" },
+          }),
+        },
+      );
+      if (stdRes.ok) {
+        const stdJson = (await stdRes.json()) as { predictions?: { bytesBase64Encoded?: string; mimeType?: string }[] };
+        const stdB64 = stdJson.predictions?.[0]?.bytesBase64Encoded;
+        if (stdB64) return { ok: true, dataUrl: `data:${stdJson.predictions?.[0]?.mimeType ?? "image/png"};base64,${stdB64}` };
+      }
+
+      console.log(`[image] Imagen 4 standard also failed, trying Gemini 2.5 Flash Image...`);
       const fallbackRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`,
         {
