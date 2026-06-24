@@ -468,8 +468,16 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
     // unavailable (no E2B key / kill-switch) so builds never flail on dead ws_* tools.
     const targetStackFallback = resolveBuildStack(project.attachments as Record<string, unknown> | null);
     const isExpoBuild = targetStackFallback === "expo" && planApprovedInSession && !hasSchema;
+
+    // ── Check if app was already built (has files in project_file_overrides) ──
+    const { count: existingFileCount } = await supabase
+      .from("project_file_overrides")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", project.id);
+    const alreadyBuilt = (existingFileCount ?? 0) > 0;
+
     console.log(
-      `[chat] stack=${targetStackFallback} planApproved=${planApprovedInSession} hasSchema=${hasSchema} -> isExpoBuild=${isExpoBuild}`,
+      `[chat] stack=${targetStackFallback} planApproved=${planApprovedInSession} hasSchema=${hasSchema} alreadyBuilt=${alreadyBuilt} -> isExpoBuild=${isExpoBuild}`,
     );
 
     const msgs: AgentMsg[] = [
@@ -481,13 +489,16 @@ export const sendProjectMessage = createServerFn({ method: "POST" })
           `- project_id: ${project.id}`,
           `- App name/idea: ${project.prompt}`,
           `- target_stack: ${targetStackFallback}`,
-          isExpoBuild
-            ? `- BUILD MODE: APPROVED → build REAL Expo app with ws_* tools. Follow the OPTIMIZED WORKFLOW: (1) read_mockup, (2) write theme.ts, (3) write ALL screens rapidly, (4) ws_start_preview (handles install+export+serve), (5) ONE ws_command_status check, (6) tsc verify. NEVER manually run bun install. NEVER poll ws_command_status more than 2 times. Do NOT call generate_app.`
-            : hasSchema
-              ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
-              : planApprovedInSession
-                ? `- The app has NO schema yet BUT the user has APPROVED the design plan. Call generate_app NOW with a detailed prompt based on the approved plan. Do NOT call research_and_plan again.`
-                : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
+          // If already built, tell AI not to rebuild
+          alreadyBuilt && isExpoBuild
+            ? `- BUILD STATUS: APP ALREADY BUILT (${existingFileCount} files exist). Do NOT rebuild from scratch. The user is returning to an existing project. Only make targeted edits if the user requests specific changes. Use ws_edit_file for small changes, ws_write_file only for new files. If user asks a question, just answer it. If user wants a fresh rebuild, they will explicitly say "rebuild".`
+            : isExpoBuild
+              ? `- BUILD MODE: APPROVED → build REAL Expo app with ws_* tools. Follow the OPTIMIZED WORKFLOW: (1) read_mockup, (2) write theme.ts, (3) write ALL screens rapidly, (4) ws_start_preview (handles install+export+serve), (5) ONE ws_command_status check, (6) tsc verify. NEVER manually run bun install. NEVER poll ws_command_status more than 2 times. Do NOT call generate_app.`
+              : hasSchema
+                ? `- The app HAS a schema with screens. Prefer surgical tools for edits.`
+                : planApprovedInSession
+                  ? `- The app has NO schema yet BUT the user has APPROVED the design plan. Call generate_app NOW with a detailed prompt based on the approved plan. Do NOT call research_and_plan again.`
+                  : `- The app has NO schema yet. You MUST call research_and_plan FIRST before generate_app.`,
           !hasSchema && !planApprovedInSession
             ? `\n⚠️ IMPORTANT: generate_app is LOCKED until you call research_and_plan and the user approves the plan. Do NOT try to call generate_app directly.`
             : "",
