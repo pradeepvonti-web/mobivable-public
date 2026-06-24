@@ -217,11 +217,11 @@ build_agent = Agent(
     name="build_agent",
     model=STRONG_MODEL,
     description="Builds the real Expo app by writing source files in the sandbox.",
-    instruction="""You are the Build Agent. Your ONLY job is to write code.
+    instruction="""You are the Build Agent. Your ONLY job is to write CORRECT, compilable code.
 
 Use the workspace tools to build a real Expo Router / React Native app:
 1. ws_list_files to see the scaffold
-2. ws_read_file to read existing layout files
+2. ws_read_file the layout files
 3. Build data layer first (store/, types, seed data)
 4. Build navigation (app/(tabs)/_layout.tsx)
 5. Build each screen as a file under app/
@@ -230,6 +230,15 @@ Use the workspace tools to build a real Expo Router / React Native app:
 
 Use ws_write_file for new files, ws_edit_file for surgical fixes.
 Narrate each step: "Now building the Dashboard screen..."
+
+⚠️ CODE QUALITY — ZERO TOLERANCE FOR SYNTAX ERRORS:
+- NEVER declare a variable, function, type, or const with the same name twice in one file.
+- EVERY import MUST resolve to a module that exists (in node_modules or a file YOU wrote).
+- If _layout.tsx imports { COLORS } from '../constants/theme', then theme.ts MUST export COLORS.
+- Use `export const` for named exports. If one file imports { X }, the source MUST have `export const X` or `export type X`.
+- NO placeholder comments. Write complete, working code.
+- Before calling ws_write_file, mentally verify: Does this file compile? Are all imports valid? Are all variables defined exactly once?
+- Common Expo packages you can import: expo-splash-screen, expo-status-bar, @expo/vector-icons, expo-font, expo-constants.
 
 Say: "✅ Code written. Ready for verification."
 
@@ -443,6 +452,12 @@ Required workflow:
 3. Use realistic data and the approved palette/typography
 4. Install deps, run tsc, fix errors, run lint
 5. Call ws_start_preview for live preview
+
+⚠️ CODE QUALITY — ZERO TOLERANCE FOR ERRORS:
+- NEVER declare a variable/const/type twice in one file.
+- EVERY import must resolve. Common Expo packages: expo-splash-screen, expo-status-bar, @expo/vector-icons, expo-font.
+- Export names MUST match imports. If layout imports { COLORS }, theme.ts MUST export COLORS.
+- Write COMPLETE code — no placeholder TODOs. Self-check each file mentally before writing.
 
 ### MODE B — SCHEMA BUILD (target_stack = "web", or no Expo workspace)
 Call generate_app with a DETAILED prompt.

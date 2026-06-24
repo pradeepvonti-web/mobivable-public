@@ -101,6 +101,15 @@ const UNIFIED_AGENT_PROMPT =
   `6. Once done, verify with \`bunx tsc --noEmit\` (sync). Fix any errors with ws_edit_file.\n` +
   `7. Declare the build complete.\n\n` +
 
+  `### ⚠️ CODE QUALITY — ZERO TOLERANCE FOR SYNTAX ERRORS:\n` +
+  `- NEVER declare a variable/function/type/const with the same name twice in one file. Before writing, mentally check for duplicates.\n` +
+  `- EVERY import must resolve. Only import modules that exist in node_modules or that you have ALREADY written. Common Expo packages: expo-splash-screen, expo-status-bar, @expo/vector-icons, expo-font, expo-constants, expo-linking.\n` +
+  `- EVERY exported name must match its import. If _layout.tsx imports { COLORS } from '../constants/theme', then theme.ts MUST export COLORS.\n` +
+  `- Use \`export const\` not \`export default\` for named exports. Be consistent: if one file imports { X }, the source must export { X }.\n` +
+  `- NO placeholder comments like "// TODO" or "// add later". Write complete, working code.\n` +
+  `- SELF-CHECK every file before writing: Does it compile? Are all imports valid? Are all variables defined exactly once?\n` +
+  `- If you create a types file, make sure ALL screens import from the SAME path. Don't scatter type definitions across files.\n\n` +
+
   `### CRITICAL RULES FOR EFFICIENCY:\n` +
   `- NEVER call ws_run_command_async for bun install — ws_start_preview does this for you.\n` +
   `- NEVER poll ws_command_status more than 2 times per job. It waits 60s internally.\n` +
