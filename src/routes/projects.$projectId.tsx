@@ -906,9 +906,14 @@ function ProjectPage() {
           | { previewUrl?: string }
           | undefined)?.previewUrl
       : undefined;
-  // NOTE: we intentionally do NOT auto-switch to Expo when a preview URL exists
-  // — the sandbox can be expired/closed-port, so "Instant" stays the reliable
-  // default and the user opts into the Expo (sandbox) preview explicitly.
+   // NOTE: For projects that were built with the Expo ws_* tools (have a
+  // previewUrl but no schema result), auto-switch to Expo mode so the
+  // auto-recovery logic kicks in and rebuilds the sandbox.
+  useEffect(() => {
+    if (expoPreviewUrl && project && !project.result && renderMode !== "expo") {
+      setRenderMode("expo");
+    }
+  }, [expoPreviewUrl, project, renderMode]);
 
   const handleRestartExpo = async () => {
     setRestartingExpo(true);
