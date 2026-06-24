@@ -335,20 +335,13 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
     "Haiku 4.7": "llama-3.1-8b-instant",
   },
   ollama: {
-    "Gemini 2.5 Flash": "llama3.1",
-    "Gemini 2.5 Pro": "llama3.1:70b",
-    "Gemini 3 Flash": "llama3.1",
-    "GPT-4o": "llama3.1:70b",
-    "GPT-4o Mini": "llama3.1",
-    "GPT-5": "llama3.1:70b",
-    "GPT-5 Mini": "llama3.1",
-    "GPT-5.2": "llama3.1:70b",
-    "Opus 4.7": "llama3.1:70b",
-    "Sonnet 4.7": "llama3.1:70b",
-    "Haiku 4.7": "llama3.1",
-    "Claude Sonnet 4": "llama3.1:70b",
-    "Code Llama": "codellama",
-    "Mistral": "mistral",
+    "GLM-5.2": "glm-5.2:cloud",
+    "Gemini 3.5 Flash": "glm-5.2:cloud",
+    "Gemini 3.1 Pro": "glm-5.2:cloud",
+    "Gemini 2.5 Pro": "glm-5.2:cloud",
+    "Gemini 2.5 Flash": "glm-5.2:cloud",
+    "Claude Opus 4.6": "glm-5.2:cloud",
+    "Claude Sonnet 4.6": "glm-5.2:cloud",
   },
   openrouter: {
     "Gemini 2.5 Flash": "google/gemini-2.5-flash",
@@ -1285,10 +1278,30 @@ async function _callAIToolsStreamingCore(args: {
   | { ok: true; response: Response; provider: AIProvider; model: string }
   | { ok: false; error: string }
 > {
-  const provider = detectProvider();
+  let provider = detectProvider();
   if (!provider) {
     return { ok: false, error: "No AI provider configured." };
   }
+
+  // ── Model-based provider routing ──────────────────────────────
+  // When user selects a specific model in the UI, route to the correct
+  // provider regardless of the default. This lets GLM-5.2 use Ollama,
+  // Claude use Anthropic, etc.
+  const hint = (args.modelHint ?? "").toLowerCase();
+  if (hint.includes("glm") || hint.includes("ollama")) {
+    const ollamaProvider = PROVIDERS.ollama;
+    const ollamaKey = ollamaProvider.getKey();
+    if (ollamaKey) {
+      provider = ollamaProvider;
+    }
+  } else if (hint.includes("claude") || hint.includes("opus") || hint.includes("sonnet")) {
+    const anthropicProvider = PROVIDERS.anthropic;
+    const anthropicKey = anthropicProvider.getKey();
+    if (anthropicKey) {
+      provider = anthropicProvider;
+    }
+  }
+
   const key = provider.getKey();
   if (!key) return { ok: false, error: `${provider.name} API key missing.` };
   const model = resolveModel(args.modelHint ?? "", provider);
