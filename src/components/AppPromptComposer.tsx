@@ -26,6 +26,7 @@ const MODELS = [
   "Gemini 3.1 Pro",
   "Gemini 2.5 Pro",
   "Claude Opus 4.6",
+  "Claude Sonnet 4.6",
   "GLM-5.2",
 ];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
