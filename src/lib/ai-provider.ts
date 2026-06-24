@@ -403,6 +403,11 @@ function resolveModel(friendlyName: string, provider: ProviderConfig): string {
   // Check alias map
   const aliases = MODEL_ALIASES[provider.id] ?? {};
   if (aliases[friendlyName]) return aliases[friendlyName];
+  // If the friendlyName looks like a raw model id (contains slash or dot-digit),
+  // pass it through — don't fall back to defaultModel.
+  if (friendlyName && (friendlyName.includes("/") || /\d+\.\d+/.test(friendlyName) || provider.models.some(m => m.id === friendlyName))) {
+    return friendlyName;
+  }
   // Fallback to provider default
   return provider.defaultModel;
 }
