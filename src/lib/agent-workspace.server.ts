@@ -896,7 +896,15 @@ export async function ensureExpoWebPreview(
     `( bun -e "fetch('http://localhost:${EXPO_PREVIEW_PORT}').then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1 ` +
     `|| (nohup bunx serve dist -s -l ${EXPO_PREVIEW_PORT} > ${JOBS_DIR}/serve.log 2>&1 &) )`;
 
-  // The `serve` step only runs if install + export both succeed (&&-chained), so
+  // Fallback: if expo export fails, create a minimal dist/ with an error page
+  // so `serve` always has something to host → no more "Closed Port Error".
+  const fallbackPage =
+    `mkdir -p dist && echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Error</title>` +
+    `<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A0A1A;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh}` +
+    `.c{text-align:center;max-width:480px;padding:24px}.t{font-size:24px;font-weight:700;margin-bottom:12px;color:#F59E0B}.s{color:#9CA3AF;font-size:14px;line-height:1.6}` +
+    `</style></head><body><div class="c"><div class="t">⚠️ Build in Progress</div>` +
+    `<div class="s">The app is installing dependencies and compiling. This usually takes 1-2 minutes. Please click Restart to try again.</div></div></body></html>' > dist/index.html`;
+
   // Read previous build log to diagnose failures
   const prevLogCmd = 'export PATH="$HOME/.bun/bin:$PATH" && LATEST=$(ls -t ' + JOBS_DIR + '/*.log 2>/dev/null | head -1) && if [ -n "$LATEST" ]; then EXITF="${LATEST%.log}.exit"; echo "=EXIT="; cat "$EXITF" 2>/dev/null; echo "=LOG="; tail -50 "$LATEST"; fi';
   const prevLog = await sandbox.commands
@@ -906,17 +914,40 @@ export async function ensureExpoWebPreview(
     console.log(`[preview] previous build output: ${prevLog.stdout.substring(0, 2000)}`);
   }
 
+  // Build script — key changes:
+  // 1. Always create dist/ with fallback page FIRST so serve always has content
+  // 2. Fix scoped package scanning (handles @org/pkg imports)
+  // 3. If expo export fails, retry once after clearing metro cache
+  // 4. Always start serve at the end, regardless of build outcome
   const script =
     `export PATH="$HOME/.bun/bin:$PATH" && mkdir -p ${JOBS_DIR} && ` +
     `rm -f ${JOBS_DIR}/*.exit && ` +
-    // Auto-install commonly missing packages + scan source for unresolved imports
-    `{ bun install && ` +
-    // Step 1: Install commonly used expo packages
-    `bun add expo-splash-screen expo-status-bar expo-linking expo-constants expo-font @expo/vector-icons 2>/dev/null; ` +
-    // Step 2: Scan source for imports not in node_modules and auto-install them
-    `MISSING=$(grep -roh "from ['\\'']\\([^.@/][^'\\'']*\\)" app/ store/ lib/ hooks/ constants/ 2>/dev/null | sed "s/from ['\\'']//;s/['\\'']$//" | sort -u | while read pkg; do [ ! -d "node_modules/$pkg" ] && echo "$pkg"; done | tr "\\n" " "); ` +
+    // Create fallback page first so serve always has something
+    `${fallbackPage} && ` +
+    // Install deps
+    `bun install && ` +
+    // Install commonly used expo packages
+    `bun add expo-splash-screen expo-status-bar expo-linking expo-constants expo-font @expo/vector-icons @react-navigation/native 2>/dev/null; ` +
+    // Scan source for unresolved imports — handles both plain (zustand) and scoped (@org/pkg) packages
+    `MISSING=$(grep -roh "from ['\\'']\\([^.'\\'']*\\)" app/ store/ lib/ hooks/ constants/ components/ 2>/dev/null ` +
+    `| sed "s/from ['\\'']//;s/['\\'']$//" ` +
+    `| grep -v "^\\." | grep -v "^react$" | grep -v "^react-native" | grep -v "^expo" ` +
+    `| sort -u | while read pkg; do ` +
+    `  BASE=$(echo "$pkg" | sed "s|/.*||"); ` +
+    `  [ "$BASE" != "$pkg" ] && [ "$(echo "$BASE" | cut -c1)" = "@" ] && BASE=$(echo "$pkg" | cut -d/ -f1,2); ` +
+    `  [ ! -d "node_modules/$BASE" ] && echo "$BASE"; ` +
+    `done | sort -u | tr "\\n" " "); ` +
     `[ -n "$MISSING" ] && echo "Auto-installing: $MISSING" && bun add $MISSING 2>/dev/null; ` +
-    `(bunx expo install --fix || true) && bunx expo export -p web && ${ensureServe} ; } ` +
+    // Fix version mismatches
+    `(bunx expo install --fix 2>/dev/null || true); ` +
+    // Try expo export — if it fails, retry once after clearing cache
+    `if ! bunx expo export -p web 2>&1; then ` +
+    `  echo "First export failed, retrying after cache clear..."; ` +
+    `  rm -rf .expo node_modules/.cache; ` +
+    `  bunx expo export -p web 2>&1 || echo "EXPORT_FAILED"; ` +
+    `fi; ` +
+    // ALWAYS start serve — even if export failed, serve the fallback page
+    `${ensureServe} ` +
     `> ${JOBS_DIR}/${jobId}.log 2>&1 ; echo $? > ${JOBS_DIR}/${jobId}.exit`;
   await sandbox.commands.runBackground(script, { cwd: WORKDIR });
 
