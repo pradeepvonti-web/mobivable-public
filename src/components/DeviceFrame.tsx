@@ -57,35 +57,69 @@ export function DeviceToolbar({
   const phones = DEVICE_PRESETS.filter((d) => d.category === "phone");
   const tablets = DEVICE_PRESETS.filter((d) => d.category === "tablet");
 
+  const [open, setOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-full border border-border bg-background/90 px-2.5 py-1 shadow-lg backdrop-blur text-xs">
-      <select
-        value={selectedDevice}
-        onChange={(e) => onDeviceChange(e.target.value)}
-        className="min-w-0 max-w-[7.25rem] bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer appearance-none pr-4 sm:max-w-[8.75rem] dark:[color-scheme:dark]"
-        style={{
-          colorScheme: "auto",
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E\")",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right 0 center",
-        }}
-      >
-        <optgroup label="Phones">
-          {phones.map((d) => (
-            <option key={d.name} value={d.name}>
-              {d.name}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Tablets">
-          {tablets.map((d) => (
-            <option key={d.name} value={d.name}>
-              {d.name}
-            </option>
-          ))}
-        </optgroup>
-      </select>
+      {/* Custom dropdown instead of native <select> */}
+      <div ref={dropRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="min-w-0 max-w-[7.25rem] text-foreground text-xs font-medium outline-none cursor-pointer flex items-center gap-1 sm:max-w-[8.75rem]"
+        >
+          <span className="truncate">{selectedDevice}</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" className="shrink-0 opacity-50">
+            <path d="M0 0l5 6 5-6z" fill="currentColor" />
+          </svg>
+        </button>
+        {open && (
+          <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-lg border border-border bg-popover text-popover-foreground shadow-xl py-1 max-h-[300px] overflow-y-auto">
+            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Phones</div>
+            {phones.map((d) => (
+              <button
+                key={d.name}
+                type="button"
+                onClick={() => { onDeviceChange(d.name); setOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                  d.name === selectedDevice
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "hover:bg-muted/50 text-foreground"
+                }`}
+              >
+                {d.name}
+              </button>
+            ))}
+            <div className="h-px bg-border my-1" />
+            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tablets</div>
+            {tablets.map((d) => (
+              <button
+                key={d.name}
+                type="button"
+                onClick={() => { onDeviceChange(d.name); setOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                  d.name === selectedDevice
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "hover:bg-muted/50 text-foreground"
+                }`}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="w-px h-4 bg-border" />
 
