@@ -1472,31 +1472,61 @@ async function _callAIImageCore(
     }
   }
 
-  // Gemini with image modality
+  // Gemini native image generation via Imagen 4.0 Fast
   if (provider.id === "gemini") {
     try {
-      const res = await fetch(provider.baseUrl, {
-        method: "POST",
-        headers: {
-          ...provider.authHeader(key),
-          "Content-Type": "application/json",
+      // Use Imagen 4.0 Fast for high-quality mockups
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: "1:1",
+              personGeneration: "dont_allow",
+            },
+          }),
         },
-        body: JSON.stringify({
-          model: "gemini-2.0-flash-preview-image-generation",
-          messages: [{ role: "user", content: prompt }],
-          modalities: ["image", "text"],
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        return { ok: false, error: `Gemini Image error (${res.status}): ${body.slice(0, 200)}` };
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          predictions?: { bytesBase64Encoded?: string; mimeType?: string }[];
+        };
+        const b64 = json.predictions?.[0]?.bytesBase64Encoded;
+        const mime = json.predictions?.[0]?.mimeType ?? "image/png";
+        if (b64) return { ok: true, dataUrl: `data:${mime};base64,${b64}` };
       }
-      const json = (await res.json()) as {
-        choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+
+      // Fallback: Gemini 2.5 Flash Image via generateContent
+      console.log(`[image] Imagen 4 failed (${res.status}), trying Gemini 2.5 Flash Image...`);
+      const fallbackRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
+          }),
+        },
+      );
+      if (!fallbackRes.ok) {
+        const fbBody = await fallbackRes.text().catch(() => "");
+        return { ok: false, error: `Gemini Image error (${fallbackRes.status}): ${fbBody.slice(0, 200)}` };
+      }
+      const fbJson = (await fallbackRes.json()) as {
+        candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[];
       };
-      const dataUrl = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (!dataUrl?.startsWith("data:image/")) return { ok: false, error: "No image returned" };
-      return { ok: true, dataUrl };
+      const imgPart = fbJson.candidates?.[0]?.content?.parts?.find(
+        (p: { inlineData?: { mimeType?: string } }) => p.inlineData?.mimeType?.startsWith("image/"),
+      );
+      if (!imgPart?.inlineData?.data) return { ok: false, error: "No image returned from Gemini fallback" };
+      return { ok: true, dataUrl: `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}` };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "Image generation failed" };
     }
