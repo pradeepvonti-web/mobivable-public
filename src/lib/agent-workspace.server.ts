@@ -1258,15 +1258,15 @@ export async function ensureExpoPreviewLive(
     }
     if (detail === "not-serving") {
       // Sandbox alive but port not up — check if the build failed
-      // by reading the latest job exit code from the sandbox.
       try {
         const ws = await getOrCreateWorkspace(projectId, ctx, { stack: "expo" });
-        const logCheck = await ws.sandbox.commands.run(
-          `export PATH="$HOME/.bun/bin:$PATH" && ls -t ${JOBS_DIR}/*.exit 2>/dev/null | head -1 | xargs -r cat && echo "---LOG---" && ls -t ${JOBS_DIR}/*.log 2>/dev/null | head -1 | xargs -r tail -30`,
-          { cwd: WORKDIR, timeoutMs: 10_000 },
+        const diag = await ws.sandbox.commands.run(
+          `export PATH="$HOME/.bun/bin:$PATH" && echo "=== FILES ===" && ls -la /workspace/ 2>&1 | head -20 && echo "=== JOBS ===" && ls -la ${JOBS_DIR}/ 2>&1 | head -10 && echo "=== EXIT ===" && cat ${JOBS_DIR}/*.exit 2>/dev/null && echo "=== LOG TAIL ===" && for f in $(ls -t ${JOBS_DIR}/*.log 2>/dev/null | head -1); do tail -40 "$f"; done`,
+          { cwd: WORKDIR, timeoutMs: 15_000 },
         ).catch(() => null);
-        if (logCheck) {
-          console.log(`[preview-live] build diagnostic: ${logCheck.stdout?.substring(0, 500)}`);
+        if (diag) {
+          console.log(`[preview-live] build diagnostic stdout: ${diag.stdout?.substring(0, 1500)}`);
+          if (diag.stderr) console.log(`[preview-live] build diagnostic stderr: ${diag.stderr?.substring(0, 500)}`);
         }
       } catch (e) {
         console.log(`[preview-live] could not read build log: ${e}`);
