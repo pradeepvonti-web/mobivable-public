@@ -90,7 +90,34 @@ export const checkPreviewServing = createServerFn({ method: "POST" })
       }
       // Log serving status for debugging
       console.log(`[check-serving] project=${data.projectId} url=${url} serving=${serving}`);
-      return { ok: true as const, url, serving };
+
+      // If not serving, check if the build failed by reading exit code
+      let buildError: string | undefined;
+      if (!serving) {
+        try {
+          const { getOrCreateWorkspace, WORKDIR } = await import("./agent-workspace.server");
+          const JOBS_DIR = `${WORKDIR}/.jobs`;
+          const ws = await getOrCreateWorkspace(data.projectId, ctx, { stack: "expo" });
+          const exitCheck = await ws.sandbox.commands.run(
+            'LATEST=$(ls -t ' + JOBS_DIR + '/*.exit 2>/dev/null | head -1) && [ -n "$LATEST" ] && cat "$LATEST"',
+            { cwd: WORKDIR, timeoutMs: 5_000 },
+          ).catch(() => null);
+          const exitCode = exitCheck?.stdout?.trim();
+          if (exitCode && exitCode !== "0") {
+            // Build failed — read the log tail
+            const logTail = await ws.sandbox.commands.run(
+              'LATEST=$(ls -t ' + JOBS_DIR + '/*.log 2>/dev/null | head -1) && [ -n "$LATEST" ] && tail -20 "$LATEST"',
+              { cwd: WORKDIR, timeoutMs: 5_000 },
+            ).catch(() => null);
+            buildError = logTail?.stdout?.trim() || "Build failed with exit code " + exitCode;
+            console.log(`[check-serving] build FAILED: ${buildError.substring(0, 300)}`);
+          }
+        } catch {
+          // ignore — can't read build status
+        }
+      }
+
+      return { ok: true as const, url, serving, buildError };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
     }

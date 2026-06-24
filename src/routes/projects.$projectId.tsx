@@ -961,6 +961,13 @@ function ProjectPage() {
           resolve();
           return;
         }
+        // Build failed — stop polling and show error
+        if (s && s.ok && (s as any).buildError) {
+          setRestartingExpo(false);
+          console.error("[preview] Build failed:", (s as any).buildError);
+          resolve();
+          return;
+        }
         if (attempts >= 96) { setRestartingExpo(false); resolve(); return; } // ~8 min cap
         buildTimer = setTimeout(tick, 5000);
       };
