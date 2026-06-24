@@ -1331,7 +1331,38 @@ function ProjectPage() {
           phase: legacy?.[2],
         };
       });
-      // Append brief messages at the end if they're not already duplicated
+
+      // Restore design brief from project.attachments if not already in messages
+      const hasBrief = briefMsgs.length > 0;
+      if (!hasBrief && project) {
+        const att = project.attachments as Record<string, unknown> | null;
+        if (att?.design_brief && typeof att.design_brief === "object") {
+          const mockupUrl = (att.design_mockup_url as string) ?? null;
+          const brief = att.design_brief as Record<string, unknown>;
+          const planSteps = Array.isArray(brief.plan_steps) ? brief.plan_steps as string[] : [];
+          briefMsgs.push({
+            id: `restored-brief-${projectId}`,
+            role: "assistant",
+            content: "",
+            designBrief: brief,
+            mockupUrl,
+            planSteps,
+            briefAppName: (brief.app_name as string) ?? project.name ?? "App",
+            agentName: "Plan Creator",
+            agentRole: "developer" as AgentRole,
+          });
+        }
+      }
+
+      // Insert brief right after the first user message (where it was originally shown)
+      if (briefMsgs.length > 0 && !dbMsgs.some(d => d.id === briefMsgs[0]?.id)) {
+        // Find the position after the first user message
+        const firstUserIdx = dbMsgs.findIndex(m => m.role === "user");
+        if (firstUserIdx >= 0) {
+          dbMsgs.splice(firstUserIdx + 1, 0, ...briefMsgs);
+          return dbMsgs;
+        }
+      }
       return [...dbMsgs, ...briefMsgs.filter(b => !dbMsgs.some(d => d.id === b.id))];
     });
   }
@@ -1672,12 +1703,25 @@ function ProjectPage() {
     (async () => {
       const p = await reloadProject();
       if (p && p.status === "building" && !p.result && !triggeredRef.current) {
+        // Check if project already has built files — don't auto-rebuild
+        const { count: fileCount } = await sb
+          .from("project_file_overrides")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", projectId);
+        // Also check if there are existing chat messages (returning user)
+        const { count: msgCount } = await sb
+          .from("project_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", projectId);
+        if ((fileCount ?? 0) > 0 || (msgCount ?? 0) > 2) {
+          // Project already has files or meaningful chat history — don't auto-rebuild
+          // Update status to "complete" so it doesn't trigger again
+          await sb.from("projects").update({ status: "complete" }).eq("id", projectId);
+          await reloadProject();
+          return;
+        }
         triggeredRef.current = true;
         // ── PLAN-FIRST: Route through chat instead of direct generation ──
-        // This sends the project prompt as a chat message, which goes through
-        // sendProjectMessage → plan-first enforcement → research_and_plan.
-        // The design brief card will appear in chat for user approval.
-        // Only AFTER approval will generate_app be called.
         const promptText = p.prompt || "Build the app as described";
         handleSend(undefined, `Build this app: ${promptText}`);
       }
