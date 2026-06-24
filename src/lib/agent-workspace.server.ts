@@ -826,6 +826,29 @@ export async function ensureExpoWebPreview(
     };
   }
 
+  // Ensure project files exist in the sandbox. When reconnecting to an
+  // existing sandbox after a failed build, /workspace/ may be empty.
+  const pkgCheck = await sandbox.commands
+    .run(`test -f ${WORKDIR}/package.json && echo "exists"`, { cwd: WORKDIR, timeoutMs: 5_000 })
+    .catch(() => null);
+  if (!pkgCheck || !pkgCheck.stdout?.includes("exists")) {
+    console.log("[preview] /workspace/package.json missing — restoring mirrored files");
+    const prior = await loadMirroredFiles(projectId, ctx);
+    if (Object.keys(prior).length > 0) {
+      await sandbox.commands.run(
+        `sudo mkdir -p ${WORKDIR} && sudo chown -R "$(id -un):$(id -gn)" ${WORKDIR}`,
+        { cwd: "/home/user", timeoutMs: 10_000 },
+      ).catch(() => undefined);
+      for (const [rel, content] of Object.entries(prior)) {
+        await sandbox.files.write(`${WORKDIR}/${rel}`, content);
+      }
+      console.log(`[preview] restored ${Object.keys(prior).length} files`);
+    } else {
+      console.log("[preview] no mirrored files found in DB — cannot restore");
+      return { ok: false, rebuilt: false, error: "No project files found to build." };
+    }
+  }
+
   // Guard: the Expo build needs `bun`. If missing, auto-install it
   // instead of failing — removes the hard dependency on a custom template.
   const bunCheck = await sandbox.commands
