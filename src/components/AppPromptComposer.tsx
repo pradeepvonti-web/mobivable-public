@@ -20,17 +20,11 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   { label: "Habit Coach", prompt: "habit coach app" },
   { label: "Mood Journal", prompt: "mood journal app" },
 ];
-const FALLBACK_DEFAULT_MODEL = "Gemini 3 Flash";
+const FALLBACK_DEFAULT_MODEL = "Gemini 3.1 Pro";
 const MODELS = [
-  "Gemini 3 Flash",
+  "Gemini 3.1 Pro",
   "Gemini 2.5 Pro",
-  "Gemini 2.5 Flash",
-  "GPT-5",
-  "GPT-5 Mini",
-  "GPT-5.2",
-  "Opus 4.7",
-  "Sonnet 4.7",
-  "Haiku 4.7",
+  "Claude Opus 4.6",
 ];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_ATTACHMENTS = 4;

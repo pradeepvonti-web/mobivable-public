@@ -816,15 +816,9 @@ function ProjectPage() {
   const [modeOpen, setModeOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const CHAT_MODELS = [
-    "Gemini 3 Flash",
+    "Gemini 3.1 Pro",
     "Gemini 2.5 Pro",
-    "Gemini 2.5 Flash",
-    "GPT-5",
-    "GPT-5 Mini",
-    "GPT-5.2",
-    "Opus 4.7",
-    "Sonnet 4.7",
-    "Haiku 4.7",
+    "Claude Opus 4.6",
   ];
   async function changeModel(m: string) {
     setModelOpen(false);

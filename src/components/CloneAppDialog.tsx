@@ -8,7 +8,7 @@ import { ingestAppStore, type StoreListing } from "@/lib/ingest-app-store.functi
 import { analyzeAppScreens, type CloneSpec, type Confidence } from "@/lib/analyze-app-screens.functions";
 import { generateProject } from "@/lib/generate-project.functions";
 
-const FALLBACK_MODEL = "Gemini 3 Flash";
+const FALLBACK_MODEL = "Gemini 3.1 Pro";
 
 type Stage = "input" | "screenshots" | "analyzing" | "review" | "generating";
 

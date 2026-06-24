@@ -1,0 +1,761 @@
+﻿[
+  {
+    "httpRequest": {
+      "latency": "0.152281624s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://mobivable-776377998065.us-central1.run.app/projects/1789b918-b1c2-4134-add3-9b6ca97b7ccc",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "POST",
+      "requestSize": "2792",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/_serverFn/3657cfe6e6a7ebc43f77d870fdfae197eef8fed332d3f7346cb8a7c230579130",
+      "responseSize": "397",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b0287000c33e7a3ffa2e4",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T22:02:47.918283382Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "f22974c15572eeb3",
+    "timestamp": "2026-06-23T22:02:47.645258Z",
+    "trace": "projects/mobivable-dev/traces/c41973a2ffa6d066e0f5e33918dd72b1"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.008735221s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "837",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/index-DTXkr-j5.js",
+      "responseSize": "14755",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b02850003c1fdc32c5314",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T22:02:45.254237131Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "83d07cac76d28db5",
+    "timestamp": "2026-06-23T22:02:45.235425Z",
+    "trace": "projects/mobivable-dev/traces/778af86f0772910fe0f5e33918dd7540",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6a3b01c800091676c2a60e13",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-06-23T21:59:36.603283437Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[chat] stack=expo planApproved=true hasSchema=false -> isExpoBuild=true",
+    "timestamp": "2026-06-23T21:59:36.595574Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "244.158106912s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://mobivable-776377998065.us-central1.run.app/projects/1789b918-b1c2-4134-add3-9b6ca97b7ccc",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "POST",
+      "requestSize": "2861",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/_serverFn/a61d714fbbb951196b38582f897038a0421a534bbcf48454e3a17dfc2f903dbb",
+      "responseSize": "75158",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b02bc0001c0f066481508",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T22:03:40.123657559Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "31898ab127f884cd",
+    "timestamp": "2026-06-23T21:59:35.954619Z",
+    "trace": "projects/mobivable-dev/traces/7f40aff8b39f012b826a5b7b5e880946",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6a3b01ab00008cd5eda9a1f4",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-06-23T21:59:07.045375240Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[chat] stack=expo planApproved=false hasSchema=false -> isExpoBuild=false",
+    "timestamp": "2026-06-23T21:59:07.036053Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "25.091215721s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://mobivable-776377998065.us-central1.run.app/projects/1789b918-b1c2-4134-add3-9b6ca97b7ccc",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "POST",
+      "requestSize": "2876",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/_serverFn/a61d714fbbb951196b38582f897038a0421a534bbcf48454e3a17dfc2f903dbb",
+      "responseSize": "1654910",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01c3000a16a88860d835",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:31.668849471Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "b6696475ab2d257b",
+    "timestamp": "2026-06-23T21:59:06.567819Z",
+    "trace": "projects/mobivable-dev/traces/e082684eccf1edf3b5a7dffd6e525f74"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.076546558s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "837",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/save-DAGXVWVj.js",
+      "responseSize": "509",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000c24219dc6a24f",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:06.123158820Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "c9bfd2763d4b8060",
+    "timestamp": "2026-06-23T21:59:05.717543Z",
+    "trace": "projects/mobivable-dev/traces/eaa7bad070b63e72b5a7dffd6e525a88"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.073811747s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "839",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/eye-off-BBOV4J-S.js",
+      "responseSize": "612",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000c17fed01d80aa",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:06.123158820Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "60764a6afeabcde4",
+    "timestamp": "2026-06-23T21:59:05.716938Z",
+    "trace": "projects/mobivable-dev/traces/5b163cd289ca5bc8b5a7dffd6e52503e"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.064408278s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "845",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/external-link-DCnk7AoE.js",
+      "responseSize": "433",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000bf09a959a9f7e",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:06.123158820Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "ceba386a6ab623b3",
+    "timestamp": "2026-06-23T21:59:05.716699Z",
+    "trace": "projects/mobivable-dev/traces/a185230ce5bea5d6b5a7dffd6e5250d1"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.070673587s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "837",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/utils-DCzhtGFM.js",
+      "responseSize": "34170",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000c094250b767bf",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:06.123158820Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "4a93b4a43a2e1abc",
+    "timestamp": "2026-06-23T21:59:05.716531Z",
+    "trace": "projects/mobivable-dev/traces/ce9d5ea7ba966e29b5a7dffd6e52543f"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.061470794s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "851",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/agents-md.functions-DitvfFpq.js",
+      "responseSize": "2115",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000be1734e37248f",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "8277ac2d57525a91",
+    "timestamp": "2026-06-23T21:59:05.715616Z",
+    "trace": "projects/mobivable-dev/traces/b15fda695487c94eb5a7dffd6e525d63"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.052315860s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "840",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/download-BtQhKihs.js",
+      "responseSize": "414",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000bbd6a7c83e8ea",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "b256fcba4223de97",
+    "timestamp": "2026-06-23T21:59:05.715302Z",
+    "trace": "projects/mobivable-dev/traces/419109c9d5ae2251b5a7dffd6e5259f5"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.057121134s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "840",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/calendar-C_H8HMrG.js",
+      "responseSize": "439",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000bcfd7a02b5746",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "62710b88573ddf88",
+    "timestamp": "2026-06-23T21:59:05.715278Z",
+    "trace": "projects/mobivable-dev/traces/a120b76ce1f2deafb5a7dffd6e5253ac"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.033326940s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "835",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/tag-B_8a9TG9.js",
+      "responseSize": "629",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000b7020927acbb4",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "fc44288e0a0bbaca",
+    "timestamp": "2026-06-23T21:59:05.714908Z",
+    "trace": "projects/mobivable-dev/traces/3e9f30b35b3a1306b5a7dffd6e5258cf"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.028634035s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "841",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/code-xml-D3F7I9RX.js",
+      "responseSize": "752",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000b5dc359afce95",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "fdf0aae92b339e58",
+    "timestamp": "2026-06-23T21:59:05.714787Z",
+    "trace": "projects/mobivable-dev/traces/92dd990ed4a39d15b5a7dffd6e52571a"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.049603449s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "851",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/projects._projectId-BujjeIf-.js",
+      "responseSize": "759769",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000bb0da74e9dff9",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "036b44cd4a9ea281",
+    "timestamp": "2026-06-23T21:59:05.714739Z",
+    "trace": "projects/mobivable-dev/traces/721821c4dfee5f49b5a7dffd6e5251f3"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.020887229s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "843",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/trending-up-CEVJx83I.js",
+      "responseSize": "1378",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000b3ad1bad334fa",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "141a5c38c3a4bdb2",
+    "timestamp": "2026-06-23T21:59:05.713467Z",
+    "trace": "projects/mobivable-dev/traces/225f32a920144995b5a7dffd6e525561"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.015117362s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "846",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/triangle-alert-CtcwE6Gv.js",
+      "responseSize": "865",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000b2403ca1e1113",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "94de65ff4a5c5f43",
+    "timestamp": "2026-06-23T21:59:05.713082Z",
+    "trace": "projects/mobivable-dev/traces/8d50fe1ffab8252ab5a7dffd6e525f18"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.009335946s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "GET",
+      "requestSize": "846",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/assets/flutter-bridge-CE7y2F1Z.js",
+      "responseSize": "133949",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a9000b0c2678ff7c5a",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.787833692Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "cedb9b6c21802ea3",
+    "timestamp": "2026-06-23T21:59:05.712604Z",
+    "trace": "projects/mobivable-dev/traces/ea2937e627c783adb5a7dffd6e525baa"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.435298356s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://mobivable-776377998065.us-central1.run.app/dashboard",
+      "remoteIp": "2600:4809:b951:ca00:bd26:7441:783d:64e1",
+      "requestMethod": "POST",
+      "requestSize": "2782",
+      "requestUrl": "https://mobivable-776377998065.us-central1.run.app/_serverFn/fd10bfd9ae370fc5ae211b9fc557a3ca784adab0bf822e885ba9169b526845ea",
+      "responseSize": "524",
+      "serverIp": "2600:1900:4242:200::",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    },
+    "insertId": "6a3b01a90006d3404fbc4906",
+    "labels": {
+      "commit-sha": "9fd701a7dd61f539c0473726e792863ffc0d5cc9",
+      "gcb-build-id": "c5afebc4-e2a8-46e7-9667-e57db66ee8da",
+      "gcb-trigger-id": "3bdc2c6b-c559-467a-ba6f-be31d0a380eb",
+      "gcb-trigger-region": "global",
+      "instanceId": "002f8ffd47b7f8871c77d95cbef57ba5b326ec4c5304d7efad0885d37597d32f3d2a99ad55a802ec29bbf8d0a5a029d8d6937b448e804b8c22726fc4284e15a92c57b6cd4a09907f2cd1dd6eb90134",
+      "managed-by": "gcp-cloud-build-deploy-cloud-run"
+    },
+    "logName": "projects/mobivable-dev/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-06-23T21:59:05.455478958Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "mobivable",
+        "location": "us-central1",
+        "project_id": "mobivable-dev",
+        "revision_name": "mobivable-00148-qvb",
+        "service_name": "mobivable"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "d12d6bce522de095",
+    "timestamp": "2026-06-23T21:59:05.010321Z",
+    "trace": "projects/mobivable-dev/traces/f6a50657f9502261b5a7dffd6e5253fb",
+    "traceSampled": true
+  }
+]
