@@ -304,6 +304,18 @@ gcloud run services add-iam-policy-binding mobivable-adk \
 
 ## 📝 Recent Updates
 
+- **Self-healing sandbox recovery** — Dead/expired E2B sandboxes are automatically detected and
+  re-provisioned. All mirrored project files are synced from the database into the new sandbox
+  before rebuilding, ensuring agent edits survive sandbox recycling.
+- **Build failure detection** — The preview polling now reads job exit codes from the sandbox.
+  Failed builds stop the spinner immediately and surface the actual error instead of spinning
+  forever.
+- **Auto-install common Expo packages** — The build pipeline pre-installs frequently used
+  packages (`expo-splash-screen`, `expo-status-bar`, `expo-font`, `@expo/vector-icons`, etc.)
+  that agents import but forget to add to `package.json`.
+- **Smart sandbox probing** — `probePreviewDetail` categorizes sandbox health as `serving`,
+  `not-serving`, or `dead`, with proper handling for 502/503 (build in progress) vs. truly dead
+  sandboxes.
 - **Real Expo build engine** — agentic file/bash build in an E2B sandbox replaces the legacy
   schema→template path (the old `code-from-schema` / Sandpack / Flutter renderers were removed).
 - **Mockup-fidelity engine** — scaffold ships `react-native-svg`, `expo-linear-gradient`, and
